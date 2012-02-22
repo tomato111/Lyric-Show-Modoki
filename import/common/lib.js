@@ -263,7 +263,7 @@ function writeTextFile(text, file, charset) {
         stm.Position = 0;
         stm.type = 1;
 
-        if (/^(?:UTF-8|Unicode)$/i.test(charset)) { // BOMが重複しているなら既存のBOMをスキップ
+        if (/^UTF-8|Unicode$/i.test(charset)) { // BOMが重複しているなら既存のBOMをスキップ
             bin = new Binary(stm.read(6)); // stm.Position -> 6
             bin.getArray();
             if (bin[3] == 0xEF && bin[4] == 0xBB && bin[5] == 0xBF) { // UTF-8
