@@ -4,7 +4,7 @@
 // ==PREPROCESSOR==
 // @name "Lyric Show Modoki"
 // @version "0.9.7"
-// @author "Tomato"
+// @author "tomato111"
 // @import "%fb2k_path%import\common\lib.js"
 // ==/PREPROCESSOR==
 /// <reference path="lib.js"/>

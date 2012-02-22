@@ -1,4 +1,4 @@
-﻿//created by Tomato
+﻿//created by tomato111
 //e.g.) @import "%fb2k_path%import\common\lib.js"
 
 //============================================
