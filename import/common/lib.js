@@ -82,6 +82,9 @@ Message.prototype.popup = function (s) {
 Message.prototype.trace = function (s) {
     fb.trace(this.text + (s ? s : ""));
 };
+Message.prototype.fbpopup = function (s) {
+    fb.ShowPopupMessage(this.text + (s ? s : ""), this.title);
+};
 
 //-- Time Logger --
 function TraceLog() {
@@ -260,7 +263,7 @@ function writeTextFile(text, file, charset) {
     stm.open();
     stm.writeText(text); // この地点でBOMが付加され、textにBOM(BOMの削除漏れ)があると重複する
     try {
-        stm.Position = 0;
+        stm.position = 0;
         stm.type = 1;
 
         if (/^UTF-8|Unicode$/i.test(charset)) { // BOMが重複しているなら既存のBOMをスキップ
@@ -310,7 +313,7 @@ function writeTextFile(text, file, charset) {
             }
         }
 
-        stm.Position = 0;
+        stm.position = 0;
         stm.saveToFile(file, 2);
     } catch (e) {
         throw new Error("Couldn't save text to a file.");
@@ -323,17 +326,18 @@ function writeTextFile(text, file, charset) {
 }
 
 function readTextFile(file) {
-    var bin, buf, charset, str;
+    var bin, buf, c, charset, str;
     var stm = new ActiveXObject('ADODB.Stream');
     stm.type = 1;
     stm.open();
     try {
         stm.loadFromFile(file); // stm.position -> 0
 
-        charset = GetCharacterEncoding(stm.read(-1));
+        //charset = GetCharacterEncoding(stm.read(-1));
+        charset = GetCharsetFromCodepage(utils.FileTest(file, "chardet"));
         arguments.callee.lastCharset = charset;
 
-        stm.position = 0;
+        //stm.position = 0;
         stm.type = 2;
         stm.charset = charset;
         str = stm.readText(-1); //_autodetect_allでの一行ごとの取得はまともに動かない
@@ -614,4 +618,152 @@ function GetCharacterEncoding(stream) {
     return "_autodetect_all"; // null
 
 }
+
+//-- Get Charset From Codepage --
+function GetCharsetFromCodepage(codepage) {
+    switch (codepage) {
+        case 37: return "IBM037"; // IBM EBCDIC (US - カナダ)
+        case 437: return "IBM437"; // OEM アメリカ合衆国
+        case 500: return "IBM500"; // IBM EBCDIC (インターナショナル)
+        case 708: return "ASMO-708"; // アラビア語 (ASMO 708)
+        case 720: return "DOS-720"; // アラビア語 (DOS)
+        case 737: return "IBM737"; // ギリシャ語 (DOS)
+        case 775: return "IBM775"; // バルト言語 (DOS)
+        case 850: return "IBM850"; // 西ヨーロッパ言語 (DOS)
+        case 852: return "IBM852"; // 中央ヨーロッパ言語 (DOS)
+        case 855: return "IBM855"; // OEM キリル
+        case 857: return "IBM857"; // トルコ語 (DOS)
+        case 858: return "IBM00858"; // OEM マルチリンガル ラテン I
+        case 860: return "IBM860"; // ポルトガル語  (DOS)
+        case 861: return "IBM861"; // アイスランド語 (DOS)
+        case 862: return "DOS-862"; // ヘブライ語 (DOS)
+        case 863: return "IBM863"; // フランス語 (カナダ) (DOS)
+        case 864: return "IBM864"; // アラビア語 (864)
+        case 865: return "IBM865"; // 北欧 (DOS)
+        case 866: return "CP866"; // キリル言語 (DOS)
+        case 869: return "IBM869"; // ギリシャ語, Modern (DOS)
+        case 870: return "IBM870"; // IBM EBCDIC (多国語ラテン 2)
+        case 874: return "windows-874"; // タイ語 (Windows)
+        case 875: return "CP875"; // IBM EBCDIC (ギリシャ語 Modern)
+        case 932: return "Shift_JIS"; // 日本語 (シフト JIS)
+        case 936: return "GBK"; // 簡体字中国語 (GB2312拡張)
+        case 949: return "KS_C_5601-1987"; // 韓国語
+        case 950: return "Big5"; // 繁体字中国語 (Big5)
+        case 1026: return "IBM1026"; // IBM EBCDIC (トルコ語ラテン 5)
+        case 1047: return "IBM01047"; // IBM ラテン-1
+        case 1140: return "IBM01140"; // IBM EBCDIC (US - カナダ - ヨーロッパ)
+        case 1141: return "IBM01141"; // IBM EBCDIC (ドイツ - ヨーロッパ)
+        case 1142: return "IBM01142"; // IBM EBCDIC (デンマーク - ノルウェー - ヨーロッパ)
+        case 1143: return "IBM01143"; // IBM EBCDIC (フィンランド - スウェーデン - ヨーロッパ)
+        case 1144: return "IBM01144"; // IBM EBCDIC (イタリア - ヨーロッパ)
+        case 1145: return "IBM01145"; // IBM EBCDIC (スペイン - ヨーロッパ)
+        case 1146: return "IBM01146"; // IBM EBCDIC (UK - ヨーロッパ)
+        case 1147: return "IBM01147"; // IBM EBCDIC (フランス - ヨーロッパ)
+        case 1148: return "IBM01148"; // IBM EBCDIC (インターナショナル - ヨーロッパ)
+        case 1149: return "IBM01149"; // IBM EBCDIC (アイスランド語 - ヨーロッパ)
+        case 1200: return "UTF-16LE"; // Unicode (Little-Endian)
+        case 1201: return "UTF-16BE"; // Unicode (Big-Endian)(UnicodeFFFE)
+        case 1250: return "windows-1250"; // 中央ヨーロッパ言語 (Windows)
+        case 1251: return "windows-1251"; // キリル言語 (Windows)
+        case 1252: return "Windows-1252"; // 西ヨーロッパ言語 (Windows)
+        case 1253: return "windows-1253"; // ギリシャ語 (Windows)
+        case 1254: return "windows-1254"; // トルコ語 (Windows)
+        case 1255: return "windows-1255"; // ヘブライ語 (Windows)
+        case 1256: return "windows-1256"; // アラビア語 (Windows)
+        case 1257: return "windows-1257"; // バルト言語 (Windows)
+        case 1258: return "windows-1258"; // ベトナム語 (Windows)
+        case 1361: return "Johab"; // 韓国語 (Johab)
+        case 10000: return "macintosh"; // 西ヨーロッパ言語 (Mac)
+        case 10001: return "x-mac-japanese"; // 日本語 (Mac)
+        case 10002: return "x-mac-chinesetrad"; // 繁体字中国語 (Mac)
+        case 10003: return "x-mac-korean"; // 韓国語 (Mac)
+        case 10004: return "x-mac-arabic"; // アラビア語 (Mac)
+        case 10005: return "x-mac-hebrew"; // ヘブライ語 (Mac)
+        case 10006: return "x-mac-greek"; // ギリシャ語 (Mac)
+        case 10007: return "x-mac-cyrillic"; // キリル言語 (Mac)
+        case 10008: return "x-mac-chinesesimp"; // 簡体字中国語 (Mac)
+        case 10010: return "x-mac-romanian"; // ルーマニア語 (Mac)
+        case 10017: return "x-mac-ukrainian"; // ウクライナ語 (Mac)
+        case 10021: return "x-mac-thai"; // タイ語 (Mac)
+        case 10029: return "x-mac-ce"; // 中央ヨーロッパ言語 (Mac)
+        case 10079: return "x-mac-icelandic"; // アイスランド語 (Mac)
+        case 10081: return "x-mac-turkish"; // トルコ語 (Mac)
+        case 10082: return "x-mac-croatian"; // クロアチア語 (Mac)
+        case 12000: return "UTF-32"; // Unicode (UTF-32)
+        case 12001: return "UTF-32BE"; // Unicode (UTF-32 ビッグ エンディアン)
+        case 20000: return "x-Chinese-CNS"; // 繁体字中国語 (CNS)
+        case 20001: return "x-cp20001"; // TCA 台湾
+        case 20002: return "x-Chinese-Eten"; // 繁体字中国語 (Eten)
+        case 20003: return "x-cp20003"; // IBM5550 台湾
+        case 20004: return "x-cp20004"; // TeleText 台湾
+        case 20005: return "x-cp20005"; // Wang 台湾 
+        case 20105: return "x-IA5"; // 西ヨーロッパ言語 (IA5)
+        case 20106: return "x-IA5-German"; // ドイツ語 (IA5)
+        case 20107: return "x-IA5-Swedish"; // スウェーデン語 (IA5)
+        case 20108: return "x-IA5-Norwegian"; // ノルウェー語 (IA5)
+        case 20127: return "US-ASCII"; // US-ASCII
+        case 20261: return "x-cp20261"; // T.61
+        case 20269: return "x-cp20269"; // ISO-6937
+        case 20273: return "IBM273"; // IBM EBCDIC (ドイツ)
+        case 20277: return "IBM277"; // IBM EBCDIC (デンマーク - ノルウェー)
+        case 20278: return "IBM278"; // IBM EBCDIC (フィンランド - スウェーデン)
+        case 20280: return "IBM280"; // IBM EBCDIC (イタリア)
+        case 20284: return "IBM284"; // IBM EBCDIC (スペイン)
+        case 20285: return "IBM285"; // IBM EBCDIC (UK)
+        case 20290: return "IBM290"; // IBM EBCDIC (日本語カタカナ)
+        case 20297: return "IBM297"; // IBM EBCDIC (フランス)
+        case 20420: return "IBM420"; // IBM EBCDIC (アラビア語)
+        case 20423: return "IBM423"; // IBM EBCDIC (ギリシャ語)
+        case 20424: return "IBM424"; // IBM EBCDIC (ヘブライ語)
+        case 20833: return "x-EBCDIC-KoreanExtended"; // IBM EBCDIC (韓国語 Extended)
+        case 20838: return "IBM-Thai"; // IBM EBCDIC (タイ語)
+        case 20866: return "koi8-r"; // キリル言語 (KOI8-R)
+        case 20871: return "IBM871"; // IBM EBCDIC (アイスランド語)
+        case 20880: return "IBM880"; // IBM EBCDIC (キリル言語 - ロシア語)
+        case 20905: return "IBM905"; // IBM EBCDIC (トルコ語)
+        case 20924: return "IBM00924"; // IBM ラテン-1
+        case 20932: return "EUC-JP"; // 日本語 (JIS 0208-1990 および 0212-1990)
+        case 20936: return "x-cp20936"; // 簡体字中国語 (GB2312-80)
+        case 20949: return "x-cp20949"; // 韓国語 Wansung
+        case 21025: return "CP1025"; // IBM EBCDIC (キリル言語 セルビア - ブルガリア)
+        case 21866: return "KOI8-U"; // キリル言語 (KOI8-U)
+        case 28591: return "ISO-8859-1"; // 西ヨーロッパ言語 (ISO)
+        case 28592: return "ISO-8859-2"; // 中央ヨーロッパ言語 (ISO)
+        case 28593: return "ISO-8859-3"; // ラテン 3 (ISO)
+        case 28594: return "ISO-8859-4"; // バルト言語 (ISO) 
+        case 28595: return "ISO-8859-5"; // キリル言語 (ISO)
+        case 28596: return "ISO-8859-6"; // アラビア語 (ISO)
+        case 28597: return "ISO-8859-7"; // ギリシャ語 (ISO)
+        case 28598: return "ISO-8859-8"; // ヘブライ語 (ISO-Visual)
+        case 28599: return "ISO-8859-9"; // トルコ語 (ISO)
+        case 28603: return "ISO-8859-13"; // エストニア語 (ISO)
+        case 28605: return "ISO-8859-15"; // ラテン 9 (ISO)
+        case 29001: return "x-Europa"; // ヨーロッパ
+        case 38598: return "ISO-8859-8-i"; // ヘブライ語 (ISO-Logical)
+        case 50220: return "ISO-2022-jp"; // 日本語 (JIS)
+        case 50221: return "csISO2022JP"; // 日本語 (JIS 1 バイト カタカナ可)
+        case 50222: return "ISO-2022-jp"; // 日本語 (JIS 1 バイト カタカナ可 - SO/SI)
+        case 50225: return "ISO-2022-kr"; // 韓国語 (ISO)
+        case 50227: return "x-cp50227"; // 簡体字中国語 (ISO-2022)
+        case 51932: return "EUC-JP"; // 日本語 (EUC)
+        case 51936: return "EUC-CN"; // 簡体字中国語 (EUC)
+        case 51949: return "EUC-KR"; // 韓国語 (EUC)
+        case 52936: return "HZ-GB-2312"; // 簡体字中国語 (HZ)
+        case 54936: return "GB18030"; // 簡体字中国語 (GB18030)
+        case 57002: return "x-iscii-de"; // ISCII デバナガリ文字
+        case 57003: return "x-iscii-be"; // ISCII ベンガル語
+        case 57004: return "x-iscii-ta"; // ISCII タミール語
+        case 57005: return "x-iscii-te"; // ISCII テルグ語
+        case 57006: return "x-iscii-as"; // ISCII アッサム語
+        case 57007: return "x-iscii-or"; // ISCII オリヤー語
+        case 57008: return "x-iscii-ka"; // ISCII カナラ語
+        case 57009: return "x-iscii-ma"; // ISCII マラヤラム語
+        case 57010: return "x-iscii-gu"; // ISCII グジャラート語
+        case 57011: return "x-iscii-pa"; // ISCII パンジャブ語
+        case 65000: return "UTF-7"; // Unicode (UTF-7)
+        case 65001: return "UTF-8"; // Unicode (UTF-8)
+        default: return "_autodetect_all";
+    }
+}
+
 //EOF

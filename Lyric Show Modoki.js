@@ -3,7 +3,7 @@
 
 // ==PREPROCESSOR==
 // @name "Lyric Show Modoki"
-// @version "0.9.7"
+// @version "0.9.8"
 // @author "tomato111"
 // @import "%fb2k_path%import\common\lib.js"
 // ==/PREPROCESSOR==
@@ -487,7 +487,7 @@ LyricShow = new function (Style) {
 
     this.initWithFile = function (file) {
 
-        var str;
+        var str, fbs;
 
         try {
             var f = fs.GetFile(file);
@@ -552,11 +552,11 @@ LyricShow = new function (Style) {
 
         if (filetype == "lrc" && !isSync) { // check
             filetype = "txt";
-            Messages[3].popup("UNSYNCED LYRICS");
+            Messages[3].fbpopup("UNSYNCED LYRICS\n\n" + (path ? "file:" + path : fb.TitleFormat("title: %title%'\n'artist: %artist%").Eval()));
         }
         else if (filetype == "txt" && isSync) {
             filetype = "lrc";
-            Messages[3].popup("SYNCED LYRICS");
+            Messages[3].fbpopup("SYNCED LYRICS\n\n" + (path ? "file:" + path : fb.TitleFormat("title: %title%'\n'artist: %artist%").Eval()));
         }
 
         lyric = { text: str.trim().split(getLineFeedCode(str)), i: 1, info: [] };
