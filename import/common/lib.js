@@ -255,13 +255,18 @@ function FuncCommands(c, MetadbHandle) { // c= a command string or commands arra
 
 //-- IOFunc --
 function writeTextFile(text, file, charset) {
-    var bin, buf;
+    var bin;
     var UTF8N = /^UTF-8N$/i.test(charset);
+    var setEOS = function (pos, buf) {
+        stm.Position = pos;
+        stm.SetEOS();
+        stm.Write(buf);
+    }
     var stm = new ActiveXObject('ADODB.Stream');
     stm.type = 2;
     stm.charset = UTF8N ? "UTF-8" : charset;
     stm.open();
-    stm.writeText(text); // この地点でBOMが付加され、textにBOM(BOMの削除漏れ)があると重複する
+    stm.writeText(text); // この地点でBOMが付加される。まず問題ないが、読み取ったファイルがBOMの重複を起こしていた場合を考えて重複チェックを入れる
     try {
         stm.position = 0;
         stm.type = 1;
@@ -269,48 +274,27 @@ function writeTextFile(text, file, charset) {
         if (/^UTF-8|Unicode$/i.test(charset)) { // BOMが重複しているなら既存のBOMをスキップ
             bin = new Binary(stm.read(6)); // stm.Position -> 6
             bin.getArray();
-            if (bin[3] == 0xEF && bin[4] == 0xBB && bin[5] == 0xBF) { // UTF-8
-                buf = stm.Read(-1);
-                stm.Position = 3;
-                stm.SetEOS();
-                stm.write(buf);
-            }
+            if (bin[3] == 0xEF && bin[4] == 0xBB && bin[5] == 0xBF) // UTF-8
+                setEOS(3, stm.Read(-1));
             else if (bin[2] == 0xFF && bin[3] == 0xFE || bin[2] == 0xFE && bin[3] == 0xFF) { // UTF-16LE & UTF-16BE
                 stm.Position = 4;
-                buf = stm.Read(-1);
-                stm.Position = 2;
-                stm.SetEOS();
-                stm.write(buf);
+                setEOS(2, stm.Read(-1));
             }
         }
         else { // 設定した文字コードには不要であるBOMが付いているなら削除
             bin = new Binary(stm.read(3)); // stm.Position -> 3
             bin.getArray();
-            if (bin[0] == 0xEF && bin[1] == 0xBB && bin[2] == 0xBF) { // UTF-8
-                buf = stm.Read(-1);
-                stm.Position = 0;
-                stm.SetEOS();
-                stm.write(buf);
-            }
+            if (bin[0] == 0xEF && bin[1] == 0xBB && bin[2] == 0xBF) // UTF-8
+                setEOS(0, stm.Read(-1));
             else if (bin[0] == 0xFF && bin[1] == 0xFE || bin[0] == 0xFE && bin[1] == 0xFF) { // UTF-16LE & UTF-16BE
                 stm.Position = 2;
-                buf = stm.Read(-1);
-                stm.Position = 0;
-                stm.SetEOS();
-                stm.write(buf);
+                setEOS(0, stm.Read(-1));
             }
         }
 
         if (UTF8N) { // UTF-8Nの保存に対応
-            stm.Position = 0;
-            bin = new Binary(stm.read(3)); // stm.Position -> 3
-            bin.getArray();
-            if (bin[0] == 0xEF && bin[1] == 0xBB && bin[2] == 0xBF) {
-                buf = stm.Read(-1);
-                stm.Position = 0;
-                stm.SetEOS();
-                stm.write(buf);
-            }
+            stm.Position = 3;
+            setEOS(0, stm.Read(-1));
         }
 
         stm.position = 0;
@@ -325,22 +309,17 @@ function writeTextFile(text, file, charset) {
     return file;
 }
 
+// バイナリモードでstreamへ流して_autodetect_allでテキスト取得した際に、BOMが文字として取り込まれるバグがある
+// そのようにADODB.Streamを扱う場合は、Unicode体系において_autodetect_allを回避する必要がある
 function readTextFile(file) {
-    var bin, buf, c, charset, str;
+    var bin, buf, c, str;
     var stm = new ActiveXObject('ADODB.Stream');
-    stm.type = 1;
+    stm.type = 2;
+    stm.charset = arguments.callee.lastCharset = GetCharsetFromCodepage(utils.FileTest(file, "chardet"));
     stm.open();
     try {
         stm.loadFromFile(file); // stm.position -> 0
-
-        //charset = GetCharacterEncoding(stm.read(-1));
-        charset = GetCharsetFromCodepage(utils.FileTest(file, "chardet"));
-        arguments.callee.lastCharset = charset;
-
-        //stm.position = 0;
-        stm.type = 2;
-        stm.charset = charset;
-        str = stm.readText(-1); //_autodetect_allでの一行ごとの取得はまともに動かない
+        str = stm.readText(-1); // _autodetect_allでの一行ごとの取得はまともに動かない
     } catch (e) {
         throw new Error("Couldn't open a file.\nIt has most likely been moved, renamed, or deleted.");
     } finally {
@@ -450,173 +429,6 @@ function buildMenu(items, parentMenu, flag, text, radio) {
 
     (typeof radio == "number") && _menu.CheckMenuRadioItem(start_idx, idx - 1, start_idx + radio);
     return _menu;
-}
-
-//-- Get Character Encoding -- reference http://dobon.net/vb/dotnet/string/detectcode.html
-function GetCharacterEncoding(stream) {
-    var reader = new Binary(stream);
-    var len = reader.size;
-
-    var bEscape = 0x1B;
-    var bAt = 0x40;
-    var bDollar = 0x24;
-    var bAnd = 0x26;
-    var bOpen = 0x28; //'('
-    var bB = 0x42;
-    var bD = 0x44;
-    var bJ = 0x4A;
-    var bI = 0x49;
-
-    var b1, b2, b3, b4;
-    reader.getArray();
-
-    //Encode::is_utf8 は無視
-
-    var isBinary = false;
-    for (var i = 0; i < len; i++) {
-        b1 = reader[i];
-        if (b1 <= 0x06 || b1 == 0x7F || b1 == 0xFF) {
-            //'binary'
-            isBinary = true;
-            if (b1 == 0x00 && i < len - 1 && reader[i + 1] <= 0x7F) {
-                //smells like raw unicode
-                return "Unicode";
-            }
-        }
-    }
-    if (isBinary) {
-        return null;
-    }
-
-    //not Japanese
-    var notJapanese = true;
-    for (i = 0; i < len; i++) {
-        b1 = reader[i];
-        if (b1 == bEscape || 0x80 <= b1) {
-            notJapanese = false;
-            break;
-        }
-    }
-    if (notJapanese) {
-        return "_autodetect_all"; // ASCII?
-    }
-
-    for (i = 0; i < len - 2; i++) {
-        b1 = reader[i];
-        b2 = reader[i + 1];
-        b3 = reader[i + 2];
-
-        if (b1 == bEscape) {
-            if (b2 == bDollar && b3 == bAt) {
-                //JIS_0208 1978
-                //JIS
-                return "ISO-2022-JP";
-            }
-            else if (b2 == bDollar && b3 == bB) {
-                //JIS_0208 1983
-                //JIS
-                return "ISO-2022-JP";
-            }
-            else if (b2 == bOpen && (b3 == bB || b3 == bJ)) {
-                //JIS_ASC
-                //JIS
-                return "ISO-2022-JP";
-            }
-            else if (b2 == bOpen && b3 == bI) {
-                //JIS_KANA
-                //JIS
-                return "ISO-2022-JP";
-            }
-            if (i < len - 3) {
-                b4 = reader[i + 3];
-                if (b2 == bDollar && b3 == bOpen && b4 == bD) {
-                    //JIS_0212
-                    //JIS
-                    return "ISO-2022-JP";
-                }
-                if (i < len - 5 &&
-                    b2 == bAnd && b3 == bAt && b4 == bEscape &&
-                    reader[i + 4] == bDollar && reader[i + 5] == bB) {
-                    //JIS_0208 1990
-                    //JIS
-                    return "ISO-2022-JP";
-                }
-            }
-        }
-    }
-
-    //should be euc|sjis|utf8
-    //use of (?:) by Hiroki Ohzaki <ohzaki@iod.ricoh.co.jp>
-    var sjis = 0;
-    var euc = 0;
-    var utf8 = 0;
-    for (i = 0; i < len - 1; i++) {
-        b1 = reader[i];
-        b2 = reader[i + 1];
-        if (((0x81 <= b1 && b1 <= 0x9F) || (0xE0 <= b1 && b1 <= 0xFC)) &&
-            ((0x40 <= b2 && b2 <= 0x7E) || (0x80 <= b2 && b2 <= 0xFC))) {
-            //SJIS_C
-            sjis += 2;
-            i++;
-        }
-    }
-    for (i = 0; i < len - 1; i++) {
-        b1 = reader[i];
-        b2 = reader[i + 1];
-        if (((0xA1 <= b1 && b1 <= 0xFE) && (0xA1 <= b2 && b2 <= 0xFE)) ||
-            (b1 == 0x8E && (0xA1 <= b2 && b2 <= 0xDF))) {
-            //EUC_C
-            //EUC_KANA
-            euc += 2;
-            i++;
-        }
-        else if (i < len - 2) {
-            b3 = reader[i + 2];
-            if (b1 == 0x8F && (0xA1 <= b2 && b2 <= 0xFE) &&
-                (0xA1 <= b3 && b3 <= 0xFE)) {
-                //EUC_0212
-                euc += 3;
-                i += 2;
-            }
-        }
-    }
-    for (i = 0; i < len - 1; i++) {
-        b1 = reader[i];
-        b2 = reader[i + 1];
-        if ((0xC0 <= b1 && b1 <= 0xDF) && (0x80 <= b2 && b2 <= 0xBF)) {
-            //UTF8
-            utf8 += 2;
-            i++;
-        }
-        else if (i < len - 2) {
-            b3 = reader[i + 2];
-            if ((0xE0 <= b1 && b1 <= 0xEF) && (0x80 <= b2 && b2 <= 0xBF) &&
-                (0x80 <= b3 && b3 <= 0xBF)) {
-                //UTF8
-                utf8 += 3;
-                i += 2;
-            }
-        }
-    }
-    //M. Takahashi's suggestion
-    //utf8 += utf8 / 2;
-
-    //    fb.trace("sjis = " + sjis + ", euc = " + euc + ", utf8 = " + utf8);
-    if (euc > sjis && euc > utf8) {
-        // EUC-JP // 51932
-        return "EUC-JP";
-    }
-    else if (sjis > euc && sjis > utf8) {
-        // Shift_JIS
-        return "Shift_JIS";
-    }
-    else if (utf8 > euc && utf8 > sjis) {
-        // UTF-8
-        return "UTF-8";
-    }
-
-    return "_autodetect_all"; // null
-
 }
 
 //-- Get Charset From Codepage --

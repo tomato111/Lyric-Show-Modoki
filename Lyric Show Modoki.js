@@ -3,7 +3,7 @@
 
 // ==PREPROCESSOR==
 // @name "Lyric Show Modoki"
-// @version "0.9.8"
+// @version "0.9.9"
 // @author "tomato111"
 // @import "%fb2k_path%import\common\lib.js"
 // ==/PREPROCESSOR==
@@ -348,25 +348,21 @@ PluginLoader = {
         try {
             f = fs.GetFolder(this.path);
         } catch (e) { throw new Error("The pass to a plugins folder is wrong. (" + scriptName + ")"); }
+
         fc = new Enumerator(f.Files);
-        stm = new ActiveXObject('ADODB.Stream');
-        stm.type = 2;
-        stm.charset = "_autodetect_all";
-        stm.open();
+
         for (; !fc.atEnd(); fc.moveNext()) {
             try {
-                stm.loadFromFile(fc.item());
-                str = stm.readText(-1);
+                str = readTextFile(fc.item());
             } catch (e) { continue; }
             try {
                 item = eval(str);
             } catch (e) {
-                console(fc.item().name + " is SyntaxError. (" + scriptName + ")");
+                fb.trace(fc.item().name + " is SyntaxError. (" + scriptName + ")");
                 continue;
             }
             p[item.commandName] = item;
         }
-        stm.close();
         this.Plugins = p;
     },
     Refresh: function () { this.load(this.path); },
@@ -895,7 +891,9 @@ LyricShow = new function (Style) {
 
         gr.FillSolidRect(0, 0, window.Width, window.Height, Color.Background);
 
-        if (lyric) { // lyrics is found
+        if (!main.IsVisible)
+            gr.GdiDrawText("Click here to enable this panel.", Style.Font, Color.Text, g_x, g_y + offsetY - 6, ww, wh, Style.Align);
+        else if (lyric) { // lyrics is found
             if (lyric.info.length && offsetY > 0)
                 for (var i = 1; i <= lyric.info.length; i++)
                     gr.GdiDrawText(lyric.info[lyric.info.length - i], Style.Font, Color.Text, g_x, g_y + offsetY - TextHeight * i, ww, wh, Style.Align ^ DT_WORDBREAK);
@@ -1751,7 +1749,7 @@ Menu = new function () {
         },
         {
             Caption: Label.DeleteFile,
-            Func: function () { Edit.deleteFile(path); }
+            Func: function () { Edit.deleteFile(parse_path + ".txt"); }
         }
     ];
 
@@ -1885,8 +1883,9 @@ Menu = new function () {
     //  build
     //=====
     this.build = function (mobj) {
-        mobj = mobj || this.LyricShow;
+        _menu && _menu.Dispose();
         this.init();
+        mobj = mobj || this.LyricShow;
         mobj.refresh();
         _menu = buildMenu(mobj.items);
     };
@@ -1909,17 +1908,22 @@ Menu = new function () {
 
 };
 
+
 //========================================
 //== onLoad function ==========================
 //========================================
 
-(function main(path) {
-    if (fb.IsPlaying) {
+function main(path) {
+    if (arguments.callee.IsVisible !== window.IsVisible)
+        arguments.callee.IsVisible = window.IsVisible;
+
+    if (arguments.callee.IsVisible && fb.IsPlaying) {
         parse_path = fb.TitleFormat(prop.Panel.Path).Eval();
         LyricShow.start(path ? path : parse_path);
     }
     else
         LyricShow.init();
+
     window.Repaint();
     Menu.build();
     debug_edit && (
@@ -1931,7 +1935,8 @@ Menu = new function () {
             }
         }
         ).timeout(400);
-})();
+}
+main();
 
 
 //========================================
@@ -1957,6 +1962,10 @@ function on_size() {
 
     seek_width = Math.floor(ww * 15 / 100);
     rarea_seek_x = ww - seek_width;
+}
+
+function on_focus(is_focused) {
+    !main.IsVisible && main();
 }
 
 function on_playback_new_track(metadb) {
