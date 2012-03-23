@@ -1,9 +1,9 @@
-//## code for foo_uie_wsh_mod v1.5.0 or higher  ####//
+ï»¿//## code for foo_uie_wsh_mod v1.5.0 or higher  ####//
 //## Please check off "Grab Focus" and "Delay Load" ##//
 
 // ==PREPROCESSOR==
 // @name "Lyric Show Modoki"
-// @version "0.9.9"
+// @version "0.9.10"
 // @author "tomato111"
 // @import "%fb2k_path%import\common\lib.js"
 // ==/PREPROCESSOR==
@@ -40,7 +40,7 @@ firstRe = /^\[00:00[.:]00\]/;
 // properties
 //========
 prop = new function () {
-    var defaultpath = ws.SpecialFolders.item("Desktop") + "\\$replace(%artist% - %title%,*,–,?,H,/,^,:,F)";
+    var defaultpath = ws.SpecialFolders.item("Desktop") + "\\$replace(%artist% - %title%,*,ï¼Š,?,ï¼Ÿ,/,ï¼,:,ï¼š)";
 
     // ==Panel====
     this.Panel = {
@@ -60,7 +60,7 @@ prop = new function () {
 
     if (!this.Panel.Priority)
         window.SetProperty("Panel.Priority", this.Panel.Priority = "Sync_Tag,Sync_File,Unsync_Tag,Unsync_File");
-    this.Panel.Priority = this.Panel.Priority.split(/[ @]*,[ @]*/);
+    this.Panel.Priority = this.Panel.Priority.split(/[ ã€€]*,[ ã€€]*/);
 
     var interval = this.Panel.Interval;
     if (!interval || typeof interval !== "number" || interval < 10)
@@ -139,15 +139,13 @@ prop = new function () {
     };
 
     // check CSLS and Set Style.Color
-    if (this.Style.CSLS in this.Style.CLS)
-        this.Style.Color = this.Style.CLS[this.Style.CSLS];
-    else {
-        window.SetProperty("Style.ColorStyle.LyricShow", "black");
-        this.Style.Color = this.Style.CLS[window.GetProperty("Style.ColorStyle.LyricShow")];
-    }
+    if (!(this.Style.CSLS in this.Style.CLS))
+        window.SetProperty("Style.ColorStyle.LyricShow", this.Style.CSLS = "black");
+    this.Style.Color = this.Style.CLS[this.Style.CSLS];
+
     // check CSE
-    if (!this.Style.CSE in this.Style.CE)
-        window.SetProperty("Style.ColorStyle.Edit", "white");
+    if (!(this.Style.CSE in this.Style.CE))
+        window.SetProperty("Style.ColorStyle.Edit", this.Style.CSE = "white");
 
     // check Font and Set Style.Font
     var fontfamily = ["Meiryo", "Tahoma", "Arial", "Segoe UI", "MS Gothic"];
@@ -238,7 +236,7 @@ switch (prop.Panel.Lang) {
             new Message("Couldn't open file.\nIt has most likely been moved, renamed, or deleted.", "Error", 48), //1
             new Message("Saved to tag.\n", "Info", 64), //2
             new Message("The extension of reading lyrics is wrong.\nIt is read as ", scriptName, 48), //3
-            new Message("SaveH", "Confirmation", 36), //4
+            new Message("Saveï¼Ÿ", "Confirmation", 36), //4
             new Message("Couldn't save lyrics to text file.", "Error", 48), //5
             new Message("Saved!\n", "Info", 64), //6
             new Message("The file is locked or does not exist", "Error", 48), //7
@@ -284,52 +282,52 @@ switch (prop.Panel.Lang) {
         break;
     case "ja":
         Messages = [
-            new Message("‰ÌŒ‚Í‚ ‚è‚Ü‚¹‚ñ (" + scriptName + ")", "î•ñ", 48), //0
-            new Message("ƒtƒ@ƒCƒ‹‚ªŠJ‚¯‚Ü‚¹‚ñ‚Å‚µ‚½B\nƒtƒ@ƒCƒ‹‚ªˆÚ“®AƒŠƒl[ƒ€A‚Ü‚½‚Ííœ‚³‚ê‚½‰Â”\«‚ª‚ ‚è‚Ü‚·B", "ƒGƒ‰[", 48), //1
-            new Message("ƒ^ƒO‚É•Û‘¶‚µ‚Ü‚µ‚½\n", "î•ñ", 64), //2
-            new Message("Šg’£q‚Æƒtƒ@ƒCƒ‹‚Ì“à—e‚ªˆê’v‚µ‚Ü‚¹‚ñB\nˆÈ‰º‚Æ‚µ‚Ä“Ç‚İ‚İ‚Ü‚·B\n", scriptName, 48), //3
-            new Message("•Û‘¶‚µ‚Ü‚·‚©H", "Šm”F", 36), //4
-            new Message("ƒtƒ@ƒCƒ‹‚É•Û‘¶o—ˆ‚Ü‚¹‚ñ‚Å‚µ‚½B", "ƒGƒ‰[", 48), //5
-            new Message("•Û‘¶‚µ‚Ü‚µ‚½\n", "î•ñ", 64), //6
-            new Message("ƒtƒ@ƒCƒ‹‚ªƒƒbƒN‚³‚ê‚Ä‚¢‚é‚©Aƒtƒ@ƒCƒ‹‚ª‘¶İ‚µ‚Ü‚¹‚ñB", "ƒGƒ‰[", 48), //7
-            new Message("íœ‚µ‚Ü‚·‚©? \n", "Šm”F", 36), //8
-            new Message("íœ‚µ‚Ü‚µ‚½", "Info", 64), //9
-            new Message("ƒ^ƒO‚É•Û‘¶‚Å‚«‚Ü‚¹‚ñ‚Å‚µ‚½B", "ƒGƒ‰[", 48) //10
+            new Message("æ­Œè©ã¯ã‚ã‚Šã¾ã›ã‚“ (" + scriptName + ")", "æƒ…å ±", 48), //0
+            new Message("ãƒ•ã‚¡ã‚¤ãƒ«ãŒé–‹ã‘ã¾ã›ã‚“ã§ã—ãŸã€‚\nãƒ•ã‚¡ã‚¤ãƒ«ãŒç§»å‹•ã€ãƒªãƒãƒ¼ãƒ ã€ã¾ãŸã¯å‰Šé™¤ã•ã‚ŒãŸå¯èƒ½æ€§ãŒã‚ã‚Šã¾ã™ã€‚", "ã‚¨ãƒ©ãƒ¼", 48), //1
+            new Message("ã‚¿ã‚°ã«ä¿å­˜ã—ã¾ã—ãŸ\n", "æƒ…å ±", 64), //2
+            new Message("æ‹¡å¼µå­ã¨ãƒ•ã‚¡ã‚¤ãƒ«ã®å†…å®¹ãŒä¸€è‡´ã—ã¾ã›ã‚“ã€‚\nä»¥ä¸‹ã¨ã—ã¦èª­ã¿è¾¼ã¿ã¾ã™ã€‚\n", scriptName, 48), //3
+            new Message("ä¿å­˜ã—ã¾ã™ã‹ï¼Ÿ", "ç¢ºèª", 36), //4
+            new Message("ãƒ•ã‚¡ã‚¤ãƒ«ã«ä¿å­˜å‡ºæ¥ã¾ã›ã‚“ã§ã—ãŸã€‚", "ã‚¨ãƒ©ãƒ¼", 48), //5
+            new Message("ä¿å­˜ã—ã¾ã—ãŸ\n", "æƒ…å ±", 64), //6
+            new Message("ãƒ•ã‚¡ã‚¤ãƒ«ãŒãƒ­ãƒƒã‚¯ã•ã‚Œã¦ã„ã‚‹ã‹ã€ãƒ•ã‚¡ã‚¤ãƒ«ãŒå­˜åœ¨ã—ã¾ã›ã‚“ã€‚", "ã‚¨ãƒ©ãƒ¼", 48), //7
+            new Message("å‰Šé™¤ã—ã¾ã™ã‹? \n", "ç¢ºèª", 36), //8
+            new Message("å‰Šé™¤ã—ã¾ã—ãŸ", "Info", 64), //9
+            new Message("ã‚¿ã‚°ã«ä¿å­˜ã§ãã¾ã›ã‚“ã§ã—ãŸã€‚", "ã‚¨ãƒ©ãƒ¼", 48) //10
         ];
         Label = {
-            Prop: "İ’è...",
-            Help: "ƒwƒ‹ƒvß...",
+            Prop: "è¨­å®š...",
+            Help: "ãƒ˜ãƒ«ãƒ—ï¾Ÿ...",
             Conf: "Configure...",
-            Edit: "•ÒWŠJn",
-            Save: "[•Û‘¶]",
-            Open: "ŠJ‚­...",
-            OpenIn: "ŠO•”ƒGƒfƒBƒ^‚ÅŠJ‚­",
-            OpenFolder: "ƒtƒHƒ‹ƒ_‚ğŠJ‚­",
-            SaveToTag: "ƒ^ƒO‚É•Û‘¶",
-            SaveToFile: "ƒtƒ@ƒCƒ‹‚É•Û‘¶",
-            Refresh: "XV",
-            About: "‚±‚Ì‰ÌŒ‚É‚Â‚¢‚Ä",
-            Contain: "’Êí‚Ìs‚ğŠÜ‚ß‚é",
-            Copy: "ƒRƒs[",
-            CopyWith: "ƒ^ƒCƒ€ƒ^ƒO•t‚«‚ÅƒRƒs[",
-            CopyWithout: "ƒ^ƒCƒ€ƒ^ƒO‚È‚µ‚ÅƒRƒs[",
-            Align: "—ñ‘µ‚¦",
-            Align_Left: "¶",
-            Align_Center: "’†‰›",
-            Align_Right: "‰E",
-            Rule: "Œrü‚ğ•\¦",
-            View: "ƒrƒ…[ƒ‚[ƒh",
-            EditLine: "s‚ğ•ÒW",
-            InsertLine: "s‚ğ‘}“ü",
-            DeleteLine: "s‚ğíœ",
-            DeleteFile: "TXTÌ§²Ù‚ğíœ‚·‚é",
-            LyricShow: "•ÒW‚ğ‚â‚ß‚é",
-            InserLineText: "‘}“ü‚·‚é•¶š‚ğ“ü—Í‚µ‚Ä‚­‚¾‚³‚¢B\n(Ì§²Ù––”ö‚Ö‘}“ü‚·‚é‚É‚Íæ“ª‚ğ##‚ÅŠJn)",
-            Clear: "‚·‚×‚ÄƒNƒŠƒA",
-            Reload: "Ä“Ç‚İ‚İ",
-            Plugins: "ƒvƒ‰ƒOƒCƒ“",
-            OffsetP: "ƒIƒtƒZƒbƒg{",
-            OffsetM: "ƒIƒtƒZƒbƒg|"
+            Edit: "ç·¨é›†é–‹å§‹",
+            Save: "[ä¿å­˜]",
+            Open: "é–‹ã...",
+            OpenIn: "å¤–éƒ¨ã‚¨ãƒ‡ã‚£ã‚¿ã§é–‹ã",
+            OpenFolder: "ãƒ•ã‚©ãƒ«ãƒ€ã‚’é–‹ã",
+            SaveToTag: "ã‚¿ã‚°ã«ä¿å­˜",
+            SaveToFile: "ãƒ•ã‚¡ã‚¤ãƒ«ã«ä¿å­˜",
+            Refresh: "æ›´æ–°",
+            About: "ã“ã®æ­Œè©ã«ã¤ã„ã¦",
+            Contain: "é€šå¸¸ã®è¡Œã‚’å«ã‚ã‚‹",
+            Copy: "ã‚³ãƒ”ãƒ¼",
+            CopyWith: "ã‚¿ã‚¤ãƒ ã‚¿ã‚°ä»˜ãã§ã‚³ãƒ”ãƒ¼",
+            CopyWithout: "ã‚¿ã‚¤ãƒ ã‚¿ã‚°ãªã—ã§ã‚³ãƒ”ãƒ¼",
+            Align: "åˆ—æƒãˆ",
+            Align_Left: "å·¦",
+            Align_Center: "ä¸­å¤®",
+            Align_Right: "å³",
+            Rule: "ç½«ç·šã‚’è¡¨ç¤º",
+            View: "ãƒ“ãƒ¥ãƒ¼ãƒ¢ãƒ¼ãƒ‰",
+            EditLine: "è¡Œã‚’ç·¨é›†",
+            InsertLine: "è¡Œã‚’æŒ¿å…¥",
+            DeleteLine: "è¡Œã‚’å‰Šé™¤",
+            DeleteFile: "TXTï¾Œï½§ï½²ï¾™ã‚’å‰Šé™¤ã™ã‚‹",
+            LyricShow: "ç·¨é›†ã‚’ã‚„ã‚ã‚‹",
+            InserLineText: "æŒ¿å…¥ã™ã‚‹æ–‡å­—ã‚’å…¥åŠ›ã—ã¦ãã ã•ã„ã€‚\n(ï¾Œï½§ï½²ï¾™æœ«å°¾ã¸æŒ¿å…¥ã™ã‚‹ã«ã¯å…ˆé ­ã‚’##ã§é–‹å§‹)",
+            Clear: "ã™ã¹ã¦ã‚¯ãƒªã‚¢",
+            Reload: "å†èª­ã¿è¾¼ã¿",
+            Plugins: "ãƒ—ãƒ©ã‚°ã‚¤ãƒ³",
+            OffsetP: "ã‚ªãƒ•ã‚»ãƒƒãƒˆï¼‹",
+            OffsetM: "ã‚ªãƒ•ã‚»ãƒƒãƒˆï¼"
         };
         break;
 }
@@ -421,7 +419,7 @@ function putTime(n, i) { // add timetag to i line
     lyric.text[i] = "[" + doubleFig(m) + ":" + doubleFig(s) + "." + doubleFig(ms) + "]" + lyric.text[i];
 }
 
-function doubleFig(num) { // Œ…‡‚í‚¹
+function doubleFig(num) { // æ¡åˆã‚ã›
 
     if (num < 10)
         num = "0" + num;
@@ -565,7 +563,7 @@ LyricShow = new function (Style) {
             var offsetRe = /\[offset:(-?\d+)\]/;
             var isTagRe = /(\[[\d.:[\]]+\])(.*)/;
             var keyRe = /\[[\d:.]+\]/g;
-            var spaceRe = /^[ @]*$/;
+            var spaceRe = /^[ ã€€]*$/;
             var notNumberRe = /\D/g;
 
             for (var i = 0; i < lyric.text.length; i++) {
@@ -709,21 +707,21 @@ LyricShow = new function (Style) {
             var lineList = this.lineList;
             var h, t, l, d;
 
-            l = lyric.text.length + Number(this.numOfWordbreak); // 1ƒtƒ@ƒCƒ‹‚Ìs”(ƒ[ƒhƒuƒŒƒCƒNŠÜ‚Ş)
-            this.h = l * TextHeight; // 1ƒtƒ@ƒCƒ‹‚Ì‚‚³ // Set FileHeight
-            this.minOffsetY = wh / 2 - this.h; // ƒIƒtƒZƒbƒgY‚ÌÅ¬’l // Set minimum offsetY
+            l = lyric.text.length + Number(this.numOfWordbreak); // 1ãƒ•ã‚¡ã‚¤ãƒ«ã®è¡Œæ•°(ãƒ¯ãƒ¼ãƒ‰ãƒ–ãƒ¬ã‚¤ã‚¯å«ã‚€)
+            this.h = l * TextHeight; // 1ãƒ•ã‚¡ã‚¤ãƒ«ã®é«˜ã• // Set FileHeight
+            this.minOffsetY = wh / 2 - this.h; // ã‚ªãƒ•ã‚»ãƒƒãƒˆYã®æœ€å°å€¤ // Set minimum offsetY
 
             if (lineList) {
                 for (var i = 0; i < lineList.length; i++) {
-                    h = this.wordbreakList[i] * TextHeight; // s‚Ì‚‚³
-                    t = (lineList[i + 1] - lineList[i]) * 10; // Ÿ‚Ìs‚Ü‚Å‚ÌŠÔ[ms]
-                    scrollSpeedList[i] = h / t * prop.Panel.Interval; // 1‰ñ‚ÌXV‚Å‚ÌˆÚ“®—Ê(s‚²‚Æ‚É•Ï‰»‚·‚é)
-                    if (scrollSpeedList[i] > h) scrollSpeedList[i] = h; // 1‰ñ‚ÌXV‚Ås‚Ì‚‚³‚ğ’´‚¦‚éˆÚ“®—Ê‚Æ‚È‚Á‚½ê‡‚ÍƒXƒLƒbƒv
+                    h = this.wordbreakList[i] * TextHeight; // è¡Œã®é«˜ã•
+                    t = (lineList[i + 1] - lineList[i]) * 10; // æ¬¡ã®è¡Œã¾ã§ã®æ™‚é–“[ms]
+                    scrollSpeedList[i] = h / t * prop.Panel.Interval; // 1å›ã®æ›´æ–°ã§ã®ç§»å‹•é‡(è¡Œã”ã¨ã«å¤‰åŒ–ã™ã‚‹)
+                    if (scrollSpeedList[i] > h) scrollSpeedList[i] = h; // 1å›ã®æ›´æ–°ã§è¡Œã®é«˜ã•ã‚’è¶…ãˆã‚‹ç§»å‹•é‡ã¨ãªã£ãŸå ´åˆã¯ã‚¹ã‚­ãƒƒãƒ—
                 }
-                scrollSpeedList[i - 1] = 0; // ÅŒã‚Ìs‚ÌˆÚ“®—Ê‚Í0
+                scrollSpeedList[i - 1] = 0; // æœ€å¾Œã®è¡Œã®ç§»å‹•é‡ã¯0
             } else {
-                t = fb.PlaybackLength * 1000 / prop.Panel.Interval; // 1ƒtƒ@ƒCƒ‹‚ÅXV‚·‚é‰ñ”
-                scrollSpeedList = { degree: this.h / t }; // 1‰ñ‚ÌXV‚Å‚ÌˆÚ“®—Ê(s‚ÉˆË‚ç‚¸ˆê’è)
+                t = fb.PlaybackLength * 1000 / prop.Panel.Interval; // 1ãƒ•ã‚¡ã‚¤ãƒ«ã§æ›´æ–°ã™ã‚‹å›æ•°
+                scrollSpeedList = { degree: this.h / t }; // 1å›ã®æ›´æ–°ã§ã®ç§»å‹•é‡(è¡Œã«ä¾ã‚‰ãšä¸€å®š)
             }
 
             this.scrollSpeedList = scrollSpeedList; // Set ScrollSpeed List
@@ -815,11 +813,11 @@ LyricShow = new function (Style) {
                 if (lineList[i] > time) break;
             lyric.i = i;
 
-            var d = (time - lineList[i - 1]) * 10 / prop.Panel.Interval * DrawStyle[i - 1].speed; // (i-1s‚É‚È‚Á‚Ä‚©‚çŒ»İ‚ÌÄ¶ŠÔ‚É‚È‚é‚Ü‚Å‚És‚í‚ê‚½XV‰ñ”) * 1‰ñ‚ÌXV‚Å‚ÌˆÚ“®—Ê
-            offsetY = fixY - DrawStyle[i - 1].y - d; // ƒIƒtƒZƒbƒg‚Ì•Ï“®’l‚Í(•¶š‚Ì‚‚³*s”)
+            var d = (time - lineList[i - 1]) * 10 / prop.Panel.Interval * DrawStyle[i - 1].speed; // (i-1è¡Œã«ãªã£ã¦ã‹ã‚‰ç¾åœ¨ã®å†ç”Ÿæ™‚é–“ã«ãªã‚‹ã¾ã§ã«è¡Œã‚ã‚ŒãŸæ›´æ–°å›æ•°) * 1å›ã®æ›´æ–°ã§ã®ç§»å‹•é‡
+            offsetY = fixY - DrawStyle[i - 1].y - d; // ã‚ªãƒ•ã‚»ãƒƒãƒˆã®å¤‰å‹•å€¤ã¯(æ–‡å­—ã®é«˜ã•*è¡Œæ•°)
         }
         else if (lyric)
-            offsetY = fixY - this.setProperties.h * time / Math.round(fb.PlaybackLength * 100); // ƒpƒlƒ‹‚Ì”¼•ª - (1ƒtƒ@ƒCƒ‹‚Ì‚‚³ * Ä¶ŠÔ‚ÌŠ„‡)
+            offsetY = fixY - this.setProperties.h * time / Math.round(fb.PlaybackLength * 100); // ãƒ‘ãƒãƒ«ã®åŠåˆ† - (1ãƒ•ã‚¡ã‚¤ãƒ«ã®é«˜ã• * å†ç”Ÿæ™‚é–“ã®å‰²åˆ)
 
         window.Repaint();
         Busy = false;
@@ -870,7 +868,7 @@ LyricShow = new function (Style) {
 
     this.end = function () {
 
-        this.pauseTimer(true); // ]—ˆ‚Ìƒ^ƒCƒ}[‚ÌŒãˆ—‚Ì‚æ‚¤‚Étimer‚Énull“™‚ğ‘ã“ü‚·‚é‚Æclear‚Åˆø‚Á‚©‚©‚Á‚Ä—]Œv‚Éˆ—‚Ì‹Lq‚ª‘‚¦‚éB’†g‚Í‚½‚¾‚Ì”š‚È‚Ì‚Å‰½‚à‚µ‚È‚­‚Ä—Ç‚¢
+        this.pauseTimer(true); // å¾“æ¥ã®ã‚¿ã‚¤ãƒãƒ¼ã®å¾Œå‡¦ç†ã®ã‚ˆã†ã«timerã«nullç­‰ã‚’ä»£å…¥ã™ã‚‹ã¨clearã§å¼•ã£ã‹ã‹ã£ã¦ä½™è¨ˆã«å‡¦ç†ã®è¨˜è¿°ãŒå¢—ãˆã‚‹ã€‚ä¸­èº«ã¯ãŸã ã®æ•°å­—ãªã®ã§ä½•ã‚‚ã—ãªãã¦è‰¯ã„
         this.setProperties.lineList = this.setProperties.wordbreakList = this.setProperties.scrollSpeedList = this.setProperties.DrawStyle = this.setProperties.h = DrawStyle = null;
         CollectGarbage();
     };
@@ -879,9 +877,9 @@ LyricShow = new function (Style) {
 
         if (!Busy && lyric.i < lyric.text.length) {
             New = fb.PlaybackTime * 100
-            if (New > Old) { // fb.PlaybackTime ‚ğM—p‚µ‚Ä‚Í‚¢‚¯‚È‚¢BÄ¶n‚ß‚Í•sˆÀ’è‚ÅŠÔ‚ª–ß‚Á‚½‚è‚·‚é
+            if (New > Old) { // fb.PlaybackTime ã‚’ä¿¡ç”¨ã—ã¦ã¯ã„ã‘ãªã„ã€‚å†ç”Ÿå§‹ã‚ã¯ä¸å®‰å®šã§æ™‚é–“ãŒæˆ»ã£ãŸã‚Šã™ã‚‹
                 Old = New;
-                LyricShow.setProperties.DrawStyle[lyric.i - 1].scroll(New); // lyric.i(‘ÎÛs)‚Ì‚PŒÂ‘O(Ä¶s)‚Ìî•ñ‚ÅƒXƒNƒ[ƒ‹ //timer‚ÅŒÄ‚Ño‚·‚Æthis‚ÌˆÓ–¡‚ª•Ï‚í‚é‚Ì‚Åthis‚Íg‚í‚È‚¢
+                LyricShow.setProperties.DrawStyle[lyric.i - 1].scroll(New); // lyric.i(å¯¾è±¡è¡Œ)ã®ï¼‘å€‹å‰(å†ç”Ÿè¡Œ)ã®æƒ…å ±ã§ã‚¹ã‚¯ãƒ­ãƒ¼ãƒ« //timerã§å‘¼ã³å‡ºã™ã¨thisã®æ„å‘³ãŒå¤‰ã‚ã‚‹ã®ã§thisã¯ä½¿ã‚ãªã„
                 window.Repaint();
             }
         }
@@ -1283,7 +1281,7 @@ Edit = new function (Style, p) {
             n = p + i;
             if (i == -2 && n >= 0) { disp.top = n; }
             if (n < 0) continue;
-            else if (n >= lyric.text.length || tmp + DrawStyle[n].nextYWithTag > wh) { disp.bottom = n - 1; break; } // ‰æ–Ê‰º‚ÌƒAƒCƒRƒ“‚É”í‚ç‚È‚¢’ö“x‚É•`‰æ
+            else if (n >= lyric.text.length || tmp + DrawStyle[n].nextYWithTag > wh) { disp.bottom = n - 1; break; } // ç”»é¢ä¸‹ã®ã‚¢ã‚¤ã‚³ãƒ³ã«è¢«ã‚‰ãªã„ç¨‹åº¦ã«æç”»
             else {
                 str = lyric.text[n].replace(tagBottomRe, "$1 ");
                 ci = (i < prop.Edit.Step) ? (i < 0) ? (i >= -prop.Edit.Step) ? -i : null : i : null;
