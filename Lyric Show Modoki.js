@@ -3,7 +3,7 @@
 
 // ==PREPROCESSOR==
 // @name "Lyric Show Modoki"
-// @version "0.9.10"
+// @version "0.9.11"
 // @author "tomato111"
 // @import "%fb2k_path%import\common\lib.js"
 // ==/PREPROCESSOR==
@@ -505,6 +505,7 @@ LyricShow = new function (Style) {
         dateLastModified = f.DateLastModified;
         dateCreated = f.DateCreated;
         dataSize = f.Size;
+        parse_path = directory + "\\" + basename;
         return str;
     };
 
@@ -836,23 +837,35 @@ LyricShow = new function (Style) {
         this.init();
         L:
         {
-            if (extRe.test(path) && this.readLyric(path)) break L; // for FileDialog 
+            if (extRe.test(path) && this.readLyric(path)) break L; // for FileDialog
+            var pathIsArray = path instanceof Array
             for (var p = prop.Panel.Priority, i = 0; i < p.length; i++) { // according to priority order
                 switch (p[i]) {
                     case "Sync_Tag":
                         if (this.readLyric("LYRICS")) break L;
                         else break;
                     case "Sync_File":
-                        if (this.readLyric(path + ".lrc")) break L;
-                        else break;
+                        if (pathIsArray)
+                            for (var j = 0; j < path.length; j++) {
+                                if (this.readLyric(path[j] + ".lrc")) break L;
+                            }
+                        else
+                            if (this.readLyric(path + ".lrc")) break L;
+                        break;
                     case "Unsync_Tag":
                         if (this.readLyric("UNSYNCED LYRICS")) break L;
                         else break;
                     case "Unsync_File":
-                        if (this.readLyric(path + ".txt")) break L;
-                        else break;
+                        if (pathIsArray)
+                            for (j = 0; j < path.length; j++) {
+                                if (this.readLyric(path[j] + ".txt")) break L;
+                            }
+                        else
+                            if (this.readLyric(path + ".txt")) break L;
+                        break;
                 }
             }
+            parse_path = pathIsArray ? path[0] : path; // set default parse_path for save
             return Messages[0].trace(); // file is not found
         }
 
@@ -887,7 +900,7 @@ LyricShow = new function (Style) {
 
     this.on_paint = function (gr) {
 
-        gr.FillSolidRect(0, 0, window.Width, window.Height, Color.Background);
+        gr.FillSolidRect(-1, -1, window.Width + 1, window.Height + 1, Color.Background);
 
         if (!main.IsVisible)
             gr.GdiDrawText("Click here to enable this panel.", Style.Font, Color.Text, g_x, g_y + offsetY - 6, ww, wh, Style.Align);
@@ -1273,7 +1286,7 @@ Edit = new function (Style, p) {
         var n, str, ci, c;
 
         // background
-        gr.FillSolidRect(0, 0, window.Width, window.Height, prop.Edit.View ? Color.ViewBackground : Color.Background);
+        gr.FillSolidRect(-1, -1, window.Width + 1, window.Height + 1, prop.Edit.View ? Color.ViewBackground : Color.Background);
         // playing line
         gr.FillRoundRect(g_x + 1, g_y + edit_fixY, ww - 2, DrawStyle[p].heightWithTag, 5, 5, Color.Line);
 
@@ -1916,8 +1929,8 @@ function main(path) {
         arguments.callee.IsVisible = window.IsVisible;
 
     if (arguments.callee.IsVisible && fb.IsPlaying) {
-        parse_path = fb.TitleFormat(prop.Panel.Path).Eval();
-        LyricShow.start(path ? path : parse_path);
+        var parse_paths = fb.TitleFormat(prop.Panel.Path).Eval().split("||");
+        LyricShow.start(path ? path : parse_paths);
     }
     else
         LyricShow.init();
