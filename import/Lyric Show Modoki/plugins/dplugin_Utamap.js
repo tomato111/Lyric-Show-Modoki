@@ -5,6 +5,7 @@
     author: 'Tomato',
     onCommand: function () {
 
+        ws = new ActiveXObject("WScript.Shell");
         if (!fb.IsPlaying) {
             ws.popup("Not Playing.");
             return;

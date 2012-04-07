@@ -254,6 +254,15 @@ function FuncCommands(c, MetadbHandle) { // c= a command string or commands arra
 }
 
 //-- IOFunc --
+function createFolder(objFSO, strFolder) {
+    try {
+        var strParent = objFSO.GetParentFolderName(strFolder)
+        if (!objFSO.FolderExists(strParent))
+            arguments.callee(objFSO, strParent);
+        objFSO.CreateFolder(strFolder);
+    } catch (e) { throw new Error("Couldn't create a folder.") }
+}
+
 function writeTextFile(text, file, charset) {
     var bin;
     var UTF8N = /^UTF-8N$/i.test(charset);

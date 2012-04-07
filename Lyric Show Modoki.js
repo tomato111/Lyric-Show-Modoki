@@ -3,7 +3,7 @@
 
 // ==PREPROCESSOR==
 // @name "Lyric Show Modoki"
-// @version "0.9.11"
+// @version "0.9.12"
 // @author "tomato111"
 // @import "%fb2k_path%import\common\lib.js"
 // ==/PREPROCESSOR==
@@ -338,13 +338,13 @@ switch (prop.Panel.Lang) {
 
 PluginLoader = {
 
-    Load: function (path) {
+    Load: function (objFSO, path) {
         if (path) this.path = path;
 
-        var fs, f, fc, item, stm, str, p = {}, i = 0;
-        fs = new ActiveXObject("Scripting.FileSystemObject");
+        var f, fc, item, stm, str, p = {}, i = 0;
+        this.Plugins = p;
         try {
-            f = fs.GetFolder(this.path);
+            f = objFSO.GetFolder(this.path);
         } catch (e) { throw new Error("The pass to a plugins folder is wrong. (" + scriptName + ")"); }
 
         fc = new Enumerator(f.Files);
@@ -361,15 +361,20 @@ PluginLoader = {
             }
             p[item.commandName] = item;
         }
-        this.Plugins = p;
     },
     Refresh: function () { this.load(this.path); },
     Dispose: function () { delete PluginLoader }
 };
 
-PluginLoader.Load(scriptdir + "plugins\\");
+PluginLoader.Load(fs, scriptdir + "plugins\\");
 plugins = PluginLoader.Plugins;
+
+//=======
+// release Object 
+//=======
+
 PluginLoader.Dispose();
+ws = null;
 
 //=======
 //  function
@@ -838,7 +843,8 @@ LyricShow = new function (Style) {
         L:
         {
             if (extRe.test(path) && this.readLyric(path)) break L; // for FileDialog
-            var pathIsArray = path instanceof Array
+            var pathIsArray = path instanceof Array;
+            parse_path = pathIsArray ? path[0] : path; // set default parse_path for save
             for (var p = prop.Panel.Priority, i = 0; i < p.length; i++) { // according to priority order
                 switch (p[i]) {
                     case "Sync_Tag":
@@ -865,7 +871,6 @@ LyricShow = new function (Style) {
                         break;
                 }
             }
-            parse_path = pathIsArray ? path[0] : path; // set default parse_path for save
             return Messages[0].trace(); // file is not found
         }
 
@@ -1116,6 +1121,7 @@ Edit = new function (Style, p) {
         var meta = fb.GetNowPlaying();
         var field = "LYRICS";
         var file = parse_path + ".lrc";
+        var folder = fs.GetParentFolderName(file);
         var LineFeedCode = prop.Save.LineFeedCode;
         var text = (lyric.info.length ? lyric.info.join(LineFeedCode) + LineFeedCode : "") + lyric.text.join(LineFeedCode);
         var _menu, ret;
@@ -1135,11 +1141,13 @@ Edit = new function (Style, p) {
                 break;
             case 4:
                 try {
+                    if (!fs.FolderExists(folder))
+                        createFolder(fs, folder);
                     writeTextFile(text, file, prop.Save.CharacterCode);
                     Messages[6].popup(file);
                     FuncCommands(prop.Save.RunAfterSave, meta);
                 } catch (e) {
-                    Messages[5].popup();
+                    Messages[5].popup("\n" + e.message);
                 }
                 break;
         }
@@ -1711,9 +1719,12 @@ Menu = new function () {
                 Lock = true;
                 var meta = fb.GetNowPlaying();
                 var file = parse_path + ".lrc";
+                var folder = fs.GetParentFolderName(file);
                 var LineFeedCode = prop.Save.LineFeedCode;
                 var text = (lyric.info.length ? lyric.info.join(LineFeedCode) + LineFeedCode : "") + lyric.text.join(LineFeedCode);
                 try {
+                    if (!fs.FolderExists(folder))
+                        createFolder(fs, folder);
                     writeTextFile(text, file, prop.Save.CharacterCode);
                     Messages[6].popup(file);
                     FuncCommands(prop.Save.RunAfterSave, meta);
