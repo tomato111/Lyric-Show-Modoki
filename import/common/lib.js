@@ -14,7 +14,7 @@ String.prototype.replaceEach = function () { //e.g.) "abc*Bc".replaceEach("b", "
     if (/[^igm]/.test(flag))
         throw new Error("Unknown flag: \"" + flag + "\"");
 
-    for (var i = 0; i < arguments.length; i += 2) {
+    for (var i = 0; i < arguments.length - 1; i += 2) {
         var re = new RegExp(arguments[i], flag);
         str = str.replace(re, arguments[i + 1]);
     }

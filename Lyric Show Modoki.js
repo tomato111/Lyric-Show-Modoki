@@ -3,7 +3,7 @@
 
 // ==PREPROCESSOR==
 // @name "Lyric Show Modoki"
-// @version "0.9.12"
+// @version "1.0.0"
 // @author "tomato111"
 // @import "%fb2k_path%import\common\lib.js"
 // ==/PREPROCESSOR==
@@ -14,8 +14,8 @@
 //== Global Variable and Function =====================
 //============================================
 // user reserved words
-var scriptName, scriptdir, commondir, plugins, lyric, parse_path, path, directory, filename, basename, filetype, dateLastModified, dateCreated, dataSize
-, fs, ws, prop, Messages, Label, tagRe, timeRe, firstRe, TextHeight, offsetY, fixY, drag, drag_y, ww, wh, larea_seek, rarea_seek, seek_width, rarea_seek_x, disp, Lock
+var scriptName, scriptdir, commondir, plugins, lyric, parse_path, path, directory, filename, basename, filetype, dateLastModified, dateCreated, dataSize, backalpha, rqueue
+, fs, ws, prop, Messages, Label, tagRe, timeRe, firstRe, TextHeight, offsetY, fixY, moveY, drag, drag_y, ww, wh, larea_seek, rarea_seek, seek_width, rarea_seek_x, disp, Lock
 , debug_read, debug_scroll, debug_edit, debug_view
 , DT_LEFT, DT_CENTER, DT_RIGHT, DT_WORDBREAK, DT_NOPREFIX
 , LyricShow, Edit, Buttons, Menu;
@@ -26,6 +26,7 @@ ws = new ActiveXObject("WScript.Shell"); // WScript Shell Object
 scriptName = "Lyric Show Modoki";
 scriptdir = fb.FoobarPath + "import\\" + scriptName + "\\";
 commondir = fb.FoobarPath + "import\\common\\";
+rqueue = 0;
 disp = {};
 DT_LEFT = 0x00000000;
 DT_CENTER = 0x00000001;
@@ -52,7 +53,13 @@ prop = new function () {
         Editor: window.GetProperty("Panel.ExternalEditor", ""),
         NoLyric: window.GetProperty("Panel.NoLyricsFound", "Title: %title%\\nArtist: %artist%\\nAlbum: %album%\\n\\n-no lyrics-"),
         Priority: window.GetProperty("Panel.Priority", "Sync_Tag,Sync_File,Unsync_Tag,Unsync_File"),
-        Contain: window.GetProperty("Panel.LRC.ContainNormalLines", false)
+        Contain: window.GetProperty("Panel.LRC.ContainNormalLines", false),
+        BackgroundEnable: window.GetProperty("Panel.Background.Enable", false),
+        BackgroundPath: window.GetProperty("Panel.Background.Image", "<embed>||'%fb2k_path%'\\import\\Lyric Show Modoki\\background.jpg"),
+        BackgroundRaw: window.GetProperty("Panel.Background.ImageToRawBitmap", false),
+        BackgroundOption: window.GetProperty("Panel.Background.ImageOption", "20,50").split(/[ 　]*,[ 　]*/),
+        BackgroundKAR: window.GetProperty("Panel.Background.KeepAspectRatio", true),
+        BackgroundStretch: window.GetProperty("Panel.Background.Stretch", true)
     };
 
     if (!this.Panel.Path)
@@ -63,8 +70,13 @@ prop = new function () {
     this.Panel.Priority = this.Panel.Priority.split(/[ 　]*,[ 　]*/);
 
     var interval = this.Panel.Interval;
-    if (!interval || typeof interval !== "number" || interval < 10)
+    if (!interval || typeof interval !== "number" || interval < 30)
         window.SetProperty("Panel.RefreshInterval", this.Panel.Interval = 50);
+
+    if (!this.Panel.BackgroundOption || !(this.Panel.BackgroundOption instanceof Array) || this.Panel.BackgroundOption.length < 2) {
+        window.SetProperty("Panel.Background.ImageOption", this.Panel.BackgroundOption = "20,50");
+        this.Panel.BackgroundOption = this.Panel.BackgroundOption.split(/[ 　]*,[ 　]*/);
+    }
 
     // ==Style====
     this.Style = {
@@ -151,7 +163,7 @@ prop = new function () {
     var fontfamily = ["Meiryo", "Tahoma", "Arial", "Segoe UI", "MS Gothic"];
 
     fontfamily.unshift(this.Style.Font_Family);
-    for (var i = 0; i < fontfamily.length; i++)
+    for (i = 0; i < fontfamily.length; i++)
         if (utils.CheckFont(fontfamily[i])) {
             window.SetProperty("Style.Font-Family", this.Style.Font_Family = fontfamily[i]);
             break;
@@ -381,6 +393,7 @@ ws = null;
 //=======
 
 function checkLang(lang) {
+
     for (var i = 0; i < definedLanguage.length; i++)
         if (lang === definedLanguage[i])
             return true;
@@ -388,6 +401,7 @@ function checkLang(lang) {
 }
 
 function setRGBdiff(color, dr, dg, db) {
+
     return RGB(getRed(color) + dr, getGreen(color) + dg, getBlue(color) + db);
 }
 
@@ -462,6 +476,64 @@ function applyDelta(delta) {
     }
 }
 
+function GetImg(path) {
+    if (path.charAt(0) === "<") {
+        var embeddedImage = utils.GetAlbumArtEmbedded(path.slice(1, -1), 0);
+        if (embeddedImage)
+            return embeddedImage;
+    }
+    else {
+        if (fs.FileExists(path))
+            return gdi.Image(path);
+    }
+    return null;
+}
+
+function CalcImgSize(img, dspW, dspH, strch, kar) {
+
+    if (!img) return;
+    var srcW = img.width;
+    var srcH = img.height;
+    if (strch == undefined) strch = prop.Panel.BackgroundStretch;
+    if (kar == undefined) kar = prop.Panel.BackgroundKAR;
+
+    var size;
+    if (strch) { // パネルより小さい画像を拡大するかどうか
+        size = { x: 0, y: 0, width: dspW, height: dspH };
+        if (kar) { // アスペクト比を考慮
+            size.width = Math.ceil(srcW * dspH / srcH); // 画像の縦をパネルの高さと仮定し、横幅を計算
+            if (size.width > dspW) { // パネル幅を超えるなら、画像の横をパネル幅と仮定し、高さを計算
+                size.width = dspW;
+                size.height = Math.ceil(srcH * dspW / srcW);
+            }
+        }
+    } else { // パネルに合わせて拡大はしないが縮小はする
+        size = { x: 0, y: 0, width: srcW, height: srcH };
+        if (kar) { // アスペクト比を考慮
+            if (srcH > dspH) {
+                size.height = dspH;
+                size.width = Math.ceil(srcW * dspH / srcH);
+            }
+            if (size.width > dspW) {
+                size.width = dspW;
+                size.height = Math.ceil(srcH * dstW / srcW);
+            }
+        } else { // アスペクト比を無視
+            size.width = Math.min(srcW, dstW);
+            size.height = Math.min(srcH, dstH);
+        }
+    }
+    size.x = Math.floor((dspW - size.width) / 2);
+    size.y = Math.floor((dspH - size.height) / 2);
+    return size;
+}
+
+function reLoad() {
+    rqueue--;
+    if (rqueue !== 0)
+        return;
+    main();
+}
 
 //===========================================
 //== Create "LyricShow" Object ======================
@@ -472,6 +544,8 @@ LyricShow = new function (Style) {
     var Busy, Old, New, Color, p, DrawStyle;
     var directoryRe = /.+\\/;
     var extRe = /\.(?:lrc|txt)$/i;
+    var BackgroundPath, BackgroundImg, BackgroundSize;
+    var BackOption = prop.Panel.BackgroundOption;
 
     this.init = function () {
 
@@ -481,6 +555,12 @@ LyricShow = new function (Style) {
         offsetY = fixY;
         disp.top = 0;
         path = directory = filename = basename = filetype = lyric = readTextFile.lastCharset = null;
+        if (!fb.IsPlaying && BackgroundImg) {
+            BackgroundImg.Dispose();
+            BackgroundImg = null;
+            BackgroundSize = null;
+            BackgroundPath = null;
+        }
 
     };
 
@@ -519,7 +599,9 @@ LyricShow = new function (Style) {
         try {
             var MetadbHandle = fb.GetNowPlaying();
             var FileInfo = MetadbHandle.GetFileInfo();
-        } catch (e) { return; }
+        } catch (e) {
+            return;
+        } finally { MetadbHandle.Dispose() }
 
         var idx = FileInfo.MetaFind(tag);
         var str = FileInfo.MetaValue(idx, 0); // second arguments is numbar for multivalue. e.g.) ab;cde;f
@@ -775,10 +857,17 @@ LyricShow = new function (Style) {
                 try {
                     if (offsetY > LyricShow.setProperties.minOffsetY) {
                         offsetY -= this.speed;
+                        moveY += this.speed;
                     }
                     if (this.isLRC) {
-                        if (time >= LyricShow.setProperties.lineList[this.i + 1])
+                        if (time >= LyricShow.setProperties.lineList[this.i + 1]) {
                             lyric.i++;
+                            return true; // Refresh Flag
+                        }
+                    }
+                    if (moveY >= 1) {
+                        moveY--;
+                        return true; // Refresh Flag
                     }
                 } catch (e) {
                 } finally {
@@ -825,6 +914,7 @@ LyricShow = new function (Style) {
         else if (lyric)
             offsetY = fixY - this.setProperties.h * time / Math.round(fb.PlaybackLength * 100); // パネルの半分 - (1ファイルの高さ * 再生時間の割合)
 
+        moveY = Math.abs(offsetY % 1);
         window.Repaint();
         Busy = false;
     };
@@ -837,9 +927,84 @@ LyricShow = new function (Style) {
             this.scroll.interval(prop.Panel.Interval);
     };
 
+    this.fadeTimer = function () {
+
+        backalpha = 0;
+        this.increaseAlpha.clearInterval();
+        this.increaseAlpha.interval(50);
+    };
+
+    this.increaseAlpha = function () {
+
+        backalpha += 17;
+        if (backalpha >= 255) {
+            LyricShow.increaseAlpha.clearInterval();
+            backalpha = 255;
+        }
+        window.Repaint();
+    };
+
+    this.setBackgroundImage = function () {
+
+        var newImg, path, tmp;
+        var p = prop.Panel.BackgroundPath;
+        if (p) {
+            try {
+                var metadb = fb.GetNowPlaying();
+                p = fb.TitleFormat(p).EvalWithMetadb(metadb);
+                p = p.replaceEach("%fb2k_path%", fb.FoobarPath, "%fb2k_profile_path%", fb.ProfilePath, "<embed>", "<" + metadb.RawPath + ">", "gi");
+                if (BackgroundPath && (BackgroundPath.indexOf(metadb.Path) !== -1 || p.indexOf('<') === -1 && p.indexOf(BackgroundPath) !== -1)) {
+                    return; // skip GetImg
+                }
+            }
+            catch (e) { }
+            finally { metadb.Dispose(); }
+
+            p = p.split('||');
+            if (p instanceof Array)
+                for (var i = 0; i < p.length; i++) {
+                    path = p[i];
+                    newImg = GetImg(path);
+                    if (newImg) break;
+                }
+            else {
+                path = p;
+                newImg = GetImg(path);
+            }
+
+            if (newImg) {
+                if (path == BackgroundPath) {
+                    newImg.Dispose();
+                    return; // skip Calc, Reseize, and Fade effect
+                }
+                BackgroundPath = path;
+                BackgroundSize = CalcImgSize(newImg, window.Width, window.Height, prop.Panel.BackgroundStretch, prop.Panel.BackgroundKAR);
+                tmp = newImg.Resize(BackgroundSize.width, BackgroundSize.height, 7); // DrawImage関数でリサイズやアルファ値(255以外)を指定し頻繁に更新すると負荷が無視できないので先に適用しておく
+                BackgroundImg = tmp.ApplyAlpha(BackOption[1]);
+                tmp.Dispose(); // 生成した画像オブジェクトはその都度開放した方がいい(と思う)のでtmpを用いてそう出来るよう遠回りをした
+                newImg.Dispose();
+                if (prop.Panel.BackgroundRaw) {
+                    tmp = BackgroundImg.CreateRawBitmap();
+                    BackgroundImg.Dispose(); // 同じくその都度解放する
+                    BackgroundImg = tmp;
+                }
+                this.fadeTimer();
+            }
+            else {
+                if (BackgroundImg) {
+                    BackgroundImg.Dispose();
+                    BackgroundImg = null;
+                    BackgroundSize = null;
+                    BackgroundPath = null;
+                }
+            }
+        }
+    };
+
     this.start = function (path) {
 
         this.init();
+        prop.Panel.BackgroundEnable && this.setBackgroundImage();
         L:
         {
             if (extRe.test(path) && this.readLyric(path)) break L; // for FileDialog
@@ -897,8 +1062,8 @@ LyricShow = new function (Style) {
             New = fb.PlaybackTime * 100
             if (New > Old) { // fb.PlaybackTime を信用してはいけない。再生始めは不安定で時間が戻ったりする
                 Old = New;
-                LyricShow.setProperties.DrawStyle[lyric.i - 1].scroll(New); // lyric.i(対象行)の１個前(再生行)の情報でスクロール //timerで呼び出すとthisの意味が変わるのでthisは使わない
-                window.Repaint();
+                if (LyricShow.setProperties.DrawStyle[lyric.i - 1].scroll(New)) // lyric.i(対象行)の１個前(再生行)の情報でスクロール //timerで呼び出すとthisの意味が変わるのでthisは使わない
+                    window.Repaint();
             }
         }
     };
@@ -906,6 +1071,11 @@ LyricShow = new function (Style) {
     this.on_paint = function (gr) {
 
         gr.FillSolidRect(-1, -1, window.Width + 1, window.Height + 1, Color.Background);
+        if (BackgroundImg)
+            if (prop.Panel.BackgroundRaw)
+                gr.GdiDrawBitmap(BackgroundImg, BackgroundSize.x, BackgroundSize.y, BackgroundSize.width, BackgroundSize.height, 0, 0, BackgroundImg.Width, BackgroundImg.Height);
+            else
+                gr.DrawImage(BackgroundImg, BackgroundSize.x, BackgroundSize.y, BackgroundSize.width, BackgroundSize.height, 0, 0, BackgroundImg.Width, BackgroundImg.Height, BackOption[0], backalpha);
 
         if (!main.IsVisible)
             gr.GdiDrawText("Click here to enable this panel.", Style.Font, Color.Text, g_x, g_y + offsetY - 6, ww, wh, Style.Align);
@@ -1936,6 +2106,7 @@ Menu = new function () {
 //========================================
 
 function main(path) {
+
     if (arguments.callee.IsVisible !== window.IsVisible)
         arguments.callee.IsVisible = window.IsVisible;
 
@@ -1965,9 +2136,10 @@ main();
 //== Callback function =========================
 //========================================
 function on_paint(gr) {
-    gr.SetTextRenderingHint(5);
+    /*    gr.SetTextRenderingHint(5);
     gr.SetSmoothingMode(2);
-    gr.SetInterpolationMode(5);
+    gr.SetInterpolationMode(7);
+    */
 
     if (!prop.Edit.Start)
         LyricShow.on_paint(gr);
@@ -1992,6 +2164,8 @@ function on_focus(is_focused) {
 
 function on_playback_new_track(metadb) {
     main();
+    rqueue++;
+    reLoad.timeout(5000); // for stability
 }
 
 function on_playback_seek(time) {
@@ -2061,14 +2235,14 @@ function on_mouse_leave() {
 
 function on_mouse_lbtn_down(x, y, mask) {
     if (!prop.Edit.Start) {
-        if (path && (x < g_x || x > g_x + ww || y < g_y || y > g_y + wh))
-            if (prop.Panel.Editor)
-                FuncCommand(prop.Panel.Editor + " " + path);
-            else
-                FuncCommand(path);
-        else {
+        if (path) {
             drag = true;
             drag_y = y;
+            if (x < g_x || x > g_x + ww || y < g_y || y > g_y + wh)
+                if (prop.Panel.Editor)
+                    FuncCommand(prop.Panel.Editor + " " + path);
+                else
+                    FuncCommand(path);
         }
     }
     else if (!Lock)
