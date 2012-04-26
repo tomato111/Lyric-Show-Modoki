@@ -3,7 +3,7 @@
 
 // ==PREPROCESSOR==
 // @name "Lyric Show Modoki"
-// @version "1.0.0"
+// @version "1.0.1"
 // @author "tomato111"
 // @import "%fb2k_path%import\common\lib.js"
 // ==/PREPROCESSOR==
@@ -530,7 +530,7 @@ function CalcImgSize(img, dspW, dspH, strch, kar) {
 
 function reLoad() {
     rqueue--;
-    if (rqueue !== 0)
+    if (rqueue !== 0 || !lyric)
         return;
     main();
 }
@@ -847,36 +847,30 @@ LyricShow = new function (Style) {
                     } else {
                         this.text = lyric.text[i];
                         this.speed = p.scrollSpeedList.degree;
+                        this.highline = Style.Highline;
                     }
                     this.y = DrawStyle[i - 1].nextY;
                     this.nextY = this.y + this.height;
+                    this.cy = this.y + g_y;
                 }
             }
             DrawString.prototype.scroll = function (time) {
-                Busy = true;
-                try {
-                    if (offsetY > LyricShow.setProperties.minOffsetY) {
-                        offsetY -= this.speed;
-                        moveY += this.speed;
-                    }
-                    if (this.isLRC) {
-                        if (time >= LyricShow.setProperties.lineList[this.i + 1]) {
-                            lyric.i++;
-                            return true; // Refresh Flag
-                        }
-                    }
-                    if (moveY >= 1) {
-                        moveY--;
-                        return true; // Refresh Flag
-                    }
-                } catch (e) {
-                } finally {
-                    debug_scroll && fb.trace(this.i + " :: " + this.height + " :: " + this.speed + " :: " + offsetY + " :: " + lyric.text.length + " :: " + time + " > " + LyricShow.setProperties.DrawStyle[this.i + 1].time * 100)
-                    Busy = false;
+                if (offsetY > LyricShow.setProperties.minOffsetY) {
+                    offsetY -= this.speed;
+                    moveY += this.speed;
                 }
+                if (this.isLRC && time >= LyricShow.setProperties.lineList[this.i + 1]) {
+                    lyric.i++;
+                    window.Repaint();
+                }
+                if (moveY >= 1) {
+                    moveY--;
+                    window.Repaint();
+                }
+                //                    debug_scroll && fb.trace(this.i + " :: " + this.height + " :: " + this.speed + " :: " + offsetY + " :: " + lyric.text.length + " :: " + time + " > " + LyricShow.setProperties.DrawStyle[this.i + 1].time * 100)
             };
             DrawString.prototype.draw = function (gr) {
-                gr.GdiDrawText(this.text, Style.Font, (lyric.i - 1 == this.i || filetype == "txt" && Style.Highline) ? Style.Color.PlayingText : Style.Color.Text, g_x, g_y + offsetY + this.y, ww, wh, Style.Align);
+                gr.GdiDrawText(this.text, Style.Font, (this.highline || lyric.i - 1 === this.i) ? Style.Color.PlayingText : Style.Color.Text, g_x, this.cy + offsetY, ww, wh, Style.Align);
             };
             DrawString.prototype.onclick = function (x, y) {
                 if (prop.Edit.View) {
@@ -1062,8 +1056,7 @@ LyricShow = new function (Style) {
             New = fb.PlaybackTime * 100
             if (New > Old) { // fb.PlaybackTime を信用してはいけない。再生始めは不安定で時間が戻ったりする
                 Old = New;
-                if (LyricShow.setProperties.DrawStyle[lyric.i - 1].scroll(New)) // lyric.i(対象行)の１個前(再生行)の情報でスクロール //timerで呼び出すとthisの意味が変わるのでthisは使わない
-                    window.Repaint();
+                LyricShow.setProperties.DrawStyle[lyric.i - 1].scroll(New) // lyric.i(対象行)の１個前(再生行)の情報でスクロール //timerで呼び出すとthisの意味が変わるのでthisは使わない
             }
         }
     };
@@ -2235,15 +2228,15 @@ function on_mouse_leave() {
 
 function on_mouse_lbtn_down(x, y, mask) {
     if (!prop.Edit.Start) {
-        if (path) {
+        if (lyric) {
             drag = true;
             drag_y = y;
-            if (x < g_x || x > g_x + ww || y < g_y || y > g_y + wh)
-                if (prop.Panel.Editor)
-                    FuncCommand(prop.Panel.Editor + " " + path);
-                else
-                    FuncCommand(path);
         }
+        if (path && (x < g_x || x > g_x + ww || y < g_y || y > g_y + wh))
+            if (prop.Panel.Editor)
+                FuncCommand(prop.Panel.Editor + " " + path);
+            else
+                FuncCommand(path);
     }
     else if (!Lock)
         if (Buttons.CurrentButton)
