@@ -3,7 +3,7 @@
 
 // ==PREPROCESSOR==
 // @name "Lyric Show Modoki"
-// @version "1.0.1"
+// @version "1.0.2"
 // @author "tomato111"
 // @import "%fb2k_path%import\common\lib.js"
 // ==/PREPROCESSOR==
@@ -14,8 +14,8 @@
 //== Global Variable and Function =====================
 //============================================
 // user reserved words
-var scriptName, scriptdir, commondir, plugins, lyric, parse_path, path, directory, filename, basename, filetype, dateLastModified, dateCreated, dataSize, backalpha, rqueue
-, fs, ws, prop, Messages, Label, tagRe, timeRe, firstRe, TextHeight, offsetY, fixY, moveY, drag, drag_y, ww, wh, larea_seek, rarea_seek, seek_width, rarea_seek_x, disp, Lock
+var scriptName, scriptdir, commondir, plugins, lyric, parse_path, path, directory, filename, basename, filetype, dateLastModified, dateCreated, dataSize, backalpha
+, fs, ws, prop, Messages, Label, tagRe, timeRe, firstRe, TextHeight, offsetY, fixY, moveY, lineY, drag, drag_y, ww, wh, larea_seek, rarea_seek, seek_width, rarea_seek_x, disp, Lock
 , debug_read, debug_scroll, debug_edit, debug_view
 , DT_LEFT, DT_CENTER, DT_RIGHT, DT_WORDBREAK, DT_NOPREFIX
 , LyricShow, Edit, Buttons, Menu;
@@ -26,7 +26,6 @@ ws = new ActiveXObject("WScript.Shell"); // WScript Shell Object
 scriptName = "Lyric Show Modoki";
 scriptdir = fb.FoobarPath + "import\\" + scriptName + "\\";
 commondir = fb.FoobarPath + "import\\common\\";
-rqueue = 0;
 disp = {};
 DT_LEFT = 0x00000000;
 DT_CENTER = 0x00000001;
@@ -49,12 +48,12 @@ prop = new function () {
         Path: window.GetProperty("Panel.Path", defaultpath),
         Lang: window.GetProperty("Panel.Language", ""),
         Conf: window.GetProperty("Panel.HideConfigureMenu", false),
-        Interval: window.GetProperty("Panel.RefreshInterval", 50),
+        Interval: window.GetProperty("Panel.RefreshInterval", 30),
         Editor: window.GetProperty("Panel.ExternalEditor", ""),
         NoLyric: window.GetProperty("Panel.NoLyricsFound", "Title: %title%\\nArtist: %artist%\\nAlbum: %album%\\n\\n-no lyrics-"),
         Priority: window.GetProperty("Panel.Priority", "Sync_Tag,Sync_File,Unsync_Tag,Unsync_File"),
         Contain: window.GetProperty("Panel.LRC.ContainNormalLines", false),
-        BackgroundEnable: window.GetProperty("Panel.Background.Enable", false),
+        BackgroundEnable: window.GetProperty("Panel.Background.Enable", true),
         BackgroundPath: window.GetProperty("Panel.Background.Image", "<embed>||'%fb2k_path%'\\import\\Lyric Show Modoki\\background.jpg"),
         BackgroundRaw: window.GetProperty("Panel.Background.ImageToRawBitmap", false),
         BackgroundOption: window.GetProperty("Panel.Background.ImageOption", "20,50").split(/[ 　]*,[ 　]*/),
@@ -71,7 +70,7 @@ prop = new function () {
 
     var interval = this.Panel.Interval;
     if (!interval || typeof interval !== "number" || interval < 30)
-        window.SetProperty("Panel.RefreshInterval", this.Panel.Interval = 50);
+        window.SetProperty("Panel.RefreshInterval", this.Panel.Interval = 30);
 
     if (!this.Panel.BackgroundOption || !(this.Panel.BackgroundOption instanceof Array) || this.Panel.BackgroundOption.length < 2) {
         window.SetProperty("Panel.Background.ImageOption", this.Panel.BackgroundOption = "20,50");
@@ -93,7 +92,7 @@ prop = new function () {
         HPadding: window.GetProperty("Style.Horizontal-Padding", 5),
         VPadding: window.GetProperty("Style.Vartical-Padding", 4),
         LPadding: window.GetProperty("Style.Line-Padding", 0),
-        Highline: window.GetProperty("Style.HighlineColor for unsynced lyrics", false)
+        Highline: window.GetProperty("Style.HighlineColor for unsynced lyrics", true)
     };
 
     this.Style.CLS = { // define color of LyricShow 
@@ -270,6 +269,7 @@ switch (prop.Panel.Lang) {
             Refresh: "Refresh",
             About: "About current lyric",
             Contain: "Contain Normal Lines",
+            BEnable: "Show Background Image",
             Copy: "Copy lyrics",
             CopyWith: "Copy with timetag",
             CopyWithout: "Copy without timetag",
@@ -320,6 +320,7 @@ switch (prop.Panel.Lang) {
             Refresh: "更新",
             About: "この歌詞について",
             Contain: "通常の行を含める",
+            BEnable: "背景画像を表示する",
             Copy: "コピー",
             CopyWith: "タイムタグ付きでコピー",
             CopyWithout: "タイムタグなしでコピー",
@@ -528,12 +529,6 @@ function CalcImgSize(img, dspW, dspH, strch, kar) {
     return size;
 }
 
-function reLoad() {
-    rqueue--;
-    if (rqueue !== 0 || !lyric)
-        return;
-    main();
-}
 
 //===========================================
 //== Create "LyricShow" Object ======================
@@ -553,15 +548,6 @@ LyricShow = new function (Style) {
         this.end();
         Color = Style.Color;
         offsetY = fixY;
-        disp.top = 0;
-        path = directory = filename = basename = filetype = lyric = readTextFile.lastCharset = null;
-        if (!fb.IsPlaying && BackgroundImg) {
-            BackgroundImg.Dispose();
-            BackgroundImg = null;
-            BackgroundSize = null;
-            BackgroundPath = null;
-        }
-
     };
 
     this.initWithFile = function (file) {
@@ -804,7 +790,8 @@ LyricShow = new function (Style) {
                     h = this.wordbreakList[i] * TextHeight; // 行の高さ
                     t = (lineList[i + 1] - lineList[i]) * 10; // 次の行までの時間[ms]
                     scrollSpeedList[i] = h / t * prop.Panel.Interval; // 1回の更新での移動量(行ごとに変化する)
-                    if (scrollSpeedList[i] > h) scrollSpeedList[i] = h; // 1回の更新で行の高さを超える移動量となった場合はスキップ
+                    if (scrollSpeedList[i] > h) // 1回の更新で行の高さを超える移動量となった場合はスキップ
+                        scrollSpeedList[i] = h;
                 }
                 scrollSpeedList[i - 1] = 0; // 最後の行の移動量は0
             } else {
@@ -858,14 +845,17 @@ LyricShow = new function (Style) {
                 if (offsetY > LyricShow.setProperties.minOffsetY) {
                     offsetY -= this.speed;
                     moveY += this.speed;
+                    lineY += this.speed;
                 }
                 if (this.isLRC && time >= LyricShow.setProperties.lineList[this.i + 1]) {
+                    offsetY = Math.round(offsetY - this.height + lineY); // fix remainder. offsetY - (this.height - lineY)
+                    moveY = lineY = 0;
                     lyric.i++;
-                    window.Repaint();
+                    return true; // refresh flag
                 }
                 if (moveY >= 1) {
-                    moveY--;
-                    window.Repaint();
+                    moveY -= Math.floor(moveY);
+                    return true; // refresh flag
                 }
                 //                    debug_scroll && fb.trace(this.i + " :: " + this.height + " :: " + this.speed + " :: " + offsetY + " :: " + lyric.text.length + " :: " + time + " > " + LyricShow.setProperties.DrawStyle[this.i + 1].time * 100)
             };
@@ -895,6 +885,7 @@ LyricShow = new function (Style) {
 
         Busy = true;
         disp.top = 0;
+        disp.bottom = lyric.text.length - 1;
         Old = time *= 100;
         var lineList = this.setProperties.lineList;
         if (lineList) {
@@ -902,10 +893,10 @@ LyricShow = new function (Style) {
                 if (lineList[i] > time) break;
             lyric.i = i;
 
-            var d = (time - lineList[i - 1]) * 10 / prop.Panel.Interval * DrawStyle[i - 1].speed; // (i-1行になってから現在の再生時間になるまでに行われた更新回数) * 1回の更新での移動量
-            offsetY = fixY - DrawStyle[i - 1].y - d; // オフセットの変動値は(文字の高さ*行数)
+            lineY = (time - lineList[i - 1]) * 10 / prop.Panel.Interval * DrawStyle[i - 1].speed; // (i-1行になってから現在の再生時間になるまでに行われた更新回数) * 1回の更新での移動量
+            offsetY = fixY - DrawStyle[i - 1].y - lineY; // オフセットの変動値は(文字の高さ*行数)
         }
-        else if (lyric)
+        else
             offsetY = fixY - this.setProperties.h * time / Math.round(fb.PlaybackLength * 100); // パネルの半分 - (1ファイルの高さ * 再生時間の割合)
 
         moveY = Math.abs(offsetY % 1);
@@ -921,11 +912,19 @@ LyricShow = new function (Style) {
             this.scroll.interval(prop.Panel.Interval);
     };
 
-    this.fadeTimer = function () {
+    this.fadeTimer = function (reverse) {
 
-        backalpha = 0;
         this.increaseAlpha.clearInterval();
-        this.increaseAlpha.interval(50);
+        this.decreaseAlpha.clearInterval();
+
+        if (!reverse) {
+            backalpha = 0;
+            this.increaseAlpha.interval(50);
+        }
+        else {
+            backalpha = 255;
+            this.decreaseAlpha.interval(30);
+        }
     };
 
     this.increaseAlpha = function () {
@@ -936,6 +935,28 @@ LyricShow = new function (Style) {
             backalpha = 255;
         }
         window.Repaint();
+    };
+
+    this.decreaseAlpha = function () {
+
+        backalpha -= 17;
+        if (backalpha <= 0) {
+            LyricShow.decreaseAlpha.clearInterval();
+            backalpha = 0;
+        }
+        window.Repaint();
+    };
+
+    this.releaseGlaphic = function () {
+
+        if (BackgroundImg) {
+            BackgroundImg.Dispose();
+            BackgroundImg = BackgroundSize = BackgroundPath = null;
+        }
+    };
+
+    this.checkGlaphicExists = function () {
+        return Boolean(BackgroundImg);
     };
 
     this.setBackgroundImage = function () {
@@ -984,14 +1005,8 @@ LyricShow = new function (Style) {
                 }
                 this.fadeTimer();
             }
-            else {
-                if (BackgroundImg) {
-                    BackgroundImg.Dispose();
-                    BackgroundImg = null;
-                    BackgroundSize = null;
-                    BackgroundPath = null;
-                }
-            }
+            else
+                this.releaseGlaphic();
         }
     };
 
@@ -1046,7 +1061,15 @@ LyricShow = new function (Style) {
     this.end = function () {
 
         this.pauseTimer(true); // 従来のタイマーの後処理のようにtimerにnull等を代入するとclearで引っかかって余計に処理の記述が増える。中身はただの数字なので何もしなくて良い
+        path = directory = filename = basename = filetype = lyric = readTextFile.lastCharset = null;
         this.setProperties.lineList = this.setProperties.wordbreakList = this.setProperties.scrollSpeedList = this.setProperties.DrawStyle = this.setProperties.h = DrawStyle = null;
+        lineY = moveY = null;
+
+        if (!prop.Panel.BackgroundEnable)
+            this.releaseGlaphic();
+        else if (!fb.IsPlaying)
+            this.releaseGlaphic();
+
         CollectGarbage();
     };
 
@@ -1056,7 +1079,8 @@ LyricShow = new function (Style) {
             New = fb.PlaybackTime * 100
             if (New > Old) { // fb.PlaybackTime を信用してはいけない。再生始めは不安定で時間が戻ったりする
                 Old = New;
-                LyricShow.setProperties.DrawStyle[lyric.i - 1].scroll(New) // lyric.i(対象行)の１個前(再生行)の情報でスクロール //timerで呼び出すとthisの意味が変わるのでthisは使わない
+                if (LyricShow.setProperties.DrawStyle[lyric.i - 1].scroll(New)) // lyric.i(対象行)の１個前(再生行)の情報でスクロール //timerで呼び出すとthisの意味が変わるのでthisは使わない
+                    window.Repaint();
             }
         }
     };
@@ -1073,6 +1097,7 @@ LyricShow = new function (Style) {
         if (!main.IsVisible)
             gr.GdiDrawText("Click here to enable this panel.", Style.Font, Color.Text, g_x, g_y + offsetY - 6, ww, wh, Style.Align);
         else if (lyric) { // lyrics is found
+            //            gr.FillSolidRect(0, fixY + 2, window.Width, 1, RGB(255, 0, 128)); gr.FillSolidRect(0, fixY + 2 + TextHeight, window.Width, 1, RGB(255, 0, 128));
             if (lyric.info.length && offsetY > 0)
                 for (var i = 1; i <= lyric.info.length; i++)
                     gr.GdiDrawText(lyric.info[lyric.info.length - i], Style.Font, Color.Text, g_x, g_y + offsetY - TextHeight * i, ww, wh, Style.Align ^ DT_WORDBREAK);
@@ -1416,7 +1441,6 @@ Edit = new function (Style, p) {
             this.i = this.offsetY = null;
             lyric.i == lyric.text.length && Edit.undo();
             Edit.calcRGBdiff();
-            CollectGarbage();
             window.Repaint();
         };
     }
@@ -1759,6 +1783,23 @@ Menu = new function () {
  		    Radio: null
  		},
  		{
+ 		    Caption: Label.BEnable,
+ 		    Func: function () {
+ 		        window.SetProperty("Panel.Background.Enable", prop.Panel.BackgroundEnable = !prop.Panel.BackgroundEnable);
+ 		        if (prop.Panel.BackgroundEnable)
+ 		            if (LyricShow.checkGlaphicExists()) {
+ 		                LyricShow.fadeTimer();
+ 		                Menu.build();
+ 		            }
+ 		            else
+ 		                main();
+ 		        else {
+ 		            LyricShow.fadeTimer(true);
+ 		            Menu.build();
+ 		        }
+ 		    }
+ 		},
+ 		{
  		    Caption: Label.Contain,
  		    Func: function () {
  		        window.SetProperty("Panel.LRC.ContainNormalLines", prop.Panel.Contain = !prop.Panel.Contain);
@@ -2025,23 +2066,24 @@ Menu = new function () {
         items: menu_LyricShow,
         refresh: function () {
             menu_LyricShow[3].Radio = Number(prop.Style.Align ^ DT_WORDBREAK ^ DT_NOPREFIX); // radio number begin with 0
+            menu_LyricShow[4].Flag = prop.Panel.BackgroundEnable ? MF_CHECKED : MF_UNCHECKED;
             menu_LyricShow[11].Flag = directory ? MF_STRING : MF_GRAYED;
             menu_LyricShow[12].Flag = fb.IsPlaying ? MF_STRING : MF_GRAYED;
             if (lyric) {
                 menu_LyricShow[2].Flag = MF_STRING;
-                menu_LyricShow[4].Flag = filetype == "lrc" ? prop.Panel.Contain ? MF_CHECKED : MF_UNCHECKED : MF_GRAYED;
-                menu_LyricShow[6].Flag = MF_STRING;
+                menu_LyricShow[5].Flag = filetype == "lrc" ? prop.Panel.Contain ? MF_CHECKED : MF_UNCHECKED : MF_GRAYED;
                 menu_LyricShow[7].Flag = MF_STRING;
                 menu_LyricShow[8].Flag = MF_STRING;
-                menu_LyricShow[10].Flag = path ? MF_STRING : MF_GRAYED;
+                menu_LyricShow[9].Flag = MF_STRING;
+                menu_LyricShow[11].Flag = path ? MF_STRING : MF_GRAYED;
             }
             else {
                 menu_LyricShow[2].Flag = MF_GRAYED;
-                menu_LyricShow[4].Flag = MF_GRAYED;
-                menu_LyricShow[6].Flag = MF_GRAYED;
+                menu_LyricShow[5].Flag = MF_GRAYED;
                 menu_LyricShow[7].Flag = MF_GRAYED;
                 menu_LyricShow[8].Flag = MF_GRAYED;
-                menu_LyricShow[10].Flag = MF_GRAYED;
+                menu_LyricShow[9].Flag = MF_GRAYED;
+                menu_LyricShow[11].Flag = MF_GRAYED;
             }
         }
     };
@@ -2157,13 +2199,11 @@ function on_focus(is_focused) {
 
 function on_playback_new_track(metadb) {
     main();
-    rqueue++;
-    reLoad.timeout(5000); // for stability
 }
 
 function on_playback_seek(time) {
     if (!prop.Edit.Start) {
-        LyricShow.searchLine(time);
+        lyric && LyricShow.searchLine(time);
     }
     else if (prop.Edit.View)
         Edit.View.searchLine(time);
