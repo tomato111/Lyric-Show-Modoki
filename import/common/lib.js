@@ -387,7 +387,7 @@ function setClipboard(text) {
 }
 
 function getClipboard() {
-    new ActiveXObject("htmlfile").parentWindow.clipboardData.getData("text");
+    return new ActiveXObject("htmlfile").parentWindow.clipboardData.getData("text");
 }
 
 //-- Send to recycle bin --

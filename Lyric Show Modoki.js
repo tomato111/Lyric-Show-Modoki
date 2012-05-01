@@ -3,7 +3,7 @@
 
 // ==PREPROCESSOR==
 // @name "Lyric Show Modoki"
-// @version "1.0.2"
+// @version "1.0.3"
 // @author "tomato111"
 // @import "%fb2k_path%import\common\lib.js"
 // ==/PREPROCESSOR==
@@ -248,12 +248,13 @@ switch (prop.Panel.Lang) {
             new Message("Saved to tag.\n", "Info", 64), //2
             new Message("The extension of reading lyrics is wrong.\nIt is read as ", scriptName, 48), //3
             new Message("Save？", "Confirmation", 36), //4
-            new Message("Couldn't save lyrics to text file.", "Error", 48), //5
+            new Message("Couldn't save lyrics to a text file.", "Error", 48), //5
             new Message("Saved!\n", "Info", 64), //6
             new Message("The file is locked or does not exist", "Error", 48), //7
             new Message("Delete? \n", "Confirmation", 36), //8
             new Message("Deleted.", "Info", 64), //9
-            new Message("Couldn't save lyrics to tag.", "Error", 48) //10
+            new Message("Couldn't save lyrics to tag.", "Error", 48), //10
+            new Message("Couldn't read the text.", "Error", 48) //11
         ];
         Label = {
             Prop: "Properties...",
@@ -273,6 +274,7 @@ switch (prop.Panel.Lang) {
             Copy: "Copy lyrics",
             CopyWith: "Copy with timetag",
             CopyWithout: "Copy without timetag",
+            CreateLyric: "Create from clipboard",
             Align: "Align",
             Align_Left: "Left",
             Align_Center: "Center",
@@ -304,7 +306,8 @@ switch (prop.Panel.Lang) {
             new Message("ファイルがロックされているか、ファイルが存在しません。", "エラー", 48), //7
             new Message("削除しますか? \n", "確認", 36), //8
             new Message("削除しました", "Info", 64), //9
-            new Message("タグに保存できませんでした。", "エラー", 48) //10
+            new Message("タグに保存できませんでした。", "エラー", 48), //10
+            new Message("文字を取得できませんでした。", "エラー", 48) //11
         ];
         Label = {
             Prop: "設定...",
@@ -324,6 +327,7 @@ switch (prop.Panel.Lang) {
             Copy: "コピー",
             CopyWith: "タイムタグ付きでコピー",
             CopyWithout: "タイムタグなしでコピー",
+            CreateLyric: "クリップボードから作成",
             Align: "列揃え",
             Align_Left: "左",
             Align_Center: "中央",
@@ -463,6 +467,42 @@ function copyLyric(withTag) { // copy lyric to clipboad
 
     setClipboard(text);
 
+}
+
+function createLyricByClipboard() {
+
+    if (fb.IsPlaying)
+        var meta = fb.GetNowPlaying();
+    else
+        return;
+
+    var ws = new ActiveXObject("WScript.Shell");
+    var text = getClipboard();
+    if (text) {
+        var intButton = ws.Popup(text
+                         + "\n\n==============================================\n"
+                         + "                                                                           この歌詞を保存しますか？", 0, "確認", 4);
+        if (intButton === 6)
+            try {
+                var file = parse_path + (tagRe.test(text) ? ".lrc" : ".txt");
+                console(file);
+                var folder = fs.GetParentFolderName(file);
+                console(folder);
+                if (!fs.FolderExists(folder))
+                    createFolder(fs, folder);
+                writeTextFile(text, file, prop.Save.CharacterCode);
+                Messages[6].popup(file);
+                FuncCommands(prop.Save.RunAfterSave, meta);
+                main();
+            } catch (e) {
+                Messages[5].popup("\n" + e.message);
+            }
+            finally {
+                meta.Dispose();
+            }
+    }
+    else
+        Messages[11].popup();
 }
 
 function applyDelta(delta) {
@@ -1761,11 +1801,11 @@ Menu = new function () {
     //  main menu items
     //=============
     var menu_LyricShow = [
-		{
-		    Flag: MF_STRING,
-		    Caption: Label.Refresh,
-		    Func: main
-		},
+        {
+            Flag: MF_STRING,
+            Caption: Label.Refresh,
+            Func: main
+        },
         {
             Flag: MF_SEPARATOR
         },
@@ -1776,63 +1816,67 @@ Menu = new function () {
                 Edit.start();
             }
         },
- 		{
- 		    Flag: MF_STRING,
- 		    Caption: Label.Align,
- 		    Sub: submenu_Align,
- 		    Radio: null
- 		},
- 		{
- 		    Caption: Label.BEnable,
- 		    Func: function () {
- 		        window.SetProperty("Panel.Background.Enable", prop.Panel.BackgroundEnable = !prop.Panel.BackgroundEnable);
- 		        if (prop.Panel.BackgroundEnable)
- 		            if (LyricShow.checkGlaphicExists()) {
- 		                LyricShow.fadeTimer();
- 		                Menu.build();
- 		            }
- 		            else
- 		                main();
- 		        else {
- 		            LyricShow.fadeTimer(true);
- 		            Menu.build();
- 		        }
- 		    }
- 		},
- 		{
- 		    Caption: Label.Contain,
- 		    Func: function () {
- 		        window.SetProperty("Panel.LRC.ContainNormalLines", prop.Panel.Contain = !prop.Panel.Contain);
- 		        main();
- 		    }
- 		},
+        {
+            Flag: MF_STRING,
+            Caption: Label.Align,
+            Sub: submenu_Align,
+            Radio: null
+        },
+        {
+            Caption: Label.BEnable,
+            Func: function () {
+                window.SetProperty("Panel.Background.Enable", prop.Panel.BackgroundEnable = !prop.Panel.BackgroundEnable);
+                if (prop.Panel.BackgroundEnable)
+                    if (LyricShow.checkGlaphicExists()) {
+                        LyricShow.fadeTimer();
+                        Menu.build();
+                    }
+                    else
+                        main();
+                else {
+                    if (!prop.Panel.BackgroundRaw) {
+                        LyricShow.fadeTimer(true);
+                        Menu.build();
+                    }
+                    else
+                        main();
+                }
+            }
+        },
+        {
+            Caption: Label.Contain,
+            Func: function () {
+                window.SetProperty("Panel.LRC.ContainNormalLines", prop.Panel.Contain = !prop.Panel.Contain);
+                main();
+            }
+        },
         {
             Flag: MF_SEPARATOR
         },
-		{
-		    Flag: MF_STRING,
-		    Caption: Label.About,
-		    Func: function () {
-		        var LineFeedCode = prop.Save.LineFeedCode;
-		        var lyrics = (lyric.info.length ? lyric.info.join(LineFeedCode) + LineFeedCode : "") + lyric.text.join(LineFeedCode).trim();
+        {
+            Flag: MF_STRING,
+            Caption: Label.About,
+            Func: function () {
+                var LineFeedCode = prop.Save.LineFeedCode;
+                var lyrics = (lyric.info.length ? lyric.info.join(LineFeedCode) + LineFeedCode : "") + lyric.text.join(LineFeedCode).trim();
 
-		        if (path)
-		            var str = path + "\nLastModified: " + dateLastModified + "\nCreated: " + dateCreated + "\n"
+                if (path)
+                    var str = path + "\nLastModified: " + dateLastModified + "\nCreated: " + dateCreated + "\n"
                             + "Lyrics: " + Number(lyric.text.length - 1) + " lines, " + dataSize / 1000 + " kB, read as " + readTextFile.lastCharset + "\n"
                             + lyrics;
-		        else
-		            str = "Field: " + basename + "\n" + filetype.toUpperCase() + "\n"
+                else
+                    str = "Field: " + basename + "\n" + filetype.toUpperCase() + "\n"
                         + "Lyrics: " + Number(lyric.text.length - 1) + " lines\n"
                         + lyrics;
 
-		        fb.ShowPopupMessage(str);
-		    }
-		},
-		{
-		    Flag: MF_POPUP,
-		    Caption: Label.Copy,
-		    Sub: submenu_Copy
-		},
+                fb.ShowPopupMessage(str);
+            }
+        },
+        {
+            Flag: MF_POPUP,
+            Caption: Label.Copy,
+            Sub: submenu_Copy
+        },
         {
             Flag: MF_STRING,
             Caption: Label.SaveToTag,
@@ -1855,37 +1899,45 @@ Menu = new function () {
         {
             Flag: MF_SEPARATOR
         },
-		{
-		    Flag: MF_STRING,
-		    Caption: Label.OpenIn,
-		    Func: function () {
-		        if (path)
-		            if (prop.Panel.Editor)
-		                FuncCommand(prop.Panel.Editor + " " + path);
-		            else
-		                FuncCommand(path);
-		    }
-		},
-		{
-		    Flag: MF_STRING,
-		    Caption: Label.OpenFolder,
-		    Func: function () {
-		        if (path)
-		            FuncCommand("explorer.exe /select,\"" + path + "\"");
-		        else if (directory)
-		            FuncCommand(directory);
-		    }
-		},
-		{
-		    Flag: MF_STRING,
-		    Caption: Label.Open,
-		    Func: function () {
-		        var filter = "Lyric Files(*.lrc;*.txt)|*.txt;*.lrc|LRC Files(*.lrc)|*.lrc|Text Files(*.txt)|*.txt|All Files(*.*)|*.*";
-		        var fd = new FileDialog(commondir + 'FileDialog.exe -o "' + filter + '" txt');
-		        fd.setOnReady(function (file) { main(file); });
-		        fd.open();
-		    }
-		}
+        {
+            Flag: MF_STRING,
+            Caption: Label.CreateLyric,
+            Func: createLyricByClipboard
+        },
+        {
+            Flag: MF_STRING,
+            Caption: Label.Open,
+            Func: function () {
+                var filter = "Lyric Files(*.lrc;*.txt)|*.txt;*.lrc|LRC Files(*.lrc)|*.lrc|Text Files(*.txt)|*.txt|All Files(*.*)|*.*";
+                var fd = new FileDialog(commondir + 'FileDialog.exe -o "' + filter + '" txt');
+                fd.setOnReady(function (file) { main(file); });
+                fd.open();
+            }
+        },
+        {
+            Flag: MF_SEPARATOR
+        },
+        {
+            Flag: MF_STRING,
+            Caption: Label.OpenIn,
+            Func: function () {
+                if (path)
+                    if (prop.Panel.Editor)
+                        FuncCommand(prop.Panel.Editor + " " + path);
+                    else
+                        FuncCommand(path);
+            }
+        },
+        {
+            Flag: MF_STRING,
+            Caption: Label.OpenFolder,
+            Func: function () {
+                if (path)
+                    FuncCommand("explorer.exe /select,\"" + path + "\"");
+                else if (directory)
+                    FuncCommand(directory);
+            }
+        }
     ];
 
     var menu_Edit = [
@@ -1983,11 +2035,11 @@ Menu = new function () {
         {
             Flag: MF_SEPARATOR
         },
-		{
-		    Flag: MF_STRING,
-		    Caption: Label.Prop,
-		    Func: function () { window.ShowProperties(); }
-		},
+        {
+            Flag: MF_STRING,
+            Caption: Label.Prop,
+            Func: function () { window.ShowProperties(); }
+        },
         {
             Flag: MF_STRING,
             Caption: Label.Help,
@@ -2067,24 +2119,25 @@ Menu = new function () {
         refresh: function () {
             menu_LyricShow[3].Radio = Number(prop.Style.Align ^ DT_WORDBREAK ^ DT_NOPREFIX); // radio number begin with 0
             menu_LyricShow[4].Flag = prop.Panel.BackgroundEnable ? MF_CHECKED : MF_UNCHECKED;
-            menu_LyricShow[11].Flag = directory ? MF_STRING : MF_GRAYED;
-            menu_LyricShow[12].Flag = fb.IsPlaying ? MF_STRING : MF_GRAYED;
+            menu_LyricShow[14].Flag = path ? MF_STRING : MF_GRAYED;
+
             if (lyric) {
                 menu_LyricShow[2].Flag = MF_STRING;
                 menu_LyricShow[5].Flag = filetype == "lrc" ? prop.Panel.Contain ? MF_CHECKED : MF_UNCHECKED : MF_GRAYED;
                 menu_LyricShow[7].Flag = MF_STRING;
                 menu_LyricShow[8].Flag = MF_STRING;
                 menu_LyricShow[9].Flag = MF_STRING;
-                menu_LyricShow[11].Flag = path ? MF_STRING : MF_GRAYED;
             }
-            else {
-                menu_LyricShow[2].Flag = MF_GRAYED;
-                menu_LyricShow[5].Flag = MF_GRAYED;
-                menu_LyricShow[7].Flag = MF_GRAYED;
-                menu_LyricShow[8].Flag = MF_GRAYED;
-                menu_LyricShow[9].Flag = MF_GRAYED;
-                menu_LyricShow[11].Flag = MF_GRAYED;
+            else
+                menu_LyricShow[2].Flag = menu_LyricShow[5].Flag = menu_LyricShow[7].Flag = menu_LyricShow[8].Flag = menu_LyricShow[9].Flag = MF_GRAYED;
+
+            if (fb.IsPlaying) {
+                menu_LyricShow[11].Flag = MF_STRING;
+                menu_LyricShow[12].Flag = MF_STRING;
+                menu_LyricShow[15].Flag = MF_STRING;
             }
+            else
+                menu_LyricShow[11].Flag = menu_LyricShow[12].Flag = menu_LyricShow[15].Flag = MF_GRAYED;
         }
     };
 
