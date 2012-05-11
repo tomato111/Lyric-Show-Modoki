@@ -3,7 +3,7 @@
 
 // ==PREPROCESSOR==
 // @name "Lyric Show Modoki"
-// @version "1.0.3"
+// @version "1.0.4"
 // @author "tomato111"
 // @import "%fb2k_path%import\common\lib.js"
 // ==/PREPROCESSOR==
@@ -485,9 +485,7 @@ function createLyricByClipboard() {
         if (intButton === 6)
             try {
                 var file = parse_path + (tagRe.test(text) ? ".lrc" : ".txt");
-                console(file);
                 var folder = fs.GetParentFolderName(file);
-                console(folder);
                 if (!fs.FolderExists(folder))
                     createFolder(fs, folder);
                 writeTextFile(text, file, prop.Save.CharacterCode);
@@ -1013,7 +1011,7 @@ LyricShow = new function (Style) {
                 }
             }
             catch (e) { }
-            finally { metadb.Dispose(); }
+            finally { metadb && metadb.Dispose(); }
 
             p = p.split('||');
             if (p instanceof Array)
@@ -2338,11 +2336,11 @@ function on_mouse_lbtn_down(x, y, mask) {
             fb.PlaybackTime -= 3;
         else if (rarea_seek)
             fb.PlaybackTime += 3;
+        else if (mask == 9)
+            fs.FileExists(parse_path + ".txt") && Edit.deleteFile(parse_path + ".txt");
         else if (!prop.Edit.View) {
             if (mask == 5)
                 Edit.controlLine(0);
-            else if (mask == 9)
-                fs.FileExists(parse_path + ".txt") && Edit.deleteFile(parse_path + ".txt");
             else if (y < TextHeight * 2)
                 Edit.undo();
             else
