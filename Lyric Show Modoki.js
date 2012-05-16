@@ -3,7 +3,7 @@
 
 // ==PREPROCESSOR==
 // @name "Lyric Show Modoki"
-// @version "1.0.4"
+// @version "1.0.5"
 // @author "tomato111"
 // @import "%fb2k_path%import\common\lib.js"
 // ==/PREPROCESSOR==
@@ -48,7 +48,7 @@ prop = new function () {
         Path: window.GetProperty("Panel.Path", defaultpath),
         Lang: window.GetProperty("Panel.Language", ""),
         Conf: window.GetProperty("Panel.HideConfigureMenu", false),
-        Interval: window.GetProperty("Panel.RefreshInterval", 30),
+        Interval: 30,
         Editor: window.GetProperty("Panel.ExternalEditor", ""),
         NoLyric: window.GetProperty("Panel.NoLyricsFound", "Title: %title%\\nArtist: %artist%\\nAlbum: %album%\\n\\n-no lyrics-"),
         Priority: window.GetProperty("Panel.Priority", "Sync_Tag,Sync_File,Unsync_Tag,Unsync_File"),
@@ -67,10 +67,6 @@ prop = new function () {
     if (!this.Panel.Priority)
         window.SetProperty("Panel.Priority", this.Panel.Priority = "Sync_Tag,Sync_File,Unsync_Tag,Unsync_File");
     this.Panel.Priority = this.Panel.Priority.split(/[ 　]*,[ 　]*/);
-
-    var interval = this.Panel.Interval;
-    if (!interval || typeof interval !== "number" || interval < 30)
-        window.SetProperty("Panel.RefreshInterval", this.Panel.Interval = 30);
 
     if (!this.Panel.BackgroundOption || !(this.Panel.BackgroundOption instanceof Array) || this.Panel.BackgroundOption.length < 2) {
         window.SetProperty("Panel.Background.ImageOption", this.Panel.BackgroundOption = "20,50");
