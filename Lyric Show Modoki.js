@@ -3,7 +3,7 @@
 
 // ==PREPROCESSOR==
 // @name "Lyric Show Modoki"
-// @version "1.0.5"
+// @version "1.0.6"
 // @author "tomato111"
 // @import "%fb2k_path%import\common\lib.js"
 // ==/PREPROCESSOR==
@@ -621,7 +621,7 @@ LyricShow = new function (Style) {
             var FileInfo = MetadbHandle.GetFileInfo();
         } catch (e) {
             return;
-        } finally { MetadbHandle.Dispose() }
+        } finally { MetadbHandle && MetadbHandle.Dispose() }
 
         var idx = FileInfo.MetaFind(tag);
         var str = FileInfo.MetaValue(idx, 0); // second arguments is numbar for multivalue. e.g.) ab;cde;f
