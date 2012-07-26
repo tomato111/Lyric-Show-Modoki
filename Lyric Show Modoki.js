@@ -3,7 +3,7 @@
 
 // ==PREPROCESSOR==
 // @name "Lyric Show Modoki"
-// @version "1.0.6"
+// @version "1.0.7"
 // @author "tomato111"
 // @import "%fb2k_path%import\common\lib.js"
 // ==/PREPROCESSOR==
@@ -14,7 +14,7 @@
 //== Global Variable and Function =====================
 //============================================
 // user reserved words
-var scriptName, scriptdir, commondir, plugins, lyric, parse_path, path, directory, filename, basename, filetype, dateLastModified, dateCreated, dataSize, backalpha
+var scriptName, scriptdir, commondir, plugins, lyric, parse_path, path, directory, filename, basename, filetype, dateLastModified, dateCreated, dataSize, offsetinfo, backalpha
 , fs, ws, prop, Messages, Label, tagRe, timeRe, firstRe, TextHeight, offsetY, fixY, moveY, lineY, drag, drag_y, ww, wh, larea_seek, rarea_seek, seek_width, rarea_seek_x, disp, Lock
 , debug_read, debug_scroll, debug_edit, debug_view
 , DT_LEFT, DT_CENTER, DT_RIGHT, DT_WORDBREAK, DT_NOPREFIX
@@ -677,7 +677,7 @@ LyricShow = new function (Style) {
             for (var i = 0; i < lyric.text.length; i++) {
                 if (!tagstart)
                     if (offsetRe.test(lyric.text[i]))
-                        offset = Number(RegExp.$1);
+                        offset = offsetinfo = Number(RegExp.$1);
 
                 tmp = lyric.text[i].match(isTagRe);
                 if (!tmp) {
@@ -1095,7 +1095,7 @@ LyricShow = new function (Style) {
     this.end = function () {
 
         this.pauseTimer(true); // 従来のタイマーの後処理のようにtimerにnull等を代入するとclearで引っかかって余計に処理の記述が増える。中身はただの数字なので何もしなくて良い
-        path = directory = filename = basename = filetype = lyric = readTextFile.lastCharset = null;
+        path = directory = filename = basename = filetype = lyric = offsetinfo = readTextFile.lastCharset = null;
         this.setProperties.lineList = this.setProperties.wordbreakList = this.setProperties.scrollSpeedList = this.setProperties.DrawStyle = this.setProperties.h = DrawStyle = null;
         lineY = moveY = null;
 
@@ -1856,11 +1856,13 @@ Menu = new function () {
 
                 if (path)
                     var str = path + "\nLastModified: " + dateLastModified + "\nCreated: " + dateCreated + "\n"
-                            + "Lyrics: " + Number(lyric.text.length - 1) + " lines, " + dataSize / 1000 + " kB, read as " + readTextFile.lastCharset + "\n"
+                            + "Lyrics: " + Number(lyric.text.length - 1) + " lines, " + dataSize / 1000 + " KB, read as " + readTextFile.lastCharset + "(character code)\n"
+                            + (offsetinfo ? "Applied offset: " + offsetinfo + " ms\n" : filetype == "lrc" ? "Applied offset: 0 ms\n" : "")
                             + lyrics;
                 else
                     str = "Field: " + basename + "\n" + filetype.toUpperCase() + "\n"
                         + "Lyrics: " + Number(lyric.text.length - 1) + " lines\n"
+                        + (offsetinfo ? "Applied offset: " + offsetinfo + " ms\n" : filetype == "lrc" ? "Applied offset: 0 ms\n" : "")
                         + lyrics;
 
                 fb.ShowPopupMessage(str);
