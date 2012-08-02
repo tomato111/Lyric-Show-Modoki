@@ -3,7 +3,7 @@
 
 // ==PREPROCESSOR==
 // @name "Lyric Show Modoki"
-// @version "1.0.7"
+// @version "1.0.8"
 // @author "tomato111"
 // @import "%fb2k_path%import\common\lib.js"
 // ==/PREPROCESSOR==
@@ -15,12 +15,12 @@
 //============================================
 // user reserved words
 var scriptName, scriptdir, commondir, plugins, lyric, parse_path, path, directory, filename, basename, filetype, dateLastModified, dateCreated, dataSize, offsetinfo, backalpha
-, fs, ws, prop, Messages, Label, tagRe, timeRe, firstRe, TextHeight, offsetY, fixY, moveY, lineY, drag, drag_y, ww, wh, larea_seek, rarea_seek, seek_width, rarea_seek_x, disp, Lock
-, debug_read, debug_scroll, debug_edit, debug_view
+, fs, ws, prop, Messages, Label, tagRe, timeRe, firstRe, repeatRes, TextHeight, offsetY, fixY, moveY, lineY, drag, drag_y, ww, wh, larea_seek, rarea_seek, seek_width, rarea_seek_x, disp, Lock
+, debug_read, debug_scroll, debug_edit, debug_view, debug_repeat
 , DT_LEFT, DT_CENTER, DT_RIGHT, DT_WORDBREAK, DT_NOPREFIX
 , LyricShow, Edit, Buttons, Menu;
 
-debug_read = false, debug_scroll = false, debug_edit = false, debug_view = false; // for debug
+debug_read = false, debug_scroll = false, debug_edit = false, debug_view = false, debug_repeat = false; // for debug
 fs = new ActiveXObject("Scripting.FileSystemObject"); // File System Object
 ws = new ActiveXObject("WScript.Shell"); // WScript Shell Object
 scriptName = "Lyric Show Modoki";
@@ -35,6 +35,7 @@ DT_NOPREFIX = 0x00000800;
 tagRe = /\[\d\d:\d\d[.:]\d\d\]/;
 timeRe = /\[(\d\d):(\d\d)[.:](\d\d)\]/;
 firstRe = /^\[00:00[.:]00\]/;
+repeatRes = getRepeatRes(scriptdir + "repeat.txt", scriptdir + "repeat-default.txt");
 
 //========
 // properties
@@ -58,7 +59,8 @@ prop = new function () {
         BackgroundRaw: window.GetProperty("Panel.Background.ImageToRawBitmap", false),
         BackgroundOption: window.GetProperty("Panel.Background.ImageOption", "20,50").split(/[ 　]*,[ 　]*/),
         BackgroundKAR: window.GetProperty("Panel.Background.KeepAspectRatio", true),
-        BackgroundStretch: window.GetProperty("Panel.Background.Stretch", true)
+        BackgroundStretch: window.GetProperty("Panel.Background.Stretch", true),
+        ExpandRepetition: window.GetProperty("Panel.ExpandRepetition", false)
     };
 
     if (!this.Panel.Path)
@@ -87,7 +89,7 @@ prop = new function () {
         // Padding
         HPadding: window.GetProperty("Style.Horizontal-Padding", 5),
         VPadding: window.GetProperty("Style.Vartical-Padding", 4),
-        LPadding: window.GetProperty("Style.Line-Padding", 0),
+        LPadding: window.GetProperty("Style.Line-Padding", 1),
         Highline: window.GetProperty("Style.HighlineColor for unsynced lyrics", true)
     };
 
@@ -176,8 +178,8 @@ prop = new function () {
     if (typeof this.Style.VPadding != "number")
         window.SetProperty("Style.Vartical-Padding", this.Style.VPadding = 4);
 
-    if (typeof this.Style.VPadding != "number")
-        window.SetProperty("Style.Line-Padding", this.Style.LPadding = 0);
+    if (typeof this.Style.LPadding != "number")
+        window.SetProperty("Style.Line-Padding", this.Style.LPadding = 1);
 
     g_x = this.Style.HPadding;
     g_y = this.Style.VPadding;
@@ -265,7 +267,8 @@ switch (prop.Panel.Lang) {
             SaveToFile: "Save to file",
             Refresh: "Refresh",
             About: "About current lyric",
-            Contain: "Contain Normal Lines",
+            Contain: "Contain Normal Lines [LRC]",
+            ExpandR: "Expand Repetition [TXT]",
             BEnable: "Show Background Image",
             Copy: "Copy lyrics",
             CopyWith: "Copy with timetag",
@@ -318,7 +321,8 @@ switch (prop.Panel.Lang) {
             SaveToFile: "ファイルに保存",
             Refresh: "更新",
             About: "この歌詞について",
-            Contain: "通常の行を含める",
+            Contain: "通常の行を含める [LRC]",
+            ExpandR: "繰り返しを展開する [TXT]",
             BEnable: "背景画像を表示する",
             Copy: "コピー",
             CopyWith: "タイムタグ付きでコピー",
@@ -392,6 +396,18 @@ ws = null;
 //=======
 //  function
 //=======
+
+function getRepeatRes(userfile, defaultfile) {
+
+    var file = fs.FileExists(userfile) ? userfile : defaultfile;
+
+    try {
+        return eval("[" + readTextFile(file) + "]");
+    } catch (e) {
+        console("faild to load \"repeat.txt\" or \"repeat-default.txt\" (" + scriptName + ")");
+        return;
+    }
+}
 
 function checkLang(lang) {
 
@@ -733,8 +749,55 @@ LyricShow = new function (Style) {
             trimLine_TopAndBottom(true);
         }
 
-        else
+        else { // analyze "no lrc"
+            if (prop.Panel.ExpandRepetition && repeatRes) { // Expand Repetition
+                var temp;
+                for (i = 0; i < lyric.text.length; i++) {
+                    Li:
+                    { // start label
+                        for (j = 0; j < repeatRes.length; j++) {
+                            if (!repeatRes[j].e.length && repeatRes[j].a.test(lyric.text[i])) { // put lyrics for repeats
+                                debug_repeat && console("put i:" + i + ", " + lyric.text[i]);
+                                for (k = i; k < lyric.text.length; k++) {
+                                    if (k === i && repeatRes[j].d > 0)
+                                        repeatRes[j].e.push(lyric.text[k].slice(repeatRes[j].d));
+                                    else
+                                        repeatRes[j].e.push(lyric.text[k]);
+
+                                    if (repeatRes[j].b.test(lyric.text[k]))
+                                        break;
+                                }
+
+                                debug_repeat && console("fin k:" + k + ", " + lyric.text[k]);
+                                for (; ; ) // trim
+                                    if (repeatRes[j].e[0] == "")
+                                        repeatRes[j].e.shift();
+                                    else if (repeatRes[j].e[repeatRes[j].e.length - 1] == "")
+                                        repeatRes[j].e.pop();
+                                    else
+                                        break;
+                                i = k;
+                                break Li;
+                            }
+                            else if (repeatRes[j].c.test(lyric.text[i])) { // replace lyric for repeats
+                                debug_repeat && console("before i:" + i + ", " + lyric.text[i]);
+                                repeatRes[j].e.unshift(lyric.text.length - i);
+                                repeatRes[j].e.unshift(i);
+                                temp = Array.prototype.splice.apply(lyric.text, repeatRes[j].e) // splice は配列を展開しないで挿入するので、範囲を含めた配列にし(上2行)、applyで展開させて渡す
+                                temp.shift();
+                                lyric.text = lyric.text.concat(temp);
+                                debug_repeat && console("after i:" + i + ", " + lyric.text[i]);
+                                repeatRes[j].e.shift();
+                                repeatRes[j].e.shift();
+                                i += repeatRes[j].e.length - 1;
+                            }
+                        }
+                    } // end label
+                }
+            }
+
             trimLine_TopAndBottom();
+        }
 
         return true;
     };
@@ -1098,6 +1161,10 @@ LyricShow = new function (Style) {
         path = directory = filename = basename = filetype = lyric = offsetinfo = readTextFile.lastCharset = null;
         this.setProperties.lineList = this.setProperties.wordbreakList = this.setProperties.scrollSpeedList = this.setProperties.DrawStyle = this.setProperties.h = DrawStyle = null;
         lineY = moveY = null;
+
+        if (repeatRes)
+            for (var i = 0; i < repeatRes.length; i++)
+                repeatRes[i].e = [];
 
         if (!prop.Panel.BackgroundEnable)
             this.releaseGlaphic();
@@ -1492,9 +1559,9 @@ Edit = new function (Style, p) {
     this.calcSeekIMGarea = function () {
 
         Arrow_img = Color.Arrow_img;
-        larrowX = Math.floor(seek_width / 2 - Color.Arrow_img.width / 2);
-        arrowY = Math.floor(wh / 2 - Color.Arrow_img.height / 2 - 8);
-        rarrowX = ww - larrowX - Color.Arrow_img.width;
+        larrowX = Math.floor(seek_width / 2 - Arrow_img.width / 2);
+        arrowY = Math.floor(wh / 2 - Arrow_img.height / 2 - 8);
+        rarrowX = ww - larrowX - Arrow_img.width;
     };
 
     this.calcRGBdiff = function () {
@@ -1845,6 +1912,13 @@ Menu = new function () {
             }
         },
         {
+            Caption: Label.ExpandR,
+            Func: function () {
+                window.SetProperty("Panel.ExpandRepetition", prop.Panel.ExpandRepetition = !prop.Panel.ExpandRepetition);
+                main();
+            }
+        },
+        {
             Flag: MF_SEPARATOR
         },
         {
@@ -2115,25 +2189,26 @@ Menu = new function () {
         refresh: function () {
             menu_LyricShow[3].Radio = Number(prop.Style.Align ^ DT_WORDBREAK ^ DT_NOPREFIX); // radio number begin with 0
             menu_LyricShow[4].Flag = prop.Panel.BackgroundEnable ? MF_CHECKED : MF_UNCHECKED;
-            menu_LyricShow[14].Flag = path ? MF_STRING : MF_GRAYED;
+            menu_LyricShow[15].Flag = path ? MF_STRING : MF_GRAYED;
 
             if (lyric) {
                 menu_LyricShow[2].Flag = MF_STRING;
                 menu_LyricShow[5].Flag = filetype == "lrc" ? prop.Panel.Contain ? MF_CHECKED : MF_UNCHECKED : MF_GRAYED;
-                menu_LyricShow[7].Flag = MF_STRING;
+                menu_LyricShow[6].Flag = filetype == "txt" ? prop.Panel.ExpandRepetition ? MF_CHECKED : MF_UNCHECKED : MF_GRAYED;
                 menu_LyricShow[8].Flag = MF_STRING;
                 menu_LyricShow[9].Flag = MF_STRING;
+                menu_LyricShow[10].Flag = MF_STRING;
             }
             else
-                menu_LyricShow[2].Flag = menu_LyricShow[5].Flag = menu_LyricShow[7].Flag = menu_LyricShow[8].Flag = menu_LyricShow[9].Flag = MF_GRAYED;
+                menu_LyricShow[2].Flag = menu_LyricShow[5].Flag = menu_LyricShow[6].Flag = menu_LyricShow[8].Flag = menu_LyricShow[9].Flag = menu_LyricShow[10].Flag = MF_GRAYED;
 
             if (fb.IsPlaying) {
-                menu_LyricShow[11].Flag = MF_STRING;
                 menu_LyricShow[12].Flag = MF_STRING;
-                menu_LyricShow[15].Flag = MF_STRING;
+                menu_LyricShow[13].Flag = MF_STRING;
+                menu_LyricShow[16].Flag = MF_STRING;
             }
             else
-                menu_LyricShow[11].Flag = menu_LyricShow[12].Flag = menu_LyricShow[15].Flag = MF_GRAYED;
+                menu_LyricShow[12].Flag = menu_LyricShow[13].Flag = menu_LyricShow[16].Flag = MF_GRAYED;
         }
     };
 
