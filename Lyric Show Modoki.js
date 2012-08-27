@@ -3,7 +3,7 @@
 
 // ==PREPROCESSOR==
 // @name "Lyric Show Modoki"
-// @version "1.0.8"
+// @version "1.0.9"
 // @author "tomato111"
 // @import "%fb2k_path%import\common\lib.js"
 // ==/PREPROCESSOR==
@@ -17,7 +17,7 @@
 var scriptName, scriptdir, commondir, plugins, lyric, parse_path, path, directory, filename, basename, filetype, dateLastModified, dateCreated, dataSize, offsetinfo, backalpha
 , fs, ws, prop, Messages, Label, tagRe, timeRe, firstRe, repeatRes, TextHeight, offsetY, fixY, moveY, lineY, drag, drag_y, ww, wh, larea_seek, rarea_seek, seek_width, rarea_seek_x, disp, Lock
 , debug_read, debug_scroll, debug_edit, debug_view, debug_repeat
-, DT_LEFT, DT_CENTER, DT_RIGHT, DT_WORDBREAK, DT_NOPREFIX
+, DT_LEFT, DT_CENTER, DT_RIGHT, DT_WORDBREAK, DT_NOPREFIX, Left_Center
 , LyricShow, Edit, Buttons, Menu;
 
 debug_read = false, debug_scroll = false, debug_edit = false, debug_view = false, debug_repeat = false; // for debug
@@ -32,6 +32,7 @@ DT_CENTER = 0x00000001;
 DT_RIGHT = 0x00000002;
 DT_WORDBREAK = 0x00000010;
 DT_NOPREFIX = 0x00000800;
+Left_Center = false;
 tagRe = /\[\d\d:\d\d[.:]\d\d\]/;
 timeRe = /\[(\d\d):(\d\d)[.:](\d\d)\]/;
 firstRe = /^\[00:00[.:]00\]/;
@@ -156,6 +157,12 @@ prop = new function () {
     if (!(this.Style.CSE in this.Style.CE))
         window.SetProperty("Style.ColorStyle.Edit", this.Style.CSE = "white");
 
+    // check Align
+    if (this.Style.Align === (0x00000003 | DT_WORDBREAK | DT_NOPREFIX)) {
+        this.Style.Align = DT_LEFT | DT_WORDBREAK | DT_NOPREFIX;
+        Left_Center = true;
+    }
+
     // check Font and Set Style.Font
     var fontfamily = ["Meiryo", "Tahoma", "Arial", "Segoe UI", "MS Gothic"];
 
@@ -278,6 +285,7 @@ switch (prop.Panel.Lang) {
             Align_Left: "Left",
             Align_Center: "Center",
             Align_Right: "Right",
+            Align_Left_Center: "Left-Center",
             Rule: "Show Ruled Line",
             View: "Vew Mode",
             EditLine: "Edit Line",
@@ -332,6 +340,7 @@ switch (prop.Panel.Lang) {
             Align_Left: "左",
             Align_Center: "中央",
             Align_Right: "右",
+            Align_Left_Center: "左-中央",
             Rule: "罫線を表示",
             View: "ビューモード",
             EditLine: "行を編集",
@@ -668,9 +677,9 @@ LyricShow = new function (Style) {
 
         isSync = tagRe.test(str);
 
-        if (filetype == "lrc" && !isSync) { // check
+        if (filetype == "lrc" && !isSync) { // check // LYRICSタグでは警告は表示しない
             filetype = "txt";
-            Messages[3].fbpopup("UNSYNCED LYRICS\n\n" + (path ? "file:" + path : fb.TitleFormat("title: %title%'\n'artist: %artist%").Eval()));
+            !/^LYRICS$/.test(file) && Messages[3].fbpopup("UNSYNCED LYRICS\n\n" + (path ? "file:" + path : fb.TitleFormat("title: %title%'\n'artist: %artist%").Eval()));
         }
         else if (filetype == "txt" && isSync) {
             filetype = "lrc";
@@ -823,7 +832,8 @@ LyricShow = new function (Style) {
             var isLRC = filetype == "lrc";
             var contain = isLRC && prop.Panel.Contain;
             var wre = new RegExp(prop.Save.LineFeedCode, "g");
-            var wreres;
+            var leftcenterX = ww;
+            var wreres, linelength;
             var temp_bmp = gdi.CreateImage(1, 1);
             var temp_gr = temp_bmp.GetGraphics();
 
@@ -852,7 +862,14 @@ LyricShow = new function (Style) {
                 var wordbreakList = [];
 
                 for (i = 0; i < lyric.text.length; i++) {
-                    wordbreakList[i] = (temp_gr.CalcTextWidth(isLRC ? lyric.text[i].slice(10) : lyric.text[i], Style.Font) > ww) ? 2 : 1;
+                    linelength = temp_gr.CalcTextWidth(isLRC ? lyric.text[i].slice(10) : lyric.text[i], Style.Font);
+                    if (leftcenterX)
+                        if (ww - linelength <= 0)
+                            leftcenterX = 0;
+                        else if ((ww - linelength) / 2 < leftcenterX)
+                            leftcenterX = (ww - linelength) / 2;
+
+                    wordbreakList[i] = linelength > ww ? 2 : 1;
                     if (contain) {
                         wreres = lyric.text[i].match(wre);
                         if (wreres) wordbreakList[i] += wreres.length;
@@ -860,6 +877,7 @@ LyricShow = new function (Style) {
                     numOfWordbreak = numOfWordbreak + wordbreakList[i] - 1;
                 }
 
+                this.leftcenterX = Number(leftcenterX); // Set offsetX for left-center
                 this.numOfWordbreak = numOfWordbreak; // Set number Of wordbreak
                 this.wordbreakList = wordbreakList; // Set Wordbreak List
 
@@ -936,6 +954,7 @@ LyricShow = new function (Style) {
                     this.y = DrawStyle[i - 1].nextY;
                     this.nextY = this.y + this.height;
                     this.cy = this.y + g_y;
+                    this.leftcenterX = g_x + p.leftcenterX;
                 }
             }
             DrawString.prototype.scroll = function (time) {
@@ -957,7 +976,7 @@ LyricShow = new function (Style) {
                 //                    debug_scroll && fb.trace(this.i + " :: " + this.height + " :: " + this.speed + " :: " + offsetY + " :: " + lyric.text.length + " :: " + time + " > " + LyricShow.setProperties.DrawStyle[this.i + 1].time * 100)
             };
             DrawString.prototype.draw = function (gr) {
-                gr.GdiDrawText(this.text, Style.Font, (this.highline || lyric.i - 1 === this.i) ? Style.Color.PlayingText : Style.Color.Text, g_x, this.cy + offsetY, ww, wh, Style.Align);
+                gr.GdiDrawText(this.text, Style.Font, (this.highline || lyric.i - 1 === this.i) ? Style.Color.PlayingText : Style.Color.Text, Left_Center ? this.leftcenterX : g_x, this.cy + offsetY, ww, wh, Style.Align);
             };
             DrawString.prototype.onclick = function (x, y) {
                 if (prop.Edit.View) {
@@ -1159,7 +1178,7 @@ LyricShow = new function (Style) {
 
         this.pauseTimer(true); // 従来のタイマーの後処理のようにtimerにnull等を代入するとclearで引っかかって余計に処理の記述が増える。中身はただの数字なので何もしなくて良い
         path = directory = filename = basename = filetype = lyric = offsetinfo = readTextFile.lastCharset = null;
-        this.setProperties.lineList = this.setProperties.wordbreakList = this.setProperties.scrollSpeedList = this.setProperties.DrawStyle = this.setProperties.h = DrawStyle = null;
+        this.setProperties.lineList = this.setProperties.leftcenterX = this.setProperties.wordbreakList = this.setProperties.scrollSpeedList = this.setProperties.DrawStyle = this.setProperties.h = DrawStyle = null;
         lineY = moveY = null;
 
         if (repeatRes)
@@ -1217,7 +1236,7 @@ LyricShow = new function (Style) {
             var offset = g_y + offsetY - s.length / 2 * TextHeight;
             var wordbreak = 0;
             for (i = 0; i < s.length; i++) {
-                gr.GdiDrawText(s[i], Style.Font, Color.Text, g_x, offset + TextHeight * (i + wordbreak), ww, wh, Style.Align);
+                gr.GdiDrawText(s[i], Style.Font, Color.Text, g_x, offset + TextHeight * (i + wordbreak), ww, wh, Left_Center ? DT_CENTER | DT_WORDBREAK | DT_NOPREFIX : Style.Align);
                 gr.CalcTextWidth(s[i], Style.Font) > ww && wordbreak++;
             }
         }
@@ -1461,6 +1480,9 @@ Edit = new function (Style, p) {
         LyricShow.pauseTimer(true);
         with (prop.Style) { Color = CE[CSE]; }
         prop.Edit.Start = true;
+        prop.Edit.Align = prop.Style.Align;
+        prop.Edit.Left_Center = Left_Center;
+        Left_Center = false;
         filetype == "txt" && putTime(0, 0);
 
         p.setLineList(true);
@@ -1484,6 +1506,9 @@ Edit = new function (Style, p) {
         prop.Edit.Start = false;
         prop.Edit.View && this.View.end();
         with (prop.Style) { Color = CLS[CSLS]; }
+        prop.Style.Align = prop.Edit.Align;
+        Left_Center = prop.Edit.Left_Center;
+        prop.Edit.Align = prop.Edit.Left_Center = null;
         window.Repaint();
 
     };
@@ -1663,11 +1688,11 @@ Buttons = new function () {
             Img: gdi.Image(scriptdir + "align.png"),
             Tiptext: Label.Align,
             Func: function () {
-                var a = prop.Style.Align ^ DT_WORDBREAK ^ DT_NOPREFIX
+                var a = prop.Style.Align ^ DT_WORDBREAK ^ DT_NOPREFIX;
                 if (++a > DT_RIGHT)
-                    window.SetProperty("Style.Align", prop.Style.Align = DT_LEFT);
+                    prop.Style.Align = DT_LEFT;
                 else
-                    window.SetProperty("Style.Align", prop.Style.Align = a);
+                    prop.Style.Align = a;
                 prop.Style.Align |= DT_WORDBREAK | DT_NOPREFIX;
                 window.Repaint();
             }
@@ -1815,6 +1840,7 @@ Menu = new function () {
             Func: function () {
                 window.SetProperty("Style.Align", prop.Style.Align = DT_LEFT);
                 prop.Style.Align |= DT_WORDBREAK | DT_NOPREFIX;
+                Left_Center = false;
                 window.Repaint();
                 Menu.build();
             }
@@ -1825,6 +1851,7 @@ Menu = new function () {
             Func: function () {
                 window.SetProperty("Style.Align", prop.Style.Align = DT_CENTER);
                 prop.Style.Align |= DT_WORDBREAK | DT_NOPREFIX;
+                Left_Center = false;
                 window.Repaint();
                 Menu.build();
             }
@@ -1835,6 +1862,18 @@ Menu = new function () {
             Func: function () {
                 window.SetProperty("Style.Align", prop.Style.Align = DT_RIGHT);
                 prop.Style.Align |= DT_WORDBREAK | DT_NOPREFIX;
+                Left_Center = false;
+                window.Repaint();
+                Menu.build();
+            }
+        },
+        {
+            Flag: MF_STRING,
+            Caption: Label.Align_Left_Center,
+            Func: function () {
+                window.SetProperty("Style.Align", 0x00000003);
+                prop.Style.Align = DT_LEFT | DT_WORDBREAK | DT_NOPREFIX;
+                Left_Center = true;
                 window.Repaint();
                 Menu.build();
             }
@@ -2187,7 +2226,7 @@ Menu = new function () {
     this.LyricShow = {
         items: menu_LyricShow,
         refresh: function () {
-            menu_LyricShow[3].Radio = Number(prop.Style.Align ^ DT_WORDBREAK ^ DT_NOPREFIX); // radio number begin with 0
+            menu_LyricShow[3].Radio = Left_Center ? 3 : Number(prop.Style.Align ^ DT_WORDBREAK ^ DT_NOPREFIX); // radio number begin with 0
             menu_LyricShow[4].Flag = prop.Panel.BackgroundEnable ? MF_CHECKED : MF_UNCHECKED;
             menu_LyricShow[15].Flag = path ? MF_STRING : MF_GRAYED;
 
