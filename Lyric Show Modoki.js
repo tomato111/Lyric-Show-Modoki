@@ -3,7 +3,7 @@
 
 // ==PREPROCESSOR==
 // @name "Lyric Show Modoki"
-// @version "1.0.9"
+// @version "1.0.10"
 // @author "tomato111"
 // @import "%fb2k_path%import\common\lib.js"
 // ==/PREPROCESSOR==
@@ -15,7 +15,7 @@
 //============================================
 // user reserved words
 var scriptName, scriptdir, commondir, plugins, lyric, parse_path, path, directory, filename, basename, filetype, dateLastModified, dateCreated, dataSize, offsetinfo, backalpha
-, fs, ws, prop, Messages, Label, tagRe, timeRe, firstRe, repeatRes, TextHeight, offsetY, fixY, moveY, lineY, drag, drag_y, ww, wh, larea_seek, rarea_seek, seek_width, rarea_seek_x, disp, Lock
+, fs, ws, prop, Messages, Label, tagRe, timeRe, firstRe, repeatRes, TextHeight, offsetY, fixY, moveY, lineY, drag, drag_y, g_x, g_y, ww, wh, larea_seek, rarea_seek, seek_width, rarea_seek_x, disp, Lock, s_cmd
 , debug_read, debug_scroll, debug_edit, debug_view, debug_repeat
 , DT_LEFT, DT_CENTER, DT_RIGHT, DT_WORDBREAK, DT_NOPREFIX, Left_Center
 , LyricShow, Edit, Buttons, Menu;
@@ -61,7 +61,8 @@ prop = new function () {
         BackgroundOption: window.GetProperty("Panel.Background.ImageOption", "20,50").split(/[ 　]*,[ 　]*/),
         BackgroundKAR: window.GetProperty("Panel.Background.KeepAspectRatio", true),
         BackgroundStretch: window.GetProperty("Panel.Background.Stretch", true),
-        ExpandRepetition: window.GetProperty("Panel.ExpandRepetition", false)
+        ExpandRepetition: window.GetProperty("Panel.ExpandRepetition", false),
+        AdjustScrolling: window.GetProperty("Panel.AdjustScrolling", 100)
     };
 
     if (!this.Panel.Path)
@@ -75,6 +76,9 @@ prop = new function () {
         window.SetProperty("Panel.Background.ImageOption", this.Panel.BackgroundOption = "20,50");
         this.Panel.BackgroundOption = this.Panel.BackgroundOption.split(/[ 　]*,[ 　]*/);
     }
+
+    if (typeof this.Panel.AdjustScrolling !== "number" || this.Panel.AdjustScrolling < 0)
+        window.SetProperty("Panel.AdjustScrolling", this.Panel.AdjustScrolling = 100);
 
     // ==Style====
     this.Style = {
@@ -912,6 +916,7 @@ LyricShow = new function (Style) {
             } else {
                 t = fb.PlaybackLength * 1000 / prop.Panel.Interval; // 1ファイルで更新する回数
                 scrollSpeedList = { degree: this.h / t }; // 1回の更新での移動量(行に依らず一定)
+                scrollSpeedList.degree *= prop.Panel.AdjustScrolling / 100;
             }
 
             this.scrollSpeedList = scrollSpeedList; // Set ScrollSpeed List
@@ -2360,8 +2365,15 @@ function on_focus(is_focused) {
     !main.IsVisible && main();
 }
 
+function on_playback_starting(cmd, is_paused) {
+    s_cmd = cmd;
+}
+
 function on_playback_new_track(metadb) {
-    main();
+    if (s_cmd === 4) // settrackではなぜか動作始めが不安定になるのでディレイで対策する
+        (function () { main() }).timeout(50);
+    else
+        main();
 }
 
 function on_playback_seek(time) {
@@ -2378,9 +2390,8 @@ function on_playback_stop(reason) {
 }
 
 function on_playback_pause(state) {
-    if (!prop.Edit.Start && lyric) {
+    if (!prop.Edit.Start && lyric)
         LyricShow.pauseTimer(state);
-    }
     else if (prop.Edit.View)
         Edit.View.pauseTimer(state);
 }
