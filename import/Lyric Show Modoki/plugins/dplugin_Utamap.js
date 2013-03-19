@@ -97,7 +97,7 @@
         }
 
         function AnalyzePage(resArray, depth) {
-            var id, url;
+            var id, url, tmpti, tmpar;
             this.searchResult = false;
 
             if (depth === false) { // info
@@ -118,6 +118,10 @@
                 this.Lyrics = this.Lyrics.trim();
             }
             else { // search
+                tmpti = title;
+                tmpar = artist;
+                title = title.replace(/&/g, "&amp;");
+                artist = artist.replace(/&/g, "&amp;");
                 for (i = 0; i < resArray.length; i++)
                     if (searchRe.test(resArray[i])) {
                         debug_html && fb.trace("class: " + RegExp.$1 + ", id: " + RegExp.$3 + ", value: " + RegExp.$4);
@@ -128,13 +132,15 @@
                         }
                         else if (id && RegExp.$1 == "ct120" && RegExp.$4 == artist) {
                             this.id = id;
-                            this.url = url
-                            return;
+                            this.url = url;
+                            break;
                         }
                         else {
                             id = null;
                         }
                     }
+                title = tmpti;
+                artist = tmpar;
             }
 
         }
