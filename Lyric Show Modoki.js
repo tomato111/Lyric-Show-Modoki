@@ -3,7 +3,7 @@
 
 // ==PREPROCESSOR==
 // @name "Lyric Show Modoki"
-// @version "1.0.11"
+// @version "1.0.12"
 // @author "tomato111"
 // @import "%fb2k_path%import\common\lib.js"
 // ==/PREPROCESSOR==
@@ -58,7 +58,7 @@ prop = new function () {
         ScrollType: window.getProperty("Panel.LRC.ScrollType", 1),
         ScrollType2: 120, // Interval/10 の倍数である必要がある // value*10 [ms]前からスクロール開始
         BackgroundEnable: window.GetProperty("Panel.Background.Enable", true),
-        BackgroundPath: window.GetProperty("Panel.Background.Image", "<embed>||'%fb2k_path%'\\import\\Lyric Show Modoki\\background.jpg"),
+        BackgroundPath: window.GetProperty("Panel.Background.Image", "<embed>||$directory_path(%path%)\\*.*||'%fb2k_path%'\\import\\Lyric Show Modoki\\background.jpg"),
         BackgroundRaw: window.GetProperty("Panel.Background.ImageToRawBitmap", false),
         BackgroundOption: window.GetProperty("Panel.Background.ImageOption", "20,50").split(/[ 　]*,[ 　]*/),
         BackgroundKAR: window.GetProperty("Panel.Background.KeepAspectRatio", true),
@@ -357,7 +357,7 @@ switch (prop.Panel.Lang) {
             EditLine: "行を編集",
             InsertLine: "行を挿入",
             DeleteLine: "行を削除",
-            DeleteFile: "TXTﾌｧｲﾙを削除する",
+            DeleteFile: "TXTファイルを削除",
             LyricShow: "編集をやめる",
             InserLineText: "挿入する文字を入力してください。\n(ﾌｧｲﾙ末尾へ挿入するには先頭を##で開始)",
             Clear: "すべてクリア",
@@ -1144,16 +1144,40 @@ LyricShow = new function (Style) {
 
     this.setBackgroundImage = function () {
 
-        var newImg, path, tmp;
+        function IsSupportImage(file) {
+            var ext = fs.GetExtensionName(file).toLowerCase();
+            var SupportTypes = ["jpg", "jpeg", "png", "gif", "bmp"];
+
+            for (var i = 0; i < SupportTypes.length; i++) {
+                if (ext == SupportTypes[i])
+                    return true;
+            }
+            return false;
+        }
+
+        function SearchImageInWildcard(path) {
+            var foldername = fs.GetParentFolderName(path);
+            if (!fs.FolderExists(foldername)) return false;
+
+            var file, newImg;
+            var exp = fs.GetFileName(path);
+            var e = new Enumerator(fs.GetFolder(foldername).Files);
+            for (; !e.atEnd(); e.moveNext()) {
+                file = e.item();
+                if (IsSupportImage(file) && utils.PathWildcardMatch(exp, file.Name)) {
+                    newImg = GetImg(file.Path);
+                    if (newImg) return { path: file.Path, img: newImg }; // One file per path is enough
+                }
+            }
+        }
+
+        var newImg, path, tmp, foldername, exp, e, file, res;
         var p = prop.Panel.BackgroundPath;
         if (p) {
             try {
                 var metadb = fb.GetNowPlaying();
                 p = fb.TitleFormat(p).EvalWithMetadb(metadb);
                 p = p.replaceEach("%fb2k_path%", fb.FoobarPath, "%fb2k_profile_path%", fb.ProfilePath, "<embed>", "<" + metadb.RawPath + ">", "gi");
-                if (BackgroundPath && (BackgroundPath.indexOf(metadb.Path) !== -1 || p.indexOf('<') === -1 && p.indexOf(BackgroundPath) !== -1)) {
-                    return; // skip GetImg
-                }
             }
             catch (e) { }
             finally { metadb && metadb.Dispose(); }
@@ -1161,13 +1185,32 @@ LyricShow = new function (Style) {
             p = p.split('||');
             if (p instanceof Array)
                 for (var i = 0; i < p.length; i++) {
-                    path = p[i];
-                    newImg = GetImg(path);
-                    if (newImg) break;
+                    if (p[i].indexOf("*") == -1 && p[i].indexOf("?") == -1) { // If not wildcard exist
+                        path = p[i];
+                        newImg = GetImg(path);
+                        if (newImg) break;
+                    }
+                    else { // Search in wildcard.
+                        res = SearchImageInWildcard(p[i]);
+                        if (res) {
+                            path = res.path;
+                            newImg = res.img;
+                            break;
+                        }
+                    }
                 }
             else {
-                path = p;
-                newImg = GetImg(path);
+                if (p.indexOf("*") == -1 && p.indexOf("?") == -1) {
+                    path = p;
+                    newImg = GetImg(path);
+                }
+                else {
+                    res = SearchImageInWildcard(p);
+                    if (res) {
+                        path = res.path;
+                        newImg = res.img;
+                    }
+                }
             }
 
             if (newImg) {
@@ -1998,6 +2041,9 @@ Menu = new function () {
             }
         },
         {
+            Flag: MF_SEPARATOR
+        },
+        {
             Flag: MF_STRING,
             Caption: Label.Align,
             Sub: submenu_Align,
@@ -2142,6 +2188,13 @@ Menu = new function () {
 
     var menu_Edit = [
         {
+            Caption: Label.View,
+            Func: Edit.switchView
+        },
+        {
+            Flag: MF_SEPARATOR
+        },
+        {
             Caption: Label.LyricShow,
             Func: function () {
                 main();
@@ -2196,21 +2249,6 @@ Menu = new function () {
             Flag: MF_SEPARATOR
         },
         {
-            Caption: Label.View,
-            Func: Edit.switchView
-        },
-        {
-            Caption: Label.Rule,
-            Func: function () {
-                window.SetProperty("Edit.ShowRuledLine", prop.Edit.Rule = !prop.Edit.Rule);
-                window.Repaint();
-                Menu.build(Menu.Edit);
-            }
-        },
-        {
-            Flag: MF_SEPARATOR
-        },
-        {
             Caption: Label.EditLine,
             Func: function () { Edit.controlLine(2); }
         },
@@ -2221,6 +2259,17 @@ Menu = new function () {
         {
             Caption: Label.DeleteLine,
             Func: function () { Edit.controlLine(-1); }
+        },
+        {
+            Flag: MF_SEPARATOR
+        },
+        {
+            Caption: Label.Rule,
+            Func: function () {
+                window.SetProperty("Edit.ShowRuledLine", prop.Edit.Rule = !prop.Edit.Rule);
+                window.Repaint();
+                Menu.build(Menu.Edit);
+            }
         },
         {
             Flag: MF_SEPARATOR
@@ -2317,42 +2366,42 @@ Menu = new function () {
     this.LyricShow = {
         items: menu_LyricShow,
         refresh: function () {
-            menu_LyricShow[3].Radio = Left_Center ? 3 : Number(prop.Style.Align ^ DT_WORDBREAK ^ DT_NOPREFIX); // radio number begin with 0
-            menu_LyricShow[4].Flag = prop.Panel.BackgroundEnable ? MF_CHECKED : MF_UNCHECKED;
-            menu_LyricShow[17].Flag = path ? MF_STRING : MF_GRAYED;
+            menu_LyricShow[4].Radio = Left_Center ? 3 : Number(prop.Style.Align ^ DT_WORDBREAK ^ DT_NOPREFIX); // radio number begin with 0
+            menu_LyricShow[5].Flag = prop.Panel.BackgroundEnable ? MF_CHECKED : MF_UNCHECKED;
+            menu_LyricShow[18].Flag = path ? MF_STRING : MF_GRAYED;
 
             if (lyric) {
                 menu_LyricShow[2].Flag = MF_STRING;
-                menu_LyricShow[5].Flag = filetype == "txt" ? prop.Panel.ExpandRepetition ? MF_CHECKED : MF_UNCHECKED : MF_GRAYED;
-                menu_LyricShow[6].Flag = filetype == "lrc" ? prop.Panel.Contain ? MF_CHECKED : MF_UNCHECKED : MF_GRAYED;
-                menu_LyricShow[8].Flag = filetype == "lrc" ? MF_STRING : MF_GRAYED;
-                menu_LyricShow[10].Flag = MF_STRING;
+                menu_LyricShow[6].Flag = filetype == "txt" ? prop.Panel.ExpandRepetition ? MF_CHECKED : MF_UNCHECKED : MF_GRAYED;
+                menu_LyricShow[7].Flag = filetype == "lrc" ? prop.Panel.Contain ? MF_CHECKED : MF_UNCHECKED : MF_GRAYED;
+                menu_LyricShow[9].Flag = filetype == "lrc" ? MF_STRING : MF_GRAYED;
                 menu_LyricShow[11].Flag = MF_STRING;
                 menu_LyricShow[12].Flag = MF_STRING;
+                menu_LyricShow[13].Flag = MF_STRING;
             }
             else
-                menu_LyricShow[2].Flag = menu_LyricShow[5].Flag = menu_LyricShow[6].Flag = menu_LyricShow[8].Flag = menu_LyricShow[10].Flag = menu_LyricShow[11].Flag = menu_LyricShow[12].Flag = MF_GRAYED;
+                menu_LyricShow[2].Flag = menu_LyricShow[6].Flag = menu_LyricShow[7].Flag = menu_LyricShow[9].Flag = menu_LyricShow[11].Flag = menu_LyricShow[12].Flag = menu_LyricShow[13].Flag = MF_GRAYED;
 
             if (fb.IsPlaying) {
-                menu_LyricShow[14].Flag = MF_STRING;
                 menu_LyricShow[15].Flag = MF_STRING;
-                menu_LyricShow[18].Flag = MF_STRING;
+                menu_LyricShow[16].Flag = MF_STRING;
+                menu_LyricShow[19].Flag = MF_STRING;
             }
             else
-                menu_LyricShow[14].Flag = menu_LyricShow[15].Flag = menu_LyricShow[18].Flag = MF_GRAYED;
+                menu_LyricShow[15].Flag = menu_LyricShow[16].Flag = menu_LyricShow[19].Flag = MF_GRAYED;
         }
     };
 
     this.Edit = {
         items: menu_Edit,
         refresh: function () {
-            menu_Edit[2].Flag = (prop.Edit.View && Edit.View.i == lyric.text.length) ? MF_STRING : MF_GRAYED;
-            menu_Edit[3].Flag = (prop.Edit.View && Edit.View.i == lyric.text.length) ? MF_STRING : MF_GRAYED;
-            menu_Edit[5].Flag = prop.Edit.View ? MF_CHECKED : MF_UNCHECKED;
-            menu_Edit[6].Flag = prop.Edit.Rule ? MF_CHECKED : MF_UNCHECKED;
+            menu_Edit[0].Flag = prop.Edit.View ? MF_CHECKED : MF_UNCHECKED;
+            menu_Edit[4].Flag = (prop.Edit.View && Edit.View.i == lyric.text.length) ? MF_STRING : MF_GRAYED;
+            menu_Edit[5].Flag = (prop.Edit.View && Edit.View.i == lyric.text.length) ? MF_STRING : MF_GRAYED;
+            menu_Edit[8].Flag = prop.Edit.View ? MF_GRAYED : MF_STRING;
             menu_Edit[9].Flag = prop.Edit.View ? MF_GRAYED : MF_STRING;
-            menu_Edit[10].Flag = prop.Edit.View ? MF_GRAYED : MF_STRING;
-            menu_Edit[12].Flag = fs.FileExists(parse_path + ".txt") ? MF_STRING : MF_GRAYED;
+            menu_Edit[11].Flag = prop.Edit.Rule ? MF_CHECKED : MF_UNCHECKED;
+            menu_Edit[13].Flag = fs.FileExists(parse_path + ".txt") ? MF_STRING : MF_GRAYED;
         }
     };
 
@@ -2456,8 +2505,8 @@ function on_playback_starting(cmd, is_paused) {
 }
 
 function on_playback_new_track(metadb) {
-    if (s_cmd === 4) // settrackではなぜか動作始めが不安定になるのでディレイで対策する
-        (function () { main(); }).timeout(100);
+    if (s_cmd === 4) // settrackではなぜか動作始めが不安定なのでディレイで対策する
+        (function () { main(); }).timeout(200);
     else
         main();
 }
