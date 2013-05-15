@@ -3,7 +3,7 @@
 
 // ==PREPROCESSOR==
 // @name "Lyric Show Modoki"
-// @version "1.0.12"
+// @version "1.0.13"
 // @author "tomato111"
 // @import "%fb2k_path%import\common\lib.js"
 // ==/PREPROCESSOR==
@@ -15,7 +15,7 @@
 //============================================
 // user reserved words
 var scriptName, scriptdir, commondir, plugins, lyric, parse_path, path, directory, filename, basename, filetype, dateLastModified, dateCreated, dataSize, offsetinfo, backalpha
-, fs, ws, prop, Messages, Label, tagRe, timeRe, firstRe, repeatRes, TextHeight, offsetY, fixY, moveY, lineY, drag, drag_y, g_x, g_y, ww, wh, larea_seek, rarea_seek, seek_width, rarea_seek_x, disp, Lock, s_cmd
+, fs, ws, prop, Messages, Label, tagRe, timeRe, firstRe, repeatRes, TextHeight, offsetY, fixY, moveY, lineY, drag, drag_y, g_x, g_y, ww, wh, larea_seek, rarea_seek, seek_width, rarea_seek_x, disp, Lock
 , debug_read, debug_scroll, debug_edit, debug_view, debug_repeat
 , DT_LEFT, DT_CENTER, DT_RIGHT, DT_WORDBREAK, DT_NOPREFIX, Left_Center
 , LyricShow, Edit, Buttons, Menu;
@@ -489,7 +489,7 @@ function copyLyric(withTag) { // copy lyric to clipboad
     var text;
 
 
-    if (filetype == "lrc" && !withTag)
+    if (filetype === "lrc" && !withTag)
         for (var i = 0; i < textArray.length; i++)
             textArray[i] = textArray[i].replace(tagRe, "");
 
@@ -688,11 +688,11 @@ LyricShow = new function (Style) {
 
         isSync = tagRe.test(str);
 
-        if (filetype == "lrc" && !isSync) { // check // LYRICSタグでは警告は表示しない
+        if (filetype === "lrc" && !isSync) { // check // LYRICSタグでは警告は表示しない
             filetype = "txt";
             !/^LYRICS$/.test(file) && Messages[3].fbpopup("UNSYNCED LYRICS\n\n" + (path ? "file:" + path : fb.TitleFormat("title: %title%'\n'artist: %artist%").Eval()));
         }
-        else if (filetype == "txt" && isSync) {
+        else if (filetype === "txt" && isSync) {
             filetype = "lrc";
             Messages[3].fbpopup("SYNCED LYRICS\n\n" + (path ? "file:" + path : fb.TitleFormat("title: %title%'\n'artist: %artist%").Eval()));
         }
@@ -700,7 +700,7 @@ LyricShow = new function (Style) {
         lyric = { text: str.trim().split(getLineFeedCode(str)), i: 1, info: [] };
 
 
-        if (filetype == "lrc") { // analyze lrc
+        if (filetype === "lrc") { // analyze lrc
             var value, key, tmp, tagstart, tmpkey, tmptext, dublicate;
             var m, ms, offset;
             var tmpArray = [], timeArray = [];
@@ -825,7 +825,7 @@ LyricShow = new function (Style) {
     this.setProperties = {
         setLineList: function (View) {
 
-            if (filetype == "lrc" || View) {
+            if (filetype === "lrc" || View) {
                 var lineList = [""];
                 var text = lyric.text;
                 for (var i = 0; i < text.length; i++)
@@ -840,7 +840,7 @@ LyricShow = new function (Style) {
 
         setWordbreakList: function (View) {
 
-            var isLRC = filetype == "lrc";
+            var isLRC = filetype === "lrc";
             var contain = isLRC && prop.Panel.Contain;
             var wre = new RegExp(prop.Save.LineFeedCode, "g");
             var leftcenterX = ww;
@@ -1282,6 +1282,7 @@ LyricShow = new function (Style) {
         DrawStyle = LyricShow.setProperties.DrawStyle;
         this.searchLine(fb.PlaybackTime);
         this.pauseTimer(fb.IsPaused);
+        filetype === "txt" && (function () { offsetY = Math.ceil(offsetY) - (moveY - Math.floor(moveY)); }).timeout(1000) // 非同期歌詞ではlineYでの修正が出来ないのでディレイを使って小数点以下を揃えて安定化させる
     };
 
     this.end = function () {
@@ -1307,9 +1308,9 @@ LyricShow = new function (Style) {
 
         if (!Busy && lyric.i < lyric.text.length) {
             New = fb.PlaybackTime * 100;
-            if (New > Old) { // fb.PlaybackTime を信用してはいけない。再生始めは不安定で時間が戻ったりする
+            if (New > Old) { // fb.PlaybackTime は信用出来ない。再生始めは不安定で時間が戻ったりする // on_playback_starting の cmd === 4 (settrack) 時には特に
                 Old = New;
-                if (filetype == "txt")
+                if (filetype === "txt")
                     LyricShow.setProperties.DrawStyle[lyric.i - 1].scroll_0(New) && window.Repaint();
                 else if (prop.Panel.ScrollType === 1)
                     LyricShow.setProperties.DrawStyle[lyric.i - 1].scroll_1(New) && window.Repaint(); // lyric.i(対象行)の１個前(再生行)の情報でスクロール //timerで呼び出すとthisの意味が変わるのでthisは使わない
@@ -1387,7 +1388,7 @@ Edit = new function (Style, p) {
         DrawStyle = p.DrawStyle;
         offsetY = edit_fixY + Style.LPadding / 2;
 
-        if (filetype == "lrc") {
+        if (filetype === "lrc") {
             lyric.i = lyric.text.length;
             offsetY -= DrawStyle[lyric.i - 1].yWithTag;
         }
@@ -1407,7 +1408,7 @@ Edit = new function (Style, p) {
         if (lyric.i == lyric.text.length) {
             Lock = true; // some command is prevent
             this.saveMenu(x, y);
-            prop.Edit.Start && this.undo();
+            prop.Edit.Start && this.undo(); // saveMenu表示中に次の曲に遷移する可能性があるのでundoの前にチェックする
             (function () { Lock = false; }).timeout(200);
         }
     };
@@ -1607,7 +1608,7 @@ Edit = new function (Style, p) {
         prop.Edit.Align = prop.Style.Align;
         prop.Edit.Left_Center = Left_Center;
         Left_Center = false;
-        filetype == "txt" && putTime(0, 0);
+        filetype === "txt" && putTime(0, 0);
 
         p.setLineList(true);
         p.setWordbreakList(true);
@@ -1615,7 +1616,7 @@ Edit = new function (Style, p) {
         this.init();
 
         this.calcSeekIMGarea();
-        if (filetype == "lrc")
+        if (filetype === "lrc")
             this.View.start(true);
         else {
             this.calcRGBdiff();
@@ -1633,7 +1634,6 @@ Edit = new function (Style, p) {
         prop.Style.Align = prop.Edit.Align;
         Left_Center = prop.Edit.Left_Center;
         prop.Edit.Align = prop.Edit.Left_Center = null;
-        window.Repaint();
 
     };
 
@@ -1691,7 +1691,6 @@ Edit = new function (Style, p) {
             this.i = this.offsetY = null;
             lyric.i == lyric.text.length && Edit.undo();
             Edit.calcRGBdiff();
-            window.Repaint();
         };
     }
 
@@ -1701,6 +1700,7 @@ Edit = new function (Style, p) {
         if (prop.Edit.View) Edit.View.start();
         else {
             Edit.View.end();
+            window.Repaint();
             Menu.build(Menu.Edit);
         }
     };
@@ -2107,12 +2107,12 @@ Menu = new function () {
                 if (path)
                     var str = path + "\nLastModified: " + dateLastModified + "\nCreated: " + dateCreated + "\n"
                             + "Lyrics: " + Number(lyric.text.length - 1) + " lines, " + dataSize / 1000 + " KB, read as " + readTextFile.lastCharset + "(character code)\n"
-                            + (offsetinfo ? "Applied offset: " + offsetinfo + " ms\n" : filetype == "lrc" ? "Applied offset: 0 ms\n" : "")
+                            + (offsetinfo ? "Applied offset: " + offsetinfo + " ms\n" : filetype === "lrc" ? "Applied offset: 0 ms\n" : "")
                             + lyrics;
                 else
                     str = "Field: " + basename + "\n" + filetype.toUpperCase() + "\n"
                         + "Lyrics: " + Number(lyric.text.length - 1) + " lines\n"
-                        + (offsetinfo ? "Applied offset: " + offsetinfo + " ms\n" : filetype == "lrc" ? "Applied offset: 0 ms\n" : "")
+                        + (offsetinfo ? "Applied offset: " + offsetinfo + " ms\n" : filetype === "lrc" ? "Applied offset: 0 ms\n" : "")
                         + lyrics;
 
                 fb.ShowPopupMessage(str);
@@ -2129,7 +2129,7 @@ Menu = new function () {
             Func: function () {
                 if (lyric) {
                     var meta = fb.GetNowPlaying();
-                    var field = filetype == "lrc" ? "LYRICS" : "UNSYNCED LYRICS";
+                    var field = filetype === "lrc" ? "LYRICS" : "UNSYNCED LYRICS";
                     var LineFeedCode = prop.Save.LineFeedCode;
                     var text = (lyric.info.length ? lyric.info.join(LineFeedCode) + LineFeedCode : "") + lyric.text.join(LineFeedCode).trim();
                     try {
@@ -2372,9 +2372,9 @@ Menu = new function () {
 
             if (lyric) {
                 menu_LyricShow[2].Flag = MF_STRING;
-                menu_LyricShow[6].Flag = filetype == "txt" ? prop.Panel.ExpandRepetition ? MF_CHECKED : MF_UNCHECKED : MF_GRAYED;
-                menu_LyricShow[7].Flag = filetype == "lrc" ? prop.Panel.Contain ? MF_CHECKED : MF_UNCHECKED : MF_GRAYED;
-                menu_LyricShow[9].Flag = filetype == "lrc" ? MF_STRING : MF_GRAYED;
+                menu_LyricShow[6].Flag = filetype === "txt" ? prop.Panel.ExpandRepetition ? MF_CHECKED : MF_UNCHECKED : MF_GRAYED;
+                menu_LyricShow[7].Flag = filetype === "lrc" ? prop.Panel.Contain ? MF_CHECKED : MF_UNCHECKED : MF_GRAYED;
+                menu_LyricShow[9].Flag = filetype === "lrc" ? MF_STRING : MF_GRAYED;
                 menu_LyricShow[11].Flag = MF_STRING;
                 menu_LyricShow[12].Flag = MF_STRING;
                 menu_LyricShow[13].Flag = MF_STRING;
@@ -2458,11 +2458,11 @@ function main(path) {
 
     window.Repaint();
     Menu.build();
+
     /*    debug_edit && (
     function () {
     if (lyric) {
     Edit.start();
-    Menu.build(Menu.Edit);
     debug_edit = false;
     }
     }
@@ -2500,15 +2500,8 @@ function on_focus(is_focused) {
     !main.IsVisible && main();
 }
 
-function on_playback_starting(cmd, is_paused) {
-    s_cmd = cmd;
-}
-
 function on_playback_new_track(metadb) {
-    if (s_cmd === 4) // settrackではなぜか動作始めが不安定なのでディレイで対策する
-        (function () { main(); }).timeout(200);
-    else
-        main();
+    main();
 }
 
 function on_playback_seek(time) {
