@@ -3,7 +3,7 @@
 
 // ==PREPROCESSOR==
 // @name "Lyric Show Modoki"
-// @version "1.0.13"
+// @version "1.0.14"
 // @author "tomato111"
 // @import "%fb2k_path%import\common\lib.js"
 // ==/PREPROCESSOR==
@@ -15,7 +15,7 @@
 //============================================
 // user reserved words
 var scriptName, scriptdir, commondir, plugins, lyric, parse_path, path, directory, filename, basename, filetype, dateLastModified, dateCreated, dataSize, offsetinfo, backalpha
-, fs, ws, prop, Messages, Label, tagRe, timeRe, firstRe, repeatRes, TextHeight, offsetY, fixY, moveY, lineY, drag, drag_y, g_x, g_y, ww, wh, larea_seek, rarea_seek, seek_width, rarea_seek_x, disp, Lock
+, fs, ws, prop, Messages, Label, tagRe, timeRe, firstRe, repeatRes, TextHeight, offsetY, fixY, moveY, lineY, drag, drag_y, g_x, g_y, ww, wh, larea_seek, rarea_seek, seek_width, rarea_seek_x, disp, Lock, movable
 , debug_read, debug_scroll, debug_edit, debug_view, debug_repeat
 , DT_LEFT, DT_CENTER, DT_RIGHT, DT_WORDBREAK, DT_NOPREFIX, Left_Center
 , LyricShow, Edit, Buttons, Menu;
@@ -541,10 +541,21 @@ function applyDelta(delta) {
 
     var temp = offsetY + delta;
 
-    if ((temp <= fixY) && (temp >= LyricShow.setProperties.minOffsetY)) {
-        offsetY = temp;
-        window.Repaint();
+    if (temp >= fixY) {
+        offsetY = fixY;
+        !movable && (movable = true);
     }
+    else if (temp <= LyricShow.setProperties.minOffsetY) {
+        offsetY = LyricShow.setProperties.minOffsetY;
+        movable && (movable = false);
+        !ignore_remainder && (ignore_remainder = true);
+    }
+    else {
+        offsetY = temp;
+        !movable && (movable = true);
+    }
+
+    window.Repaint();
 }
 
 function GetImg(path) {
@@ -908,14 +919,14 @@ LyricShow = new function (Style) {
 
             l = lyric.text.length + Number(this.numOfWordbreak); // 1ファイルの行数(ワードブレイク含む)
             this.h = l * TextHeight; // 1ファイルの高さ // Set FileHeight
-            this.minOffsetY = fixY - this.h; // オフセットYの最小値 // Set minimum offsetY
+            this.minOffsetY = fixY - this.h + TextHeight; // オフセットYの最小値 // Set minimum offsetY
 
             if (lineList) {
                 for (var i = 0; i < lineList.length; i++) {
                     h = this.wordbreakList[i] * TextHeight; // 行の高さ
                     t = (lineList[i + 1] - lineList[i]) * 10; // 次の行までの時間[ms]
                     scrollSpeedList[i] = h / t * prop.Panel.Interval; // 1回の更新での移動量(行ごとに変化する)
-                    scrollSpeedType2List[i] = h / (prop.Panel.ScrollType2 * 10 / prop.Panel.Interval); // Panel.ScrollType == 2 での移動量. スクロール開始は(prop.Panel.ScrollType2*10)ミリ秒前. よって, 更新回数はそれをprop.Panel.Intervalで割ると求まる.
+                    scrollSpeedType2List[i] = t >= prop.Panel.ScrollType2 * 10 ? h / (prop.Panel.ScrollType2 * 10 / prop.Panel.Interval) : null; // Panel.ScrollType == 2 での移動量. スクロール開始は(prop.Panel.ScrollType2*10)ミリ秒前. よって, 更新回数はそれをprop.Panel.Intervalで割ると求まる.
                     if (scrollSpeedList[i] > h) // 1回の更新で行の高さを超える移動量となった場合はスキップ
                         scrollSpeedList[i] = h;
                 }
@@ -970,10 +981,11 @@ LyricShow = new function (Style) {
                 }
             }
             DrawString.prototype.scroll_0 = function (time) { // for unsynced lyrics
-                if (offsetY > LyricShow.setProperties.minOffsetY) {
-                    offsetY -= this.speed;
-                    moveY += this.speed;
-                }
+                if (!movable) return;
+
+                offsetY -= this.speed;
+                moveY += this.speed;
+
                 if (moveY >= 1) {
                     moveY -= Math.floor(moveY);
                     return true; // refresh flag
@@ -981,26 +993,32 @@ LyricShow = new function (Style) {
                 //                    debug_scrollj && fb.trace(this.i + " :: " + this.height + " :: " + this.speed + " :: " + offsetY + " :: " + lyric.text.length + " :: " + time + " > " + LyricShow.setProperties.DrawStyle[this.i + 1].time * 100)
             };
             DrawString.prototype.scroll_1 = function (time) { // for synced lyrics
-                if (offsetY > LyricShow.setProperties.minOffsetY) {
+                if (movable) {
                     offsetY -= this.speed;
                     moveY += this.speed;
                     lineY += this.speed;
+
+                    if (time >= this.p.lineList[this.i + 1]) {
+                        !ignore_remainder && (offsetY = Math.round(offsetY - this.height + lineY)); // fix remainder. offsetY - (this.height - lineY)
+                        ignore_remainder && (ignore_remainder = false);
+                        moveY = lineY = 0;
+                        lyric.i++;
+                        return true; // refresh flag
+                    }
+                    if (moveY >= 1) {
+                        moveY -= Math.floor(moveY);
+                        return true; // refresh flag
+                    }
                 }
-                if (time >= LyricShow.setProperties.lineList[this.i + 1]) {
-                    offsetY = Math.round(offsetY - this.height + lineY); // fix remainder. offsetY - (this.height - lineY)
-                    moveY = lineY = 0;
+                else if (time >= this.p.lineList[this.i + 1]) {
+                    moveY && lineY && (moveY = lineY = 0);
                     lyric.i++;
-                    return true; // refresh flag
-                }
-                if (moveY >= 1) {
-                    moveY -= Math.floor(moveY);
-                    return true; // refresh flag
                 }
                 //                    debug_scroll && fb.trace(this.i + " :: " + this.height + " :: " + this.speed + " :: " + offsetY + " :: " + lyric.text.length + " :: " + time + " > " + LyricShow.setProperties.DrawStyle[this.i + 1].time * 100)
             };
             DrawString.prototype.scroll_2 = function (time) { // for synced lyrics
-                if (offsetY > this.p.minOffsetY) {
-                    if (this.p.lineList[this.i + 1] - this.p.lineList[this.i] >= prop.Panel.ScrollType2) {
+                if (movable) {
+                    if (this.speedType2) {
                         if (this.p.lineList[this.i + 1] - time < prop.Panel.ScrollType2) {
                             offsetY -= this.speedType2;
                             moveY += this.speedType2;
@@ -1012,16 +1030,22 @@ LyricShow = new function (Style) {
                         moveY += this.speed;
                         lineY += this.speed;
                     }
+
+                    if (time >= this.p.lineList[this.i + 1]) {
+                        !ignore_remainder && (offsetY = Math.round(offsetY - this.height + lineY)); // fix remainder. offsetY - (this.height - lineY)
+                        ignore_remainder && (ignore_remainder = false);
+                        moveY = lineY = 0;
+                        lyric.i++;
+                        return true; // refresh flag
+                    }
+                    if (moveY >= 1) {
+                        moveY -= Math.floor(moveY);
+                        return true; // refresh flag
+                    }
                 }
-                if (time >= this.p.lineList[this.i + 1]) {
-                    offsetY = Math.round(offsetY - this.height + lineY); // fix remainder. offsetY - (this.height - lineY)
-                    moveY = lineY = 0;
+                else if (time >= this.p.lineList[this.i + 1]) {
+                    moveY && lineY && (moveY = lineY = 0);
                     lyric.i++;
-                    return true; // refresh flag
-                }
-                if (moveY >= 1) {
-                    moveY -= Math.floor(moveY);
-                    return true; // refresh flag
                 }
                 //                    debug_scroll && fb.trace(this.i + " :: " + this.height + " :: " + this.speed + " :: " + offsetY + " :: " + lyric.text.length + " :: " + time + " > " + LyricShow.setProperties.DrawStyle[this.i + 1].time * 100)
             };
@@ -1052,6 +1076,8 @@ LyricShow = new function (Style) {
         Busy = true;
         disp.top = 0;
         disp.bottom = lyric.text.length - 1;
+        movable = true;
+        ignore_remainder = false;
         Old = time *= 100;
         var lineList = this.setProperties.lineList;
         if (lineList) {
@@ -1064,7 +1090,7 @@ LyricShow = new function (Style) {
                 offsetY = fixY - DrawStyle[i - 1].y - lineY; // オフセットの変動値は(文字の高さ*行数)
             }
             else {
-                if (lineList[i] - lineList[i - 1] >= prop.Panel.ScrollType2) { //　次の行までの時間が (prop.Panel.ScrollType2/100) 秒以上空く行であるかどうか
+                if (DrawStyle[i - 1].speedType2) { // speedType2を条件に使うことで、次の行までの時間が (prop.Panel.ScrollType2*10) ミリ秒以上空く行であるか判別できる
                     lineY = moveY = 0;
                     if (lineList[i] - time > prop.Panel.ScrollType2)
                         offsetY = fixY - DrawStyle[i - 1].y;
@@ -1282,7 +1308,7 @@ LyricShow = new function (Style) {
         DrawStyle = LyricShow.setProperties.DrawStyle;
         this.searchLine(fb.PlaybackTime);
         this.pauseTimer(fb.IsPaused);
-        filetype === "txt" && (function () { offsetY = Math.ceil(offsetY) - (moveY - Math.floor(moveY)); }).timeout(1000) // 非同期歌詞ではlineYでの修正が出来ないのでディレイを使って小数点以下を揃えて安定化させる
+        filetype === "txt" && (function () { offsetY = Math.ceil(offsetY) - (moveY - Math.floor(moveY)); }).timeout(1000) // 再生始めは不安定であるが、非同期歌詞ではlineYでの修正が出来ないのでディレイで一度だけ小数点以下を揃えて安定化させる
     };
 
     this.end = function () {
@@ -1304,16 +1330,21 @@ LyricShow = new function (Style) {
         CollectGarbage();
     };
 
-    this.scroll = function () {
+    this.scroll = function () { // timerで呼び出す関数. timerで呼び出すとthisの意味が変わるのでthisは使わない
 
-        if (!Busy && lyric.i < lyric.text.length) {
+        if (!Busy && lyric.i !== lyric.text.length) {
             New = fb.PlaybackTime * 100;
             if (New > Old) { // fb.PlaybackTime は信用出来ない。再生始めは不安定で時間が戻ったりする // on_playback_starting の cmd === 4 (settrack) 時には特に
                 Old = New;
+                if (offsetY < LyricShow.setProperties.minOffsetY) {
+                    offsetY = LyricShow.setProperties.minOffsetY;
+                    movable = false;
+                    ignore_remainder = true;
+                }
                 if (filetype === "txt")
                     LyricShow.setProperties.DrawStyle[lyric.i - 1].scroll_0(New) && window.Repaint();
                 else if (prop.Panel.ScrollType === 1)
-                    LyricShow.setProperties.DrawStyle[lyric.i - 1].scroll_1(New) && window.Repaint(); // lyric.i(対象行)の１個前(再生行)の情報でスクロール //timerで呼び出すとthisの意味が変わるのでthisは使わない
+                    LyricShow.setProperties.DrawStyle[lyric.i - 1].scroll_1(New) && window.Repaint(); // lyric.i(対象行)の１個前(再生行)の情報でスクロール
                 else
                     LyricShow.setProperties.DrawStyle[lyric.i - 1].scroll_2(New) && window.Repaint();
             }
@@ -2044,6 +2075,16 @@ Menu = new function () {
             Flag: MF_SEPARATOR
         },
         {
+            Caption: Label.ChangeScroll,
+            Func: function () {
+                window.SetProperty("Panel.LRC.ScrollType", prop.Panel.ScrollType = prop.Panel.ScrollType === 1 ? 2 : 1);
+                main();
+            }
+        },
+        {
+            Flag: MF_SEPARATOR
+        },
+        {
             Flag: MF_STRING,
             Caption: Label.Align,
             Sub: submenu_Align,
@@ -2081,16 +2122,6 @@ Menu = new function () {
             Caption: Label.Contain,
             Func: function () {
                 window.SetProperty("Panel.LRC.ContainNormalLines", prop.Panel.Contain = !prop.Panel.Contain);
-                main();
-            }
-        },
-        {
-            Flag: MF_SEPARATOR
-        },
-        {
-            Caption: Label.ChangeScroll,
-            Func: function () {
-                window.SetProperty("Panel.LRC.ScrollType", prop.Panel.ScrollType = prop.Panel.ScrollType === 1 ? 2 : 1);
                 main();
             }
         },
@@ -2366,21 +2397,21 @@ Menu = new function () {
     this.LyricShow = {
         items: menu_LyricShow,
         refresh: function () {
-            menu_LyricShow[4].Radio = Left_Center ? 3 : Number(prop.Style.Align ^ DT_WORDBREAK ^ DT_NOPREFIX); // radio number begin with 0
-            menu_LyricShow[5].Flag = prop.Panel.BackgroundEnable ? MF_CHECKED : MF_UNCHECKED;
+            menu_LyricShow[6].Radio = Left_Center ? 3 : Number(prop.Style.Align ^ DT_WORDBREAK ^ DT_NOPREFIX); // radio number begin with 0
+            menu_LyricShow[7].Flag = prop.Panel.BackgroundEnable ? MF_CHECKED : MF_UNCHECKED;
             menu_LyricShow[18].Flag = path ? MF_STRING : MF_GRAYED;
 
             if (lyric) {
                 menu_LyricShow[2].Flag = MF_STRING;
-                menu_LyricShow[6].Flag = filetype === "txt" ? prop.Panel.ExpandRepetition ? MF_CHECKED : MF_UNCHECKED : MF_GRAYED;
-                menu_LyricShow[7].Flag = filetype === "lrc" ? prop.Panel.Contain ? MF_CHECKED : MF_UNCHECKED : MF_GRAYED;
-                menu_LyricShow[9].Flag = filetype === "lrc" ? MF_STRING : MF_GRAYED;
+                menu_LyricShow[4].Flag = filetype === "lrc" ? MF_STRING : MF_GRAYED;
+                menu_LyricShow[8].Flag = filetype === "txt" ? prop.Panel.ExpandRepetition ? MF_CHECKED : MF_UNCHECKED : MF_GRAYED;
+                menu_LyricShow[9].Flag = filetype === "lrc" ? prop.Panel.Contain ? MF_CHECKED : MF_UNCHECKED : MF_GRAYED;
                 menu_LyricShow[11].Flag = MF_STRING;
                 menu_LyricShow[12].Flag = MF_STRING;
                 menu_LyricShow[13].Flag = MF_STRING;
             }
             else
-                menu_LyricShow[2].Flag = menu_LyricShow[6].Flag = menu_LyricShow[7].Flag = menu_LyricShow[9].Flag = menu_LyricShow[11].Flag = menu_LyricShow[12].Flag = menu_LyricShow[13].Flag = MF_GRAYED;
+                menu_LyricShow[2].Flag = menu_LyricShow[4].Flag = menu_LyricShow[8].Flag = menu_LyricShow[9].Flag = menu_LyricShow[11].Flag = menu_LyricShow[12].Flag = menu_LyricShow[13].Flag = MF_GRAYED;
 
             if (fb.IsPlaying) {
                 menu_LyricShow[15].Flag = MF_STRING;
