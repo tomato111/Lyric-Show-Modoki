@@ -3,7 +3,7 @@
 
 // ==PREPROCESSOR==
 // @name "Lyric Show Modoki"
-// @version "1.0.14"
+// @version "1.0.15"
 // @author "tomato111"
 // @import "%fb2k_path%import\common\lib.js"
 // ==/PREPROCESSOR==
@@ -15,12 +15,10 @@
 //============================================
 // user reserved words
 var scriptName, scriptdir, commondir, plugins, lyric, parse_path, path, directory, filename, basename, filetype, dateLastModified, dateCreated, dataSize, offsetinfo, backalpha
-, fs, ws, prop, Messages, Label, tagRe, timeRe, firstRe, repeatRes, TextHeight, offsetY, fixY, moveY, lineY, drag, drag_y, g_x, g_y, ww, wh, larea_seek, rarea_seek, seek_width, rarea_seek_x, disp, Lock, movable
-, debug_read, debug_scroll, debug_edit, debug_view, debug_repeat
+, fs, ws, prop, Messages, Label, tagRe, timeRe, firstRe, repeatRes, TextHeight, offsetY, fixY, moveY, lineY, drag, drag_y, g_x, g_y, ww, wh, larea_seek, rarea_seek, seek_width, rarea_seek_x, disp, Lock, movable, jumpY
 , DT_LEFT, DT_CENTER, DT_RIGHT, DT_WORDBREAK, DT_NOPREFIX, Left_Center
 , LyricShow, Edit, Buttons, Menu;
 
-debug_read = false, debug_scroll = false, debug_edit = false, debug_view = false, debug_repeat = false; // for debug
 fs = new ActiveXObject("Scripting.FileSystemObject"); // File System Object
 ws = new ActiveXObject("WScript.Shell"); // WScript Shell Object
 scriptName = "Lyric Show Modoki";
@@ -442,6 +440,7 @@ function setRGBdiff(color, dr, dg, db) {
     return RGB(getRed(color) + dr, getGreen(color) + dg, getBlue(color) + db);
 }
 
+
 function trimLine_TopAndBottom(withTag) { // trim top and bottom
 
     var text = lyric.text;
@@ -543,7 +542,6 @@ function applyDelta(delta) {
 
     if (temp >= fixY) {
         offsetY = fixY;
-        !movable && (movable = true);
     }
     else if (temp <= LyricShow.setProperties.minOffsetY) {
         offsetY = LyricShow.setProperties.minOffsetY;
@@ -617,7 +615,7 @@ function CalcImgSize(img, dspW, dspH, strch, kar) {
 
 LyricShow = new function (Style) {
 
-    var Busy, Old, New, Color, p, DrawStyle;
+    var Old, New, Color, p, DrawStyle;
     var directoryRe = /.+\\/;
     var extRe = /\.(?:lrc|txt)$/i;
     var BackgroundPath, BackgroundImg, BackgroundSize;
@@ -764,7 +762,7 @@ LyricShow = new function (Style) {
                     ms = ms - Math.round(offset / 10);
                     ms = ms < 0 ? 0 : ms;
                 }
-                debug_read && fb.trace(i + " :: " + tmpArray[timeArray[i]] + " :: " + timeArray[i] + " :: " + ms);
+                // fb.trace(i + " :: " + tmpArray[timeArray[i]] + " :: " + timeArray[i] + " :: " + ms);
 
                 if (dublicate instanceof Array)
                     for (var k = 0; k < dublicate.length; k++) {
@@ -788,7 +786,7 @@ LyricShow = new function (Style) {
                     { // start label
                         for (j = 0; j < repeatRes.length; j++) {
                             if (!repeatRes[j].e.length && repeatRes[j].a.test(lyric.text[i])) { // put lyrics for repeats
-                                debug_repeat && console("put i:" + i + ", " + lyric.text[i]);
+                                // console("put i:" + i + ", " + lyric.text[i]);
                                 for (k = i; k < lyric.text.length; k++) {
                                     if (k === i && repeatRes[j].d > 0)
                                         repeatRes[j].e.push(lyric.text[k].slice(repeatRes[j].d));
@@ -799,7 +797,7 @@ LyricShow = new function (Style) {
                                         break;
                                 }
 
-                                debug_repeat && console("fin k:" + k + ", " + lyric.text[k]);
+                                // console("fin k:" + k + ", " + lyric.text[k]);
                                 for (; ; ) // trim
                                     if (repeatRes[j].e[0] == "")
                                         repeatRes[j].e.shift();
@@ -811,13 +809,13 @@ LyricShow = new function (Style) {
                                 break Li;
                             }
                             else if (repeatRes[j].c.test(lyric.text[i])) { // replace lyric for repeats
-                                debug_repeat && console("before i:" + i + ", " + lyric.text[i]);
+                                // console("before i:" + i + ", " + lyric.text[i]);
                                 repeatRes[j].e.unshift(lyric.text.length - i);
                                 repeatRes[j].e.unshift(i);
                                 temp = Array.prototype.splice.apply(lyric.text, repeatRes[j].e) // splice は配列を展開しないで挿入するので、範囲を含めた配列にし(上2行)、applyで展開させて渡す
                                 temp.shift();
                                 lyric.text = lyric.text.concat(temp);
-                                debug_repeat && console("after i:" + i + ", " + lyric.text[i]);
+                                // console("after i:" + i + ", " + lyric.text[i]);
                                 repeatRes[j].e.shift();
                                 repeatRes[j].e.shift();
                                 i += repeatRes[j].e.length - 1;
@@ -862,27 +860,20 @@ LyricShow = new function (Style) {
             if (!TextHeight)
                 TextHeight = temp_gr.CalcTextHeight("Sample", Style.Font) + Style.LPadding;
 
-            if (View) {
-                var numOfWordbreakWithTag = 0;
-                var wordbreakListWithTag = [];
+            var numOfWordbreak = 0;
+            var wordbreakList = [];
 
+            if (View) {
                 for (var i = 0; i < lyric.text.length; i++) {
-                    wordbreakListWithTag[i] = (temp_gr.CalcTextWidth(lyric.text[i].replace(tagRe, "") + "[00:00.00] ", Style.Font) > ww) ? 2 : 1;
+                    wordbreakList[i] = Math.floor(temp_gr.CalcTextWidth(lyric.text[i].replace(tagRe, "") + "[00:00.00] ", Style.Font) / ww) + 1;
                     if (contain) {
                         wreres = lyric.text[i].match(wre);
-                        if (wreres) wordbreakListWithTag[i] += wreres.length;
+                        if (wreres) wordbreakList[i] += wreres.length;
                     }
-                    numOfWordbreakWithTag = numOfWordbreakWithTag + wordbreakListWithTag[i] - 1;
+                    numOfWordbreak += wordbreakList[i] - 1;
                 }
-
-                this.numOfWordbreakWithTag = numOfWordbreakWithTag; // Set number Of wordbreak
-                this.wordbreakListWithTag = wordbreakListWithTag; // Set Wordbreak List
-
             }
             else {
-                var numOfWordbreak = 0;
-                var wordbreakList = [];
-
                 for (i = 0; i < lyric.text.length; i++) {
                     linelength = temp_gr.CalcTextWidth(isLRC ? lyric.text[i].slice(10) : lyric.text[i], Style.Font);
                     if (leftcenterX)
@@ -891,19 +882,19 @@ LyricShow = new function (Style) {
                         else if ((ww - linelength) / 2 < leftcenterX)
                             leftcenterX = (ww - linelength) / 2;
 
-                    wordbreakList[i] = linelength > ww ? 2 : 1;
+                    wordbreakList[i] = Math.floor(linelength / ww) + 1;
                     if (contain) {
                         wreres = lyric.text[i].match(wre);
                         if (wreres) wordbreakList[i] += wreres.length;
                     }
-                    numOfWordbreak = numOfWordbreak + wordbreakList[i] - 1;
+                    numOfWordbreak += wordbreakList[i] - 1;
                 }
 
                 this.leftcenterX = Number(leftcenterX); // Set offsetX for left-center
-                this.numOfWordbreak = numOfWordbreak; // Set number Of wordbreak
-                this.wordbreakList = wordbreakList; // Set Wordbreak List
-
             }
+
+            this.numOfWordbreak = numOfWordbreak; // Set number Of wordbreak
+            this.wordbreakList = wordbreakList; // Set Wordbreak List
 
             temp_bmp.ReleaseGraphics(temp_gr);
             temp_bmp.Dispose();
@@ -941,12 +932,12 @@ LyricShow = new function (Style) {
             this.scrollSpeedType2List = scrollSpeedType2List; // Set ScrollSpeed Type2 List
         },
 
-        buildDrawStyle: function (View) {
+        buildDrawStyle: function () {
 
             var p = LyricShow.setProperties;
             var isLRC = filetype === "lrc";
 
-            var DrawStyle = { "-1": { nextY: 0, nextYWithTag: 0} };
+            var DrawStyle = { "-1": { nextY: 0} };
             for (var i = 0; i < lyric.text.length; i++)
                 DrawStyle[i] = new DrawString(i, isLRC);
 
@@ -957,28 +948,21 @@ LyricShow = new function (Style) {
                 this.i = i;
                 this.p = p;
 
-                if (View) {
-                    this.text = lyric.text[i];
-                    this.time = p.lineList[i] / 100;
-                    this.heightWithTag = p.wordbreakListWithTag[i] * TextHeight;
-                    this.yWithTag = DrawStyle[i - 1].nextYWithTag;
-                    this.nextYWithTag = this.yWithTag + this.heightWithTag;
+                this.text = lyric.text[i];
+                this.y = DrawStyle[i - 1].nextY;
+                this.height = p.wordbreakList[i] * TextHeight;
+                this.nextY = this.y + this.height;
+                this.time = p.lineList ? p.lineList[i] / 100 : null;
+
+                if (isLRC) {
+                    this.text = lyric.text[i].slice(10);
+                    this.speed = p.scrollSpeedList[i];
+                    this.speedType2 = p.scrollSpeedType2List[i];
+                } else {
+                    this.speed = p.scrollSpeedList.degree;
                 }
-                else {
-                    this.time = p.lineList ? p.lineList[i] / 100 : null;
-                    this.height = p.wordbreakList[i] * TextHeight;
-                    if (isLRC) {
-                        this.text = lyric.text[i].slice(10);
-                        this.speed = p.scrollSpeedList[i];
-                        this.speedType2 = p.scrollSpeedType2List[i];
-                    } else {
-                        this.text = lyric.text[i];
-                        this.speed = p.scrollSpeedList.degree;
-                    }
-                    this.y = DrawStyle[i - 1].nextY;
-                    this.nextY = this.y + this.height;
-                    this.cy = this.y + g_y;
-                }
+                this.cy = this.y + g_y;
+
             }
             DrawString.prototype.scroll_0 = function (time) { // for unsynced lyrics
                 if (!movable) return;
@@ -990,7 +974,7 @@ LyricShow = new function (Style) {
                     moveY -= Math.floor(moveY);
                     return true; // refresh flag
                 }
-                //                    debug_scrollj && fb.trace(this.i + " :: " + this.height + " :: " + this.speed + " :: " + offsetY + " :: " + lyric.text.length + " :: " + time + " > " + LyricShow.setProperties.DrawStyle[this.i + 1].time * 100)
+                // fb.trace(this.i + " :: " + this.height + " :: " + this.speed + " :: " + offsetY + " :: " + lyric.text.length + " :: " + time + " > " + LyricShow.setProperties.DrawStyle[this.i + 1].time * 100)
             };
             DrawString.prototype.scroll_1 = function (time) { // for synced lyrics
                 if (movable) {
@@ -1000,7 +984,7 @@ LyricShow = new function (Style) {
 
                     if (time >= this.p.lineList[this.i + 1]) {
                         !ignore_remainder && (offsetY = Math.round(offsetY - this.height + lineY)); // fix remainder. offsetY - (this.height - lineY)
-                        ignore_remainder && (ignore_remainder = false);
+                        ignore_remainder && (ignore_remainder = false); // 誤差補正の無効は一度だけ
                         moveY = lineY = 0;
                         lyric.i++;
                         return true; // refresh flag
@@ -1013,8 +997,9 @@ LyricShow = new function (Style) {
                 else if (time >= this.p.lineList[this.i + 1]) {
                     moveY && lineY && (moveY = lineY = 0);
                     lyric.i++;
+                    return true; // refresh flag
                 }
-                //                    debug_scroll && fb.trace(this.i + " :: " + this.height + " :: " + this.speed + " :: " + offsetY + " :: " + lyric.text.length + " :: " + time + " > " + LyricShow.setProperties.DrawStyle[this.i + 1].time * 100)
+                // fb.trace(this.i + " :: " + this.height + " :: " + this.speed + " :: " + offsetY + " :: " + lyric.text.length + " :: " + time + " > " + LyricShow.setProperties.DrawStyle[this.i + 1].time * 100)
             };
             DrawString.prototype.scroll_2 = function (time) { // for synced lyrics
                 if (movable) {
@@ -1046,19 +1031,16 @@ LyricShow = new function (Style) {
                 else if (time >= this.p.lineList[this.i + 1]) {
                     moveY && lineY && (moveY = lineY = 0);
                     lyric.i++;
+                    return true; // refresh flag
                 }
-                //                    debug_scroll && fb.trace(this.i + " :: " + this.height + " :: " + this.speed + " :: " + offsetY + " :: " + lyric.text.length + " :: " + time + " > " + LyricShow.setProperties.DrawStyle[this.i + 1].time * 100)
+                // fb.trace(this.i + " :: " + this.height + " :: " + this.speed + " :: " + offsetY + " :: " + lyric.text.length + " :: " + time + " > " + LyricShow.setProperties.DrawStyle[this.i + 1].time * 100)
             };
             DrawString.prototype.draw = function (gr, color, x) {
                 gr.GdiDrawText(this.text, Style.Font, color, x, this.cy + offsetY, ww, wh, Style.Align);
             };
             DrawString.prototype.onclick = function (x, y) {
-                if (prop.Edit.View) {
-                    if (!(x > g_x && x < wh && (y > offsetY + this.yWithTag) && (y < offsetY + this.nextYWithTag)))
-                        return;
-                } else
-                    if (!(x > g_x && x < wh && (y > offsetY + this.y) && (y < offsetY + this.nextY)))
-                        return;
+                if (x < g_x || x > g_x + ww || y < offsetY + this.y || y > offsetY + this.nextY)
+                    return;
                 this.doCommand();
                 return true;
             };
@@ -1073,7 +1055,7 @@ LyricShow = new function (Style) {
 
     this.searchLine = function (time) {
 
-        Busy = true;
+        this.pauseTimer(true);
         disp.top = 0;
         disp.bottom = lyric.text.length - 1;
         movable = true;
@@ -1104,13 +1086,17 @@ LyricShow = new function (Style) {
                     offsetY = fixY - DrawStyle[i - 1].y - lineY;
                 }
             }
+            if (jumpY) {
+                offsetY = jumpY;
+                jumpY = null;
+            }
         }
         else
             offsetY = fixY - this.setProperties.h * time / Math.round(fb.PlaybackLength * 100); // パネルの半分 - (1ファイルの高さ * 再生時間の割合)
 
         moveY = Math.abs(offsetY % 1);
         window.Repaint();
-        Busy = false;
+        this.pauseTimer(fb.IsPaused);
     };
 
     this.pauseTimer = function (state) {
@@ -1307,7 +1293,6 @@ LyricShow = new function (Style) {
 
         DrawStyle = LyricShow.setProperties.DrawStyle;
         this.searchLine(fb.PlaybackTime);
-        this.pauseTimer(fb.IsPaused);
         filetype === "txt" && (function () { offsetY = Math.ceil(offsetY) - (moveY - Math.floor(moveY)); }).timeout(1000) // 再生始めは不安定であるが、非同期歌詞ではlineYでの修正が出来ないのでディレイで一度だけ小数点以下を揃えて安定化させる
     };
 
@@ -1332,14 +1317,14 @@ LyricShow = new function (Style) {
 
     this.scroll = function () { // timerで呼び出す関数. timerで呼び出すとthisの意味が変わるのでthisは使わない
 
-        if (!Busy && lyric.i !== lyric.text.length) {
+        if (lyric.i !== lyric.text.length) {
             New = fb.PlaybackTime * 100;
             if (New > Old) { // fb.PlaybackTime は信用出来ない。再生始めは不安定で時間が戻ったりする // on_playback_starting の cmd === 4 (settrack) 時には特に
                 Old = New;
                 if (offsetY < LyricShow.setProperties.minOffsetY) {
                     offsetY = LyricShow.setProperties.minOffsetY;
-                    movable = false;
-                    ignore_remainder = true;
+                    movable = false; // 移動不可のフラグ
+                    ignore_remainder = true; // ライン移動時の誤差補正を無効にする（一度だけ）
                 }
                 if (filetype === "txt")
                     LyricShow.setProperties.DrawStyle[lyric.i - 1].scroll_0(New) && window.Repaint();
@@ -1393,7 +1378,7 @@ LyricShow = new function (Style) {
             var wordbreak = 0;
             for (i = 0; i < s.length; i++) {
                 gr.GdiDrawText(s[i], Style.Font, Color.Text, g_x, offset + TextHeight * (i + wordbreak), ww, wh, Left_Center ? DT_CENTER | DT_WORDBREAK | DT_NOPREFIX : Style.Align);
-                gr.CalcTextWidth(s[i], Style.Font) > ww && wordbreak++;
+                wordbreak += Math.floor(gr.CalcTextWidth(s[i], Style.Font) / ww);
             }
         }
     };
@@ -1421,18 +1406,17 @@ Edit = new function (Style, p) {
 
         if (filetype === "lrc") {
             lyric.i = lyric.text.length;
-            offsetY -= DrawStyle[lyric.i - 1].yWithTag;
+            offsetY -= DrawStyle[lyric.text.length - 1].y;
         }
         else
             lyric.i = 1;
-
     };
 
     this.moveNextLine = function (x, y) {
 
         putTime(Math.round(fb.PlaybackTime * 100), lyric.i);
 
-        offsetY -= DrawStyle[lyric.i - 1].heightWithTag;
+        offsetY -= DrawStyle[lyric.i - 1].height;
         lyric.i++;
         window.Repaint();
 
@@ -1450,27 +1434,46 @@ Edit = new function (Style, p) {
 
         do {
             lyric.text[--lyric.i] = lyric.text[lyric.i].slice(10);
-            offsetY += DrawStyle[lyric.i - 1].heightWithTag;
+            offsetY += DrawStyle[lyric.i - 1].height;
             if (lyric.i == 1) break;
         } while (all)
 
         window.Repaint();
-    }
+    };
 
     this.adjustTime = function (n) { // -100 < Int n < 100
 
         if (lyric.i == 1) return;
 
         Lock = true;
+
         var pl = lyric.i - 1
+        lyric.text[pl].match(timeRe);
+        var pt = (RegExp.$1 * 60 + Number(RegExp.$2)) * 100 + Number(RegExp.$3);
 
-        this.applyTimeDiff(lyric.text[pl].match(timeRe), pl, n);
+        if (n < 0) {
+            lyric.text[pl - 1].match(timeRe);
+            var tt = (RegExp.$1 * 60 + Number(RegExp.$2)) * 100 + Number(RegExp.$3);
+            if (pt - tt > -n || tt === 0) // 下限
+                apply();
+        }
+        else {
+            var r = lyric.text[pl + 1].match(timeRe);
+            tt = (RegExp.$1 * 60 + Number(RegExp.$2)) * 100 + Number(RegExp.$3);
+            if (!r || tt - pt > n) // 上限
+                apply();
+        }
 
-        if (prop.Edit.View)
-            DrawStyle[pl].doCommand();
-        else
-            window.Repaint();
         Lock = false;
+
+        function apply() {
+            Edit.applyTimeDiff(pt, pl, n);
+            if (prop.Edit.View)
+                DrawStyle[pl].doCommand();
+            else
+                window.Repaint();
+        }
+
     };
 
     this.offsetTime = function (n) { // -100 < Int n < 100
@@ -1478,66 +1481,48 @@ Edit = new function (Style, p) {
         if (lyric.i == 1) return;
 
         Lock = true;
-        var timeArray;
+
+        var tt;
 
         for (var i = 1; i < lyric.text.length; i++) {
-            if (!(timeArray = lyric.text[i].match(timeRe)))
-                break;
-            this.applyTimeDiff(timeArray, i, -n)
+            if (lyric.text[i].match(timeRe)) {
+                tt = (RegExp.$1 * 60 + Number(RegExp.$2)) * 100 + Number(RegExp.$3);
+                this.applyTimeDiff(tt, i, -n);
+            }
         }
 
         if (prop.Edit.View)
             DrawStyle[lyric.i - 1].doCommand();
         else
             window.Repaint();
+
         Lock = false;
     };
 
-    this.applyTimeDiff = function (timeArray, i, diff) {
+    this.applyTimeDiff = function (time, i, diff) {
 
-        var ms, s, MS, S, M;
+        var s, MS, S, M;
 
-        ms = Number(timeArray[3]) + diff;
-        if (ms >= 100) {
-            s = Number(timeArray[2]) + 1;
-            MS = ms - 100;
-            if (s >= 60) {
-                M = Number(timeArray[1]) + 1;
-                S = s - 60;
-            }
-            else {
-                M = Number(timeArray[1]);
-                S = s;
-            }
-        }
-        else if (ms < 0) {
-            s = Number(timeArray[2]) - 1;
-            MS = ms + 100;
-            if (s < 0) {
-                M = Number(timeArray[1]) - 1;
-                S = s + 60;
-            }
-            else {
-                M = Number(timeArray[1]);
-                S = s;
-            }
+        if (diff === 0) return;
+
+        time += diff;
+
+        if (time > 0) {
+            MS = Math.round(time % 100); // なぜか微量の誤差が生じるので四捨五入処理を入れる
+            s = (time - MS) / 100;
+            S = Math.round(s % 60); // これも同様
+            M = Math.floor(s / 60);
         }
         else {
-            MS = ms
-            S = Number(timeArray[2]);
-            M = Number(timeArray[1]);
-        }
-
-        if (M < 0) {
-            MS = 0; S = 0; M = 0;
+            time = 0;
+            MS = S = M = 0;
         }
 
         lyric.text[i] = lyric.text[i].replace(tagRe, "[" + doubleFig(M) + ":" + doubleFig(S) + "." + doubleFig(MS) + "]");
         if (prop.Edit.View) {
-            p.lineList[i] = (M * 60 + S) * 100 + MS;
+            p.lineList[i] = time;
             DrawStyle[i].time = p.lineList[i] / 100;
         }
-
     };
 
     this.controlLine = function (n, s) {
@@ -1574,7 +1559,7 @@ Edit = new function (Style, p) {
         }
 
         p.setWordbreakList(true);
-        p.buildDrawStyle(true);
+        p.buildDrawStyle();
         DrawStyle = p.DrawStyle;
 
         window.Repaint();
@@ -1636,19 +1621,19 @@ Edit = new function (Style, p) {
         LyricShow.pauseTimer(true);
         with (prop.Style) { Color = CE[CSE]; }
         prop.Edit.Start = true;
-        prop.Edit.Align = prop.Style.Align;
-        prop.Edit.Left_Center = Left_Center;
+        prop.Edit.Align = prop.Style.Align; // Editモード解除時に元に戻すため値を退避
+        prop.Edit.Left_Center = Left_Center; // これも同様
         Left_Center = false;
         filetype === "txt" && putTime(0, 0);
 
         p.setLineList(true);
         p.setWordbreakList(true);
-        p.buildDrawStyle(true);
+        p.buildDrawStyle();
         this.init();
-
         this.calcSeekIMGarea();
+
         if (filetype === "lrc")
-            this.View.start(true);
+            this.View.start();
         else {
             this.calcRGBdiff();
             window.Repaint();
@@ -1662,35 +1647,45 @@ Edit = new function (Style, p) {
         prop.Edit.Start = false;
         prop.Edit.View && this.View.end();
         with (prop.Style) { Color = CLS[CSLS]; }
-        prop.Style.Align = prop.Edit.Align;
-        Left_Center = prop.Edit.Left_Center;
+        prop.Style.Align = prop.Edit.Align; // Editモードに入る前の状態に戻す
+        Left_Center = prop.Edit.Left_Center; // これも同様
         prop.Edit.Align = prop.Edit.Left_Center = null;
 
     };
 
     this.View = new function () {
 
+        var TimeRe = /^\d+?\.\d\d$/;
+
         this.setProperties = function () {
             p.setLineList(true);
             p.setWordbreakList(true);
-            p.buildDrawStyle(true);
+            p.buildDrawStyle();
             DrawStyle = p.DrawStyle;
         };
 
         this.searchLine = function (time) {
+            this.pauseTimer(true);
             disp.top = 0;
-            time *= 100;
-            for (var i = 0; i < p.lineList.length; i++) {
-                if (p.lineList[i] > time) break;
+
+            if (TimeRe.test(time)) { // time *= 100 この計算になぜか微量の誤差が生じてapplyTimeDiffに影響が出るので対策する
+                time = Math.round(time * 100);
             }
+            else
+                time *= 100;
+
+            for (var i = 0; i < p.lineList.length; i++)
+                if (p.lineList[i] > time) break;
+
             lyric.i = i;
-            offsetY = edit_fixY + Style.LPadding / 2 - DrawStyle[lyric.i - 1].yWithTag;
+            offsetY = edit_fixY + Style.LPadding / 2 - DrawStyle[lyric.i - 1].y;
             window.Repaint();
+            this.pauseTimer(fb.IsPaused);
         };
 
         this.watchLineChange = function () {
             if (Math.round(fb.PlaybackTime * 100) >= p.lineList[lyric.i]) {
-                offsetY -= LyricShow.setProperties.DrawStyle[lyric.i - 1].heightWithTag;
+                offsetY -= LyricShow.setProperties.DrawStyle[lyric.i - 1].height;
                 lyric.i++;
                 window.Repaint();
             }
@@ -1703,22 +1698,21 @@ Edit = new function (Style, p) {
                 this.watchLineChange.interval(prop.Panel.Interval);
         };
 
-        this.start = function (PropExists) {
+        this.start = function () {
             prop.Edit.View = true;
-            this.i = lyric.i;
-            this.offsetY = offsetY;
-            !PropExists && this.setProperties();
+            this.i = lyric.i; // ビューモード解除時に元に戻れるように値を退避
+            this.offsetY = offsetY; // これも同様
+            lyric.i !== lyric.text.length && this.setProperties();
             Edit.calcRGBdiff();
             this.searchLine(fb.PlaybackTime);
-            this.pauseTimer(fb.IsPaused);
             Menu.build(Menu.Edit);
         };
 
         this.end = function () {
             prop.Edit.View = false;
             this.pauseTimer(true);
-            lyric.i = this.i;
-            offsetY = this.offsetY;
+            lyric.i = this.i; // ビューモードに入る前の状態に戻す
+            offsetY = this.offsetY; // これも同様
             this.i = this.offsetY = null;
             lyric.i == lyric.text.length && Edit.undo();
             Edit.calcRGBdiff();
@@ -1758,25 +1752,25 @@ Edit = new function (Style, p) {
     this.on_paint = function (gr) {
 
         var p = lyric.i - 1; // playing line
-        var tmp = g_y + offsetY + TextHeight;
+        var tmp = g_y + offsetY;
         var n, str, ci, c;
 
         // background
         gr.FillSolidRect(-1, -1, window.Width + 1, window.Height + 1, prop.Edit.View ? Color.ViewBackground : Color.Background);
         // playing line
-        gr.FillRoundRect(g_x + 1, g_y + edit_fixY, ww - 2, DrawStyle[p].heightWithTag, 5, 5, Color.Line);
+        gr.FillRoundRect(g_x + 1, g_y + edit_fixY, ww - 2, DrawStyle[p].height, 5, 5, Color.Line);
 
         for (var i = -2; i < lyric.text.length - 2; i++) { // lyrics
             n = p + i;
             if (i == -2 && n >= 0) { disp.top = n; }
             if (n < 0) continue;
-            else if (n >= lyric.text.length || tmp + DrawStyle[n].nextYWithTag > wh) { disp.bottom = n - 1; break; } // 画面下のアイコンに被らない程度に描画
+            else if (n >= lyric.text.length || tmp + DrawStyle[n].nextY > wh) { disp.bottom = n - 1; break; } // 画面下のアイコンに被らない程度に描画
             else {
                 str = lyric.text[n].replace(tagBottomRe, "$1 ");
                 ci = (i < prop.Edit.Step) ? (i < 0) ? (i >= -prop.Edit.Step) ? -i : null : i : null;
                 c = ci === null ? di[3] : setRGBdiff(Color.Text, di[0] * ci, di[1] * ci, di[2] * ci);
-                debug_view && fb.trace(str + "::" + Style.Font + "::" + Color.Text + "::" + g_x + "::" + g_y + "::" + offsetY + "::" + DrawStyle[n].yWithTag + "::" + ww + "::" + wh + "::" + Style.Align);
-                gr.GdiDrawText(str, Style.Font, c, g_x, g_y + offsetY + DrawStyle[n].yWithTag, ww, wh, Style.Align);
+                // fb.trace(str + "::" + Style.Font + "::" + Color.Text + "::" + g_x + "::" + g_y + "::" + offsetY + "::" + DrawStyle[n].y + "::" + ww + "::" + wh + "::" + Style.Align);
+                gr.GdiDrawText(str, Style.Font, c, g_x, g_y + offsetY + DrawStyle[n].y, ww, wh, Style.Align);
             }
         }
 
@@ -2490,14 +2484,7 @@ function main(path) {
     window.Repaint();
     Menu.build();
 
-    /*    debug_edit && (
-    function () {
-    if (lyric) {
-    Edit.start();
-    debug_edit = false;
-    }
-    }
-    ).timeout(400);*/
+    // (function () { if (lyric) { Edit.start(); } }).timeout(400);
 }
 main();
 
@@ -2645,10 +2632,12 @@ function on_mouse_lbtn_up(x, y, mask) {
 
 function on_mouse_lbtn_dblclk(x, y, mask) {
     if (prop.Edit.Start) on_mouse_lbtn_down(x, y, mask);
-    else
+    else {
+        jumpY = offsetY;
         for (var i = disp.top, j = disp.bottom; i <= j; i++)
             if (LyricShow.setProperties.DrawStyle[i].onclick(x, y))
                 break;
+    }
 }
 
 function on_mouse_mbtn_down(x, y, mask) {
