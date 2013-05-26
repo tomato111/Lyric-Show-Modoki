@@ -3,7 +3,7 @@
 
 // ==PREPROCESSOR==
 // @name "Lyric Show Modoki"
-// @version "1.0.15"
+// @version "1.0.16"
 // @author "tomato111"
 // @import "%fb2k_path%import\common\lib.js"
 // ==/PREPROCESSOR==
@@ -92,6 +92,9 @@ prop = new function () {
         Font_Family: window.GetProperty("Style.Font-Family", ""),
         Font_Size: window.GetProperty("Style.Font-Size", 12),
         Font_Bold: window.GetProperty("Style.Font-Bold", true),
+        Font_Italic: window.GetProperty("Style.Font-Italic", false),
+        Shadow: window.GetProperty("Style.Text-Shadow", true),
+        ShadowPosition: window.GetProperty("Style.Text-ShadowPosition", "1,2"),
         // text alignment.
         Align: DT_WORDBREAK | DT_NOPREFIX | window.GetProperty("Style.Align", DT_CENTER),
         // Padding
@@ -104,16 +107,19 @@ prop = new function () {
     this.Style.CLS = { // define color of LyricShow 
         white: {
             Text: RGB(70, 70, 70),                            // Normal Text color
+            TextShadow: RGB(225, 225, 225),             // Text Shadow color
             Background: RGBA(245, 245, 245, 255),  // Background color
-            PlayingText: RGB(225, 72, 106)              // Playing Text color
+            PlayingText: RGB(225, 72, 106)             // Playing Text color
         },
         black: {
             Text: RGB(190, 190, 190),
+            TextShadow: RGB(55, 55, 55),
             Background: RGBA(76, 76, 76, 255),
             PlayingText: RGB(255, 142, 196)
         },
         user: {
             Text: eval(window.GetProperty("Style.User.LyricShow.Text", "RGB(190, 190, 190)")),
+            TextShadow: eval(window.GetProperty("Style.User.LyricShow.TextShadow", "RGB(55, 55, 55)")),
             Background: eval(window.GetProperty("Style.User.LyricShow.Background", "RGBA(75, 75, 75, 255)")),
             PlayingText: eval(window.GetProperty("Style.User.LyricShow.PlayingText", "RGB(255, 142, 196)"))
         }
@@ -183,7 +189,15 @@ prop = new function () {
     if (!this.Style.Font_Size || typeof this.Style.Font_Size != "number")
         window.SetProperty("Style.Font-Size", this.Style.Font_Size = 12);
 
-    this.Style.Font = gdi.Font(this.Style.Font_Family, this.Style.Font_Size, this.Style.Font_Bold && 1);
+    this.Style.Font = gdi.Font(this.Style.Font_Family, this.Style.Font_Size, (this.Style.Font_Bold ? 1 : 0) + (this.Style.Font_Italic ? 2 : 0));
+
+    // check TextShadow
+    if (!/^-?\d+?,-?\d+$/.test(this.Style.ShadowPosition))
+        window.SetProperty("Style.Text-ShadowPosition", "1,2");
+
+    this.Style.ShadowPosition = this.Style.ShadowPosition.split(",");
+    this.Style.ShadowPosition[0] = Number(this.Style.ShadowPosition[0]);
+    this.Style.ShadowPosition[1] = Number(this.Style.ShadowPosition[1]);
 
     // check Padding
     if (typeof this.Style.HPadding != "number")
@@ -281,10 +295,7 @@ switch (prop.Panel.Lang) {
             SaveToFile: "Save to file",
             Refresh: "Refresh",
             About: "About current lyric",
-            ExpandR: "Expand Repetition [TXT]",
-            Contain: "Contain Normal Lines [LRC]",
             ChangeScroll: "Change Scroll Type [LRC]",
-            BEnable: "Show Background Image",
             Copy: "Copy lyrics",
             CopyWith: "Copy with timetag",
             CopyWithout: "Copy without timetag",
@@ -294,6 +305,13 @@ switch (prop.Panel.Lang) {
             Align_Center: "Center",
             Align_Right: "Right",
             Align_Left_Center: "Left-Center",
+            Display: "Display",
+            Bold: "Font-Bold",
+            Italic: "Font-Italic",
+            Shadow: "Text-Shadow",
+            BEnable: "Show Background Image",
+            ExpandR: "Expand Repetition [TXT]",
+            Contain: "Contain Normal Lines [LRC]",
             Rule: "Show Ruled Line",
             View: "Vew Mode",
             EditLine: "Edit Line",
@@ -337,10 +355,7 @@ switch (prop.Panel.Lang) {
             SaveToFile: "ファイルに保存",
             Refresh: "更新",
             About: "この歌詞について",
-            ExpandR: "繰り返しを展開する [TXT]",
-            Contain: "通常の行を含める [LRC]",
             ChangeScroll: "スクロール方法を変更 [LRC]",
-            BEnable: "背景画像を表示する",
             Copy: "コピー",
             CopyWith: "タイムタグ付きでコピー",
             CopyWithout: "タイムタグなしでコピー",
@@ -350,6 +365,13 @@ switch (prop.Panel.Lang) {
             Align_Center: "中央",
             Align_Right: "右",
             Align_Left_Center: "左-中央",
+            Display: "表示",
+            Bold: "文字を太くする",
+            Italic: "文字を斜体にする",
+            Shadow: "文字に影をつける",
+            BEnable: "背景画像を表示する",
+            ExpandR: "繰り返しを展開する [TXT]",
+            Contain: "タイムタグのない行を含める [LRC]",
             Rule: "罫線を表示",
             View: "ビューモード",
             EditLine: "行を編集",
@@ -890,7 +912,7 @@ LyricShow = new function (Style) {
                     numOfWordbreak += wordbreakList[i] - 1;
                 }
 
-                this.leftcenterX = Number(leftcenterX); // Set offsetX for left-center
+                this.leftcenterX = Number(leftcenterX) + g_x; // Set offsetX for left-center
             }
 
             this.numOfWordbreak = numOfWordbreak; // Set number Of wordbreak
@@ -961,7 +983,9 @@ LyricShow = new function (Style) {
                 } else {
                     this.speed = p.scrollSpeedList.degree;
                 }
+
                 this.cy = this.y + g_y;
+                this.sy = this.cy + prop.Style.ShadowPosition[1]; // shadow y position
 
             }
             DrawString.prototype.scroll_0 = function (time) { // for unsynced lyrics
@@ -1035,8 +1059,12 @@ LyricShow = new function (Style) {
                 }
                 // fb.trace(this.i + " :: " + this.height + " :: " + this.speed + " :: " + offsetY + " :: " + lyric.text.length + " :: " + time + " > " + LyricShow.setProperties.DrawStyle[this.i + 1].time * 100)
             };
-            DrawString.prototype.draw = function (gr, color, x) {
-                gr.GdiDrawText(this.text, Style.Font, color, x, this.cy + offsetY, ww, wh, Style.Align);
+            DrawString.prototype.draw = function (gr, text, color, x) {
+                gr.GdiDrawText(text, Style.Font, color, x, this.cy + offsetY, ww, this.height, Style.Align);
+            };
+            DrawString.prototype.draw_withShadow = function (gr, text, color, x) {
+                gr.GdiDrawText(text, Style.Font, Color.TextShadow, x + Style.ShadowPosition[0], this.sy + offsetY, ww, this.height, Style.Align);
+                gr.GdiDrawText(text, Style.Font, color, x, this.cy + offsetY, ww, this.height, Style.Align);
             };
             DrawString.prototype.onclick = function (x, y) {
                 if (x < g_x || x > g_x + ww || y < offsetY + this.y || y > offsetY + this.nextY)
@@ -1307,7 +1335,7 @@ LyricShow = new function (Style) {
             for (var i = 0; i < repeatRes.length; i++)
                 repeatRes[i].e = [];
 
-        if (!prop.Panel.BackgroundEnable)
+        if (!prop.Panel.BackgroundEnable || !main.IsVisible)
             this.releaseGlaphic();
         else if (!fb.IsPlaying)
             this.releaseGlaphic();
@@ -1345,38 +1373,58 @@ LyricShow = new function (Style) {
             else
                 gr.DrawImage(BackgroundImg, BackgroundSize.x, BackgroundSize.y, BackgroundSize.width, BackgroundSize.height, 0, 0, BackgroundImg.Width, BackgroundImg.Height, BackOption[0], backalpha);
 
-        if (!main.IsVisible)
-            gr.GdiDrawText("Click here to enable this panel.", Style.Font, Color.Text, g_x, g_y + offsetY - 6, ww, wh, Style.Align);
-        else if (lyric) { // lyrics is found
-            //            gr.FillSolidRect(0, fixY + 2, window.Width, 1, RGB(255, 0, 128)); gr.FillSolidRect(0, fixY + 2 + TextHeight, window.Width, 1, RGB(255, 0, 128));
+        if (lyric) { // lyrics is found
             if (lyric.info.length && offsetY > 0)
-                for (var i = 1; i <= lyric.info.length; i++)
+                for (var i = 1; i <= lyric.info.length; i++) {
+                    Style.Shadow && gr.GdiDrawText(lyric.info[lyric.info.length - i], Style.Font, Color.TextShadow, g_x + Style.ShadowPosition[0], g_y + offsetY - TextHeight * i + Style.ShadowPosition[1], ww, wh, Style.Align ^ DT_WORDBREAK);
                     gr.GdiDrawText(lyric.info[lyric.info.length - i], Style.Font, Color.Text, g_x, g_y + offsetY - TextHeight * i, ww, wh, Style.Align ^ DT_WORDBREAK);
+                }
 
-            var x = Left_Center ? g_x + LyricShow.setProperties.leftcenterX : g_x;
+            var x = Left_Center ? LyricShow.setProperties.leftcenterX : g_x;
             var fc = Style.Highline ? Color.PlayingText : Color.Text
-            if (filetype === "lrc")
-                for (i = 0; i < lyric.text.length; i++) {
-                    var c = offsetY + DrawStyle[i].y;
-                    if (c > wh) { disp.bottom = i - 1; break; } // do not draw text outside the screen. CPU utilization rises
-                    else if (c < -DrawStyle[i].height) { disp.top = i + 1; continue; } // ditto
-                    else DrawStyle[i].draw(gr, lyric.i - 1 === i ? Color.PlayingText : Color.Text, x);
-                }
+            if (filetype === "lrc") // for文の中の演算量を増やすわけにはいかないのでfor文自体を分岐させる
+                if (Style.Shadow)
+                    for (i = 0; i < lyric.text.length; i++) {
+                        var c = offsetY + DrawStyle[i].y;
+                        if (c > wh) { disp.bottom = i - 1; break; } // do not draw text outside the screen. CPU utilization rises
+                        else if (c < -DrawStyle[i].height) { disp.top = i + 1; continue; } // ditto
+                        else DrawStyle[i].draw_withShadow(gr, DrawStyle[i].text, lyric.i - 1 === i ? Color.PlayingText : Color.Text, x);
+                    }
+                else
+                    for (i = 0; i < lyric.text.length; i++) {
+                        c = offsetY + DrawStyle[i].y;
+                        if (c > wh) { disp.bottom = i - 1; break; } // do not draw text outside the screen. CPU utilization rises
+                        else if (c < -DrawStyle[i].height) { disp.top = i + 1; continue; } // ditto
+                        else DrawStyle[i].draw(gr, DrawStyle[i].text, lyric.i - 1 === i ? Color.PlayingText : Color.Text, x);
+                    }
             else
-                for (i = 0; i < lyric.text.length; i++) {
-                    c = offsetY + DrawStyle[i].y;
-                    if (c > wh) { disp.bottom = i - 1; break; }
-                    else if (c < -DrawStyle[i].height) { disp.top = i + 1; continue; }
-                    else DrawStyle[i].draw(gr, fc, x);
-                }
-        } // lyrics is not found
-        else if (fb.IsPlaying) {
+                if (Style.Shadow)
+                    for (i = 0; i < lyric.text.length; i++) {
+                        c = offsetY + DrawStyle[i].y;
+                        if (c > wh) { disp.bottom = i - 1; break; }
+                        else if (c < -DrawStyle[i].height) { disp.top = i + 1; continue; }
+                        else DrawStyle[i].draw_withShadow(gr, DrawStyle[i].text, fc, x);
+                    }
+                else
+                    for (i = 0; i < lyric.text.length; i++) {
+                        c = offsetY + DrawStyle[i].y;
+                        if (c > wh) { disp.bottom = i - 1; break; }
+                        else if (c < -DrawStyle[i].height) { disp.top = i + 1; continue; }
+                        else DrawStyle[i].draw(gr, DrawStyle[i].text, fc, x);
+                    }
+        }
+        else if (!main.IsVisible) {
+            Style.Shadow && gr.GdiDrawText("Click here to enable this panel.", Style.Font, Color.TextShadow, g_x + Style.ShadowPosition[0], g_y + offsetY - 6 + Style.ShadowPosition[1], ww, wh, Style.Align);
+            gr.GdiDrawText("Click here to enable this panel.", Style.Font, Color.Text, g_x, g_y + offsetY - 6, ww, wh, Style.Align);
+        }
+        else if (fb.IsPlaying) { // lyrics is not found
             if (!TextHeight)
                 TextHeight = gr.CalcTextHeight("Sample", Style.Font) + Style.LPadding;
             var s = fb.TitleFormat(prop.Panel.NoLyric).Eval().split("\\n");
             var offset = g_y + (wh / 2) - s.length / 2 * TextHeight;
             var wordbreak = 0;
             for (i = 0; i < s.length; i++) {
+                Style.Shadow && gr.GdiDrawText(s[i], Style.Font, Color.TextShadow, g_x + Style.ShadowPosition[0], offset + TextHeight * (i + wordbreak) + Style.ShadowPosition[1], ww, wh, Left_Center ? DT_CENTER | DT_WORDBREAK | DT_NOPREFIX : Style.Align);
                 gr.GdiDrawText(s[i], Style.Font, Color.Text, g_x, offset + TextHeight * (i + wordbreak), ww, wh, Left_Center ? DT_CENTER | DT_WORDBREAK | DT_NOPREFIX : Style.Align);
                 wordbreak += Math.floor(gr.CalcTextWidth(s[i], Style.Font) / ww);
             }
@@ -1770,7 +1818,7 @@ Edit = new function (Style, p) {
                 ci = (i < prop.Edit.Step) ? (i < 0) ? (i >= -prop.Edit.Step) ? -i : null : i : null;
                 c = ci === null ? di[3] : setRGBdiff(Color.Text, di[0] * ci, di[1] * ci, di[2] * ci);
                 // fb.trace(str + "::" + Style.Font + "::" + Color.Text + "::" + g_x + "::" + g_y + "::" + offsetY + "::" + DrawStyle[n].y + "::" + ww + "::" + wh + "::" + Style.Align);
-                gr.GdiDrawText(str, Style.Font, c, g_x, g_y + offsetY + DrawStyle[n].y, ww, wh, Style.Align);
+                DrawStyle[n].draw(gr, str, Color.Text, g_x);
             }
         }
 
@@ -2029,6 +2077,73 @@ Menu = new function () {
         }
     ];
 
+    var submenu_Display = [
+        {
+            Flag: MF_STRING,
+            Caption: Label.Bold,
+            Func: function () {
+                window.SetProperty("Style.Font-Bold", prop.Style.Font_Bold = !prop.Style.Font_Bold);
+                prop.Style.Font = gdi.Font(prop.Style.Font_Family, prop.Style.Font_Size, (prop.Style.Font_Bold ? 1 : 0) + (prop.Style.Font_Italic ? 2 : 0));
+                window.Repaint();
+                Menu.build();
+            }
+        },
+        {
+            Flag: MF_STRING,
+            Caption: Label.Italic,
+            Func: function () {
+                window.SetProperty("Style.Font-Italic", prop.Style.Font_Italic = !prop.Style.Font_Italic);
+                prop.Style.Font = gdi.Font(prop.Style.Font_Family, prop.Style.Font_Size, (prop.Style.Font_Bold ? 1 : 0) + (prop.Style.Font_Italic ? 2 : 0));
+                window.Repaint();
+                Menu.build();
+            }
+        },
+        {
+            Flag: MF_STRING,
+            Caption: Label.Shadow,
+            Func: function () {
+                window.SetProperty("Style.Text-Shadow", prop.Style.Shadow = !prop.Style.Shadow);
+                window.Repaint();
+                Menu.build();
+            }
+        },
+        {
+            Caption: Label.BEnable,
+            Func: function () {
+                window.SetProperty("Panel.Background.Enable", prop.Panel.BackgroundEnable = !prop.Panel.BackgroundEnable);
+                if (prop.Panel.BackgroundEnable)
+                    if (LyricShow.checkGlaphicExists()) {
+                        LyricShow.fadeTimer();
+                        Menu.build();
+                    }
+                    else
+                        main();
+                else {
+                    if (!prop.Panel.BackgroundRaw) {
+                        LyricShow.fadeTimer(true);
+                        Menu.build();
+                    }
+                    else
+                        main();
+                }
+            }
+        },
+        {
+            Caption: Label.ExpandR,
+            Func: function () {
+                window.SetProperty("Panel.ExpandRepetition", prop.Panel.ExpandRepetition = !prop.Panel.ExpandRepetition);
+                main();
+            }
+        },
+        {
+            Caption: Label.Contain,
+            Func: function () {
+                window.SetProperty("Panel.LRC.ContainNormalLines", prop.Panel.Contain = !prop.Panel.Contain);
+                main();
+            }
+        }
+    ];
+
     if (plugins) {
         var submenu_Plugins = createPluginMenuItems(plugins);
     }
@@ -2080,44 +2195,14 @@ Menu = new function () {
         },
         {
             Flag: MF_STRING,
+            Caption: Label.Display,
+            Sub: submenu_Display
+        },
+        {
+            Flag: MF_STRING,
             Caption: Label.Align,
             Sub: submenu_Align,
             Radio: null
-        },
-        {
-            Caption: Label.BEnable,
-            Func: function () {
-                window.SetProperty("Panel.Background.Enable", prop.Panel.BackgroundEnable = !prop.Panel.BackgroundEnable);
-                if (prop.Panel.BackgroundEnable)
-                    if (LyricShow.checkGlaphicExists()) {
-                        LyricShow.fadeTimer();
-                        Menu.build();
-                    }
-                    else
-                        main();
-                else {
-                    if (!prop.Panel.BackgroundRaw) {
-                        LyricShow.fadeTimer(true);
-                        Menu.build();
-                    }
-                    else
-                        main();
-                }
-            }
-        },
-        {
-            Caption: Label.ExpandR,
-            Func: function () {
-                window.SetProperty("Panel.ExpandRepetition", prop.Panel.ExpandRepetition = !prop.Panel.ExpandRepetition);
-                main();
-            }
-        },
-        {
-            Caption: Label.Contain,
-            Func: function () {
-                window.SetProperty("Panel.LRC.ContainNormalLines", prop.Panel.Contain = !prop.Panel.Contain);
-                main();
-            }
         },
         {
             Flag: MF_SEPARATOR
@@ -2391,29 +2476,34 @@ Menu = new function () {
     this.LyricShow = {
         items: menu_LyricShow,
         refresh: function () {
-            menu_LyricShow[6].Radio = Left_Center ? 3 : Number(prop.Style.Align ^ DT_WORDBREAK ^ DT_NOPREFIX); // radio number begin with 0
-            menu_LyricShow[7].Flag = prop.Panel.BackgroundEnable ? MF_CHECKED : MF_UNCHECKED;
-            menu_LyricShow[18].Flag = path ? MF_STRING : MF_GRAYED;
+            submenu_Display[0].Flag = prop.Style.Font_Bold ? MF_CHECKED : MF_UNCHECKED;
+            submenu_Display[1].Flag = prop.Style.Font_Italic ? MF_CHECKED : MF_UNCHECKED;
+            submenu_Display[2].Flag = prop.Style.Shadow ? MF_CHECKED : MF_UNCHECKED;
+            submenu_Display[3].Flag = prop.Panel.BackgroundEnable ? MF_CHECKED : MF_UNCHECKED;
+
+            menu_LyricShow[7].Radio = Left_Center ? 3 : Number(prop.Style.Align ^ DT_WORDBREAK ^ DT_NOPREFIX); // radio number begin with 0
+            menu_LyricShow[16].Flag = path ? MF_STRING : MF_GRAYED;
 
             if (lyric) {
+                submenu_Display[4].Flag = filetype === "txt" ? prop.Panel.ExpandRepetition ? MF_CHECKED : MF_UNCHECKED : MF_GRAYED;
+                submenu_Display[5].Flag = filetype === "lrc" ? prop.Panel.Contain ? MF_CHECKED : MF_UNCHECKED : MF_GRAYED;
+
                 menu_LyricShow[2].Flag = MF_STRING;
                 menu_LyricShow[4].Flag = filetype === "lrc" ? MF_STRING : MF_GRAYED;
-                menu_LyricShow[8].Flag = filetype === "txt" ? prop.Panel.ExpandRepetition ? MF_CHECKED : MF_UNCHECKED : MF_GRAYED;
-                menu_LyricShow[9].Flag = filetype === "lrc" ? prop.Panel.Contain ? MF_CHECKED : MF_UNCHECKED : MF_GRAYED;
+                menu_LyricShow[9].Flag = MF_STRING;
+                menu_LyricShow[10].Flag = MF_STRING;
                 menu_LyricShow[11].Flag = MF_STRING;
-                menu_LyricShow[12].Flag = MF_STRING;
-                menu_LyricShow[13].Flag = MF_STRING;
             }
             else
-                menu_LyricShow[2].Flag = menu_LyricShow[4].Flag = menu_LyricShow[8].Flag = menu_LyricShow[9].Flag = menu_LyricShow[11].Flag = menu_LyricShow[12].Flag = menu_LyricShow[13].Flag = MF_GRAYED;
+                menu_LyricShow[2].Flag = menu_LyricShow[4].Flag = menu_LyricShow[9].Flag = menu_LyricShow[10].Flag = menu_LyricShow[11].Flag = MF_GRAYED;
 
             if (fb.IsPlaying) {
-                menu_LyricShow[15].Flag = MF_STRING;
-                menu_LyricShow[16].Flag = MF_STRING;
-                menu_LyricShow[19].Flag = MF_STRING;
+                menu_LyricShow[13].Flag = MF_STRING;
+                menu_LyricShow[14].Flag = MF_STRING;
+                menu_LyricShow[17].Flag = MF_STRING;
             }
             else
-                menu_LyricShow[15].Flag = menu_LyricShow[16].Flag = menu_LyricShow[19].Flag = MF_GRAYED;
+                menu_LyricShow[13].Flag = menu_LyricShow[14].Flag = menu_LyricShow[17].Flag = MF_GRAYED;
         }
     };
 
@@ -2694,18 +2784,18 @@ function on_key_down(vkey) {
                 !prop.Edit.View && Edit.moveNextLine();
                 break;
             case 16: // Shift
-                !on_key_down.Shift && (on_key_down.Shift = true)
+                !on_key_down.Shift && (on_key_down.Shift = true);
                 break;
             case 33: // Page Up
                 if (!prop.Edit.View) {
                     Edit.undo();
                 }
                 break;
-            case 38:
+            case 38: // Up
                 if (on_key_down.Shift) Edit.offsetTime(5);
                 else Edit.adjustTime(-5);
                 break;
-            case 40:
+            case 40: // Down
                 if (on_key_down.Shift) Edit.offsetTime(-5);
                 else Edit.adjustTime(5);
                 break;
