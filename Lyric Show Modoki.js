@@ -3,7 +3,7 @@
 
 // ==PREPROCESSOR==
 // @name "Lyric Show Modoki"
-// @version "1.1.0"
+// @version "1.1.1"
 // @author "tomato111"
 // @import "%fb2k_path%import\common\lib.js"
 // ==/PREPROCESSOR==
@@ -669,8 +669,7 @@ LyricShow = new function (Style) {
     var directoryRe = /.+\\/;
     var extRe = /\.(?:lrc|txt)$/i;
     var extensionRe = /^lrc|txt$/i;
-    var spaceRe = /[ 　]/g;
-    var parenthesisRe = /\(.*?\)/g;
+    var FuzzyRE = ["", /[ 　]/g, /\(.*?\)/g];
     var BackgroundPath, BackgroundImg, BackgroundSize;
     var BackOption = prop.Panel.BackgroundOption;
 
@@ -681,13 +680,9 @@ LyricShow = new function (Style) {
         offsetY = fixY;
     };
 
-    this.addToFilesCollection = function (directory, name, path) {
-        Files_Collection[directory].push({ Name: name, Path: path });
-    };
-
     this.initWithFile = function (file) {
 
-        var str, exp, arr, e_file;
+        var str, arr, exp;
 
         L:
         {
@@ -705,19 +700,23 @@ LyricShow = new function (Style) {
                         break;
                     case 1:
                         try {
-                            exp = fs.GetFileName(file);
-                            if (!Files_Collection[directory]) { // create File Collection // fs.GetFolder(directory).Files でのコレクション処理は各アイテムのプロパティアクセスが重すぎるので使わない. 代わりにutils.Glob()を使う
-                                arr = utils.Glob(directory + "*.*").toArray();
+                            // create File Collection
+                            if (!Files_Collection[directory] || Files_Collection[directory].DateLastModified != String(fs.GetFolder(directory).DateLastModified)) {
                                 Files_Collection[directory] = [];
+                                Files_Collection[directory].DateLastModified = String(fs.GetFolder(directory).DateLastModified);
+                                arr = utils.Glob(directory + "*.*").toArray(); // fs.GetFolder(directory).Files でのコレクション処理は各アイテムのプロパティアクセスが遅すぎる. 代わりにutils.Glob()を使う
                                 for (var j = 0; j < arr.length; j++) {
                                     if (extensionRe.test(fs.GetExtensionName(arr[j]))) {
-                                        Files_Collection[directory].push({ Name: fs.GetFileName(arr[j]), Path: arr[j] });
+                                        exp = fs.GetFileName(arr[j]).replace(FuzzyRE[i], "");
+                                        Files_Collection[directory].push({ Name1: exp, Name2: exp.replace(FuzzyRE[i + 1], ""), Path: arr[j] });
                                     }
                                 }
-                            }
+                            } // create File Collection END
+
+                            exp = fs.GetFileName(file).replace(FuzzyRE[i], "");
 
                             for (j = 0; j < Files_Collection[directory].length; j++) {
-                                if (Files_Collection[directory][j].Name.replace(spaceRe, "") == exp.replace(spaceRe, "")) {
+                                if (Files_Collection[directory][j].Name1 == exp) {
                                     file = Files_Collection[directory][j].Path;
                                     f = fs.GetFile(file);
                                     break L;
@@ -727,8 +726,10 @@ LyricShow = new function (Style) {
                         break;
                     case 2:
                         try {
+                            exp = exp.replace(FuzzyRE[i], "");
+
                             for (j = 0; j < Files_Collection[directory].length; j++) {
-                                if (Files_Collection[directory][j].Name.replace(parenthesisRe, "").replace(spaceRe, "") == exp.replace(parenthesisRe, "").replace(spaceRe, "")) {
+                                if (Files_Collection[directory][j].Name2 == exp) {
                                     file = Files_Collection[directory][j].Path;
                                     f = fs.GetFile(file);
                                     break L;
@@ -952,43 +953,11 @@ LyricShow = new function (Style) {
 
         setWordbreakList: function (View) {
 
-            function separate(text, w, gr) { // 「空白文字で折り返すための文字列の長さ」を格納した配列を返す関数
-                var wordbreak = 1;
-                var wordbreak_sum = 1;
-                var textarr = text.split(/[ 　]/);
-                var sep_len = [];
-
-                if (textarr instanceof Array) {
-                    var tmptext = textarr[0];
-                    for (var i = 1, j = 0; i < textarr.length; i++) {
-                        if (gr.CalcTextWidth(tmptext, Style.Font) > w * wordbreak) {
-                            wordbreak++;
-                            wordbreak_sum++;
-                            tmptext += "　" + textarr[i];
-                        }
-                        else if (gr.CalcTextWidth(tmptext + "　" + textarr[i], Style.Font) > w * wordbreak) {
-                            sep_len[j++] = tmptext.length;
-                            tmptext = textarr[i];
-                            wordbreak = 1;
-                            wordbreak_sum++;
-                        }
-                        else {
-                            tmptext += "　" + textarr[i];
-                        }
-                    }
-
-                    wordbreak_sum += Math.floor(gr.CalcTextWidth(tmptext, Style.Font) / w);
-                    sep_len.wordbreak = wordbreak_sum;
-
-                    return sep_len;
-                }
-            }
-
             var isLRC = filetype === "lrc";
             var contain = isLRC && prop.Panel.Contain;
             var wre = new RegExp(prop.Save.LineFeedCode, "g");
             var leftcenterX = ww;
-            var wreres, linelength;
+            var wreres;
             var temp_bmp = gdi.CreateImage(1, 1);
             var temp_gr = temp_bmp.GetGraphics();
 
@@ -1011,45 +980,26 @@ LyricShow = new function (Style) {
             }
             else {
                 var c_ww = Center_Left || Center_Right ? ww - centerleftX + g_x : ww;
-                var c_text;
+                var line_arr, space, str;
 
                 for (i = 0; i < lyric.text.length; i++) {
-                    linelength = temp_gr.CalcTextWidth(c_text = (isLRC ? lyric.text[i].slice(10) : lyric.text[i]), Style.Font);
-                    if (leftcenterX)
-                        if (ww - linelength <= 0)
-                            leftcenterX = 0;
-                        else if ((ww - linelength) / 2 < leftcenterX)
-                            leftcenterX = (ww - linelength) / 2;
-
-                    wordbreakList[i] = Math.floor(linelength / c_ww) + 1;
-
-                    /* text for wordbreak*///////////////////////////////////////////////////////////
-                    if (wordbreakList[i] > 1) {
-                        var str = "";
-                        var sep_len = separate(c_text, c_ww, temp_gr);
-
-                        if (sep_len) {
-                            wordbreakList[i] = sep_len.wordbreak; // 折り返し回数は再計算されるので更新
-                            sep_len[-1] = 0; // 1文字目の位置
-                            for (var j = 0; j < sep_len.length; j++) {
-                                if (!sep_len[j]) break;
-                                str += c_text.substr(sep_len[j - 1], sep_len[j]) + prop.Save.LineFeedCode;
-                                sep_len[j] += sep_len[j - 1] + 1; // +1をして改行に置き換えた空白文字をスキップ
-                            }
-                            if (str !== "") {
-                                str += c_text.substr(sep_len[j - 1]); // 残りのすべてを結合
-                                wordbreakText[i] = str;
-                            }
-                        }
-                    }
-                    /* text for wordbreak END*////////////////////////////////////////////////////////
-
-                    if (contain) {
-                        wreres = lyric.text[i].match(wre);
-                        if (wreres) wordbreakList[i] += wreres.length;
-                    }
-
+                    str = "";
+                    line_arr = temp_gr.EstimateLineWrap(isLRC ? lyric.text[i].slice(10) : lyric.text[i], Style.Font, c_ww).toArray();
+                    wordbreakList[i] = line_arr.length / 2;
                     numOfWordbreak += wordbreakList[i] - 1;
+
+                    for (var j = 0; j < line_arr.length; j += 2) {
+                        if ((Left_Center || Right_Center) && leftcenterX)
+                            if ((space = ww - line_arr[j + 1]) <= 0)
+                                leftcenterX = 0;
+                            else if (space / 2 < leftcenterX)
+                                leftcenterX = space / 2;
+
+                        if (str) str += prop.Save.LineFeedCode;
+                        str += line_arr[j];
+                    }
+
+                    wordbreakText[i] = str;
                 }
 
                 this.leftcenterX = Number(leftcenterX) + g_x; // Set offsetX for left-center
@@ -1111,20 +1061,17 @@ LyricShow = new function (Style) {
                 this.i = i;
                 this.p = p;
 
-                this.text = lyric.text[i];
+                this.text = prop.Edit.Start ? lyric.text[i] : p.wordbreakText[i];
                 this.y = DrawStyle[i - 1].nextY;
                 this.height = p.wordbreakList[i] * TextHeight;
                 this.nextY = this.y + this.height;
                 this.time = p.lineList ? p.lineList[i] / 100 : null;
 
                 if (isLRC) {
-                    this.text = p.wordbreakText[i] ? p.wordbreakText[i] : lyric.text[i].slice(10);
                     this.speed = p.scrollSpeedList[i];
                     this.speedType2 = p.scrollSpeedType2List[i];
-                } else {
-                    !prop.Edit.Start && (this.text = p.wordbreakText[i] ? p.wordbreakText[i] : lyric.text[i]);
+                } else
                     this.speed = p.scrollSpeedList.degree;
-                }
 
                 this.cy = this.y + g_y;
                 this.sy = this.cy + prop.Style.ShadowPosition[1]; // shadow y position
@@ -1523,7 +1470,7 @@ LyricShow = new function (Style) {
 
     this.on_paint = function (gr) {
         var DrawStyle = LyricShow.setProperties.DrawStyle;
-        //        console(Left_Center + " : " + Center_Left + " : " + Center_Right + " : " + Right_Center + " :: " + DrawStyle[8].height)
+
         gr.FillSolidRect(-1, -1, window.Width + 1, window.Height + 1, Style.Color.Background);
         if (BackgroundImg)
             if (prop.Panel.BackgroundRaw)
@@ -1796,7 +1743,6 @@ Edit = new function (Style, p) {
                     if (!fs.FolderExists(folder))
                         createFolder(fs, folder);
                     writeTextFile(text, file, prop.Save.CharacterCode);
-                    prop.Panel.PathFuzzyLevel !== 0 && LyricShow.addToFilesCollection(folder + "\\", fs.GetFileName(file), file);
                     Messages[6].popup(file);
                     FuncCommands(prop.Save.RunAfterSave, meta);
                 } catch (e) {
@@ -2365,7 +2311,7 @@ Menu = new function () {
             item["Flag"] = MF_STRING;
             item["Caption"] = name;
             item["Func"] = function () {
-                window.SetProperty(PropName, prop.Style[Place] = this.Caption); //あれ
+                window.SetProperty(PropName, prop.Style[Place] = this.Caption);
                 prop.Style.Color = Color[this.Caption];
                 window.Repaint();
                 Menu.build(prop.Edit.Start ? Menu.Edit : "");
@@ -2840,9 +2786,9 @@ function main(path) {
 
     if (arguments.callee.IsVisible && fb.IsPlaying) {
         var parse_paths = fb.TitleFormat(prop.Panel.Path).Eval().split("||");
-        //        Trace.start(" Read Lyrics ");
+        //Trace.start(" Read Lyrics ");
         LyricShow.start(path ? path : parse_paths);
-        //        Trace.stop();
+        //Trace.stop();
     }
     else
         LyricShow.init();
