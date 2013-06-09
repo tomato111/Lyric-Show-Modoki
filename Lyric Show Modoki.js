@@ -3,7 +3,7 @@
 
 // ==PREPROCESSOR==
 // @name "Lyric Show Modoki"
-// @version "1.1.1"
+// @version "1.1.2"
 // @author "tomato111"
 // @import "%fb2k_path%import\common\lib.js"
 // ==/PREPROCESSOR==
@@ -664,7 +664,7 @@ function CalcImgSize(img, dspW, dspH, strch, kar) {
 
 LyricShow = new function (Style) {
 
-    var Old, New, p;
+    var p;
     var Files_Collection = {};
     var directoryRe = /.+\\/;
     var extRe = /\.(?:lrc|txt)$/i;
@@ -996,7 +996,7 @@ LyricShow = new function (Style) {
                                 leftcenterX = space / 2;
 
                         if (str) str += prop.Save.LineFeedCode;
-                        str += line_arr[j];
+                        str += line_arr[j].trim();
                     }
 
                     wordbreakText[i] = str;
@@ -1102,7 +1102,7 @@ LyricShow = new function (Style) {
                         lyric.i++;
                         return true; // refresh flag
                     }
-                    if (moveY >= 1) {
+                    else if (moveY >= 1) {
                         moveY -= Math.floor(moveY);
                         return true; // refresh flag
                     }
@@ -1136,7 +1136,7 @@ LyricShow = new function (Style) {
                         lyric.i++;
                         return true; // refresh flag
                     }
-                    if (moveY >= 1) {
+                    else if (moveY >= 1) {
                         moveY -= Math.floor(moveY);
                         return true; // refresh flag
                     }
@@ -1177,7 +1177,7 @@ LyricShow = new function (Style) {
         disp.bottom = lyric.text.length - 1;
         movable = true;
         ignore_remainder = false;
-        Old = time *= 100;
+        time *= 100;
         var DrawStyle = LyricShow.setProperties.DrawStyle;
         var lineList = this.setProperties.lineList;
         if (lineList) {
@@ -1219,10 +1219,17 @@ LyricShow = new function (Style) {
 
     this.pauseTimer = function (state) {
 
-        if (state)
-            this.scroll.clearInterval();
+        if (state) {
+            this.scroll_0.clearInterval();
+            this.scroll_1.clearInterval();
+            this.scroll_2.clearInterval();
+        }
+        else if (filetype === "txt")
+            this.scroll_0.interval(prop.Panel.Interval)
+        else if (prop.Panel.ScrollType === 1)
+            this.scroll_1.interval(prop.Panel.Interval);
         else
-            this.scroll.interval(prop.Panel.Interval);
+            this.scroll_2.interval(prop.Panel.Interval);
     };
 
     this.fadeTimer = function (reverse) {
@@ -1434,25 +1441,33 @@ LyricShow = new function (Style) {
         CollectGarbage();
     };
 
-    this.scroll = function () { // timerで呼び出す関数. timerで呼び出すとthisの意味が変わるのでthisは使わない
+    this.scroll_0 = function () { // timerで呼び出す関数. timerで呼び出すとthisの意味が変わるのでthisは使わない
 
-        if (lyric.i !== lyric.text.length) {
-            New = fb.PlaybackTime * 100;
-            if (New > Old) { // fb.PlaybackTime は信用出来ない。再生始めは不安定で時間が戻ったりする // on_playback_starting の cmd === 4 (settrack) 時には特に
-                Old = New;
-                if (offsetY < LyricShow.setProperties.minOffsetY) {
-                    offsetY = LyricShow.setProperties.minOffsetY;
-                    movable = false; // 移動不可のフラグ
-                    ignore_remainder = true; // ライン移動時の誤差補正を無効にする（一度だけ）
-                }
-                if (filetype === "txt")
-                    LyricShow.setProperties.DrawStyle[lyric.i - 1].scroll_0(New) && window.Repaint();
-                else if (prop.Panel.ScrollType === 1)
-                    LyricShow.setProperties.DrawStyle[lyric.i - 1].scroll_1(New) && window.Repaint(); // lyric.i(対象行)の１個前(再生行)の情報でスクロール
-                else
-                    LyricShow.setProperties.DrawStyle[lyric.i - 1].scroll_2(New) && window.Repaint();
-            }
+        if (offsetY < LyricShow.setProperties.minOffsetY) {
+            offsetY = LyricShow.setProperties.minOffsetY;
+            movable = false; // 移動不可のフラグ
         }
+        LyricShow.setProperties.DrawStyle[lyric.i - 1].scroll_0(fb.PlaybackTime * 100) && window.Repaint();
+    };
+
+    this.scroll_1 = function () { // timerで呼び出す関数
+
+        if (offsetY < LyricShow.setProperties.minOffsetY) {
+            offsetY = LyricShow.setProperties.minOffsetY;
+            movable = false;
+            ignore_remainder = true; // ライン移動時の誤差補正を無効にする（一度だけ）
+        }
+        LyricShow.setProperties.DrawStyle[lyric.i - 1].scroll_1(fb.PlaybackTime * 100) && window.Repaint(); // lyric.i(対象行)の１個前(再生行)の情報でスクロール
+    };
+
+    this.scroll_2 = function () { // timerで呼び出す関数
+
+        if (offsetY < LyricShow.setProperties.minOffsetY) {
+            offsetY = LyricShow.setProperties.minOffsetY;
+            movable = false;
+            ignore_remainder = true;
+        }
+        LyricShow.setProperties.DrawStyle[lyric.i - 1].scroll_2(fb.PlaybackTime * 100) && window.Repaint();
     };
 
     this.set_on_paintInfo = function () {
@@ -2940,7 +2955,7 @@ function on_mouse_lbtn_up(x, y, mask) {
 
 function on_mouse_lbtn_dblclk(x, y, mask) {
     if (prop.Edit.Start) on_mouse_lbtn_down(x, y, mask);
-    else {
+    else if (filetype === "lrc") {
         jumpY = offsetY;
         for (var i = disp.top, j = disp.bottom; i <= j; i++)
             if (LyricShow.setProperties.DrawStyle[i].onclick(x, y))

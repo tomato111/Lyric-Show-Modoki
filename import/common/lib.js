@@ -23,7 +23,7 @@ String.prototype.replaceEach = function () { //e.g.) "abc*Bc".replaceEach("b", "
 
 //-- Trim --
 String.prototype.trim = function (s) {
-    return this.replace(/^\s*|\s*$/g, "");
+    return this.replace(/^[\s　]*|[\s　]*$/g, "");
 };
 
 //-- Print --
