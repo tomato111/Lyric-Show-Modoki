@@ -3,7 +3,7 @@
 
 // ==PREPROCESSOR==
 // @name "Lyric Show Modoki"
-// @version "1.1.2"
+// @version "1.1.3"
 // @author "tomato111"
 // @import "%fb2k_path%import\common\lib.js"
 // ==/PREPROCESSOR==
@@ -645,10 +645,10 @@ function CalcImgSize(img, dspW, dspH, strch, kar) {
             }
             if (size.width > dspW) {
                 size.width = dspW;
-                size.height = Math.ceil(srcH * dstW / srcW);
+                size.height = Math.ceil(srcH * dspW / srcW);
             }
         } else { // アスペクト比を無視
-            size.width = Math.min(srcW, dstW);
+            size.width = Math.min(srcW, dspW);
             size.height = Math.min(srcH, dstH);
         }
     }

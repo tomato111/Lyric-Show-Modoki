@@ -21,6 +21,10 @@ String.prototype.replaceEach = function () { //e.g.) "abc*Bc".replaceEach("b", "
     return str;
 };
 
+String.prototype.toHalfWidthNum = function () { //-- Replace full-width number with half-width number --
+    return this.replace(/[０１２３４５６７８９]/g, function (s) { return "０１２３４５６７８９".indexOf(s); });
+};
+
 //-- Trim --
 String.prototype.trim = function (s) {
     return this.replace(/^[\s　]*|[\s　]*$/g, "");
@@ -39,7 +43,7 @@ Number.prototype.console = function (s) {
 
 Boolean.prototype.console = function (s) {
     fb.trace(this + (s ? s : ""));
-    return this
+    return this;
 };
 
 //-- Timer --
@@ -396,6 +400,19 @@ function sendToRecycleBin(path) {
     var recycle_bin_folder = sa.Namespace(10);
     recycle_bin_folder.MoveHere(path);
 }
+
+//-- Shuffle for Array--
+function shuffleArray(arr, from) { // arrの配列番号from以降をシャッフルする
+    var i = arr.length;
+    if (i - from < 2) return;
+    while (i - from) {
+        var j = Math.floor(Math.random() * (i - from)) + Number(from);
+        var t = arr[--i];
+        arr[i] = arr[j];
+        arr[j] = t;
+    }
+    return arr;
+};
 
 //-- Line Feed Code --
 function getLineFeedCode(str) {
