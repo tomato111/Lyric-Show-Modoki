@@ -3,7 +3,7 @@
 
 // ==PREPROCESSOR==
 // @name "Lyric Show Modoki"
-// @version "1.1.4"
+// @version "1.1.5"
 // @author "tomato111"
 // @import "%fb2k_path%import\common\lib.js"
 // ==/PREPROCESSOR==
@@ -17,7 +17,7 @@
 var scriptName, scriptdir, commondir, plugins, lyric, parse_path, path, directory, filename, basename, filetype, dateLastModified, dateCreated, dataSize, offsetinfo, backalpha
 , fs, ws, prop, Messages, Label, tagRe, timeRe, firstRe, repeatRes, TextHeight, offsetY, fixY, moveY, lineY, drag, drag_y, down_pos, g_x, g_y, ww, wh, larea_seek, rarea_seek, seek_width, rarea_seek_x, disp, Lock, auto_scroll, movable, jumpY
 , DT_LEFT, DT_CENTER, DT_RIGHT, DT_WORDBREAK, DT_NOPREFIX, Left_Center, Center_Left, Center_Right, Right_Center, centerleftX
-, LyricShow, Edit, Buttons, Menu, Trace;
+, LyricShow, Edit, Buttons, Keybind, Keybind_Edit, Menu, Trace;
 
 fs = new ActiveXObject("Scripting.FileSystemObject"); // File System Object
 ws = new ActiveXObject("WScript.Shell"); // WScript Shell Object
@@ -66,7 +66,17 @@ prop = new function () {
         BackgroundStretch: window.GetProperty("Panel.Background.Stretch", true),
         ExpandRepetition: window.GetProperty("Panel.ExpandRepetition", false),
         AdjustScrolling: window.GetProperty("Panel.AdjustScrolling", 100),
-        SingleClickSeek: window.GetProperty("Panel.SingleClickSeek", false)
+        SingleClickSeek: window.GetProperty("Panel.SingleClickSeek", false),
+        Keybind:
+        {
+            SeekToNextLine: window.GetProperty("Panel.Keybind.SeekToNextLine", 88), // Default is 'X' Key
+            SeekToPreviousLine: window.GetProperty("Panel.Keybind.SeekToPreviousLine", 65), // Default is 'A' Key
+            SeekToPlayingLine: window.GetProperty("Panel.Keybind.SeekToPlayingLine", 83), // Default is 'S' Key
+            SwitchAutoScroll: window.GetProperty("Panel.Keybind.SwitchAutoScroll", 90), // Default is 'Z' Key
+            ScrollUp: window.GetProperty("Panel.Keybind.ScrollUp", 38), // Default is 'Up' Key
+            ScrollDown: window.GetProperty("Panel.Keybind.ScrollDown", 40), // Default is 'Down' Key
+            ScrollToPlayingLine: window.GetProperty("Panel.Keybind.ScrollToPlayingLine", 81) // Default is 'Q' Key
+        }
     };
 
     if (!this.Panel.Path)
@@ -260,7 +270,8 @@ prop = new function () {
         // Line Feed Code. CR+LF, CR, LF is available.
         LineFeedCode: window.GetProperty("Save.LineFeedCode", "CR+LF"),
         // Run command after save
-        RunAfterSave: window.GetProperty("Save.RunAfterSave", "")
+        RunAfterSave: window.GetProperty("Save.RunAfterSave", ""),
+        TimetagSign: window.GetProperty("Save.Timetag[12:34:56]", false)
     };
 
     if (!this.Save.CharacterCode || !/^(?:Unicode|Shift_JIS|EUC-JP|UTF-8|UTF-8N)$/i.test(this.Save.CharacterCode))
@@ -271,6 +282,8 @@ prop = new function () {
     this.Save.LineFeedCode = this.Save.LineFeedCode.replaceEach("CR", "\r", "LF", "\n", "\\+", "", "i"); // Set converted code
 
     if (this.Save.RunAfterSave) this.Save.RunAfterSave = this.Save.RunAfterSave.split("||");
+
+    this.Save.TimetagSign = this.Save.TimetagSign ? ":" : ".";
 };
 
 //========
@@ -384,7 +397,7 @@ switch (prop.Panel.Lang) {
             SaveToFile: "ファイルに保存",
             Refresh: "更新",
             About: "この歌詞について",
-            AllowAutoScroll: "スクロールの再開",
+            AllowAutoScroll: "スクロールの開始",
             ForbidAutoScroll: "スクロールの停止",
             ChangeScroll: "スクロール方法の変更",
             Copy: "コピー",
@@ -455,7 +468,7 @@ PluginLoader = {
         }
     },
     Refresh: function () { this.load(this.path); },
-    Dispose: function () { delete PluginLoader }
+    Dispose: function () { delete PluginLoader; }
 };
 
 PluginLoader.Load(fs, scriptdir + "plugins\\");
@@ -504,7 +517,7 @@ function trimLine_TopAndBottom(withTag) { // trim top and bottom
 
     if (withTag) {
         if (!firstRe.test(text[0]))
-            text.unshift("[00:00.00]");
+            text.unshift("[00:00" + prop.Save.TimetagSign + "00]");
     }
     else {
         text.unshift("");
@@ -528,7 +541,7 @@ function putTime(n, i) { // add timetag to i line
     var tmp = (n - ms) / 100;
     var s = tmp % 60;
     var m = (tmp - s) / 60;
-    lyric.text[i] = "[" + doubleFig(m) + ":" + doubleFig(s) + "." + doubleFig(ms) + "]" + lyric.text[i];
+    lyric.text[i] = "[" + doubleFig(m) + ":" + doubleFig(s) + prop.Save.TimetagSign + doubleFig(ms) + "]" + lyric.text[i];
 }
 
 function doubleFig(num) { // 桁合わせ
@@ -614,6 +627,7 @@ function applyDelta(delta) {
 }
 
 function GetImg(path) {
+
     if (path.charAt(0) === "<") {
         var embeddedImage = utils.GetAlbumArtEmbedded(path.slice(1, -1), 0);
         if (embeddedImage)
@@ -665,6 +679,23 @@ function CalcImgSize(img, dspW, dspH, strch, kar) {
     return size;
 }
 
+function seekLineTo(i) {
+
+    if (prop.Edit.View || (!prop.Edit.Start && filetype === "lrc")) {
+
+        var n = lyric.i + i;
+        if (n > lyric.text.length)
+            n = lyric.i;
+        else if (n < 1)
+            n = 1;
+
+        if (!prop.Edit.Start)
+            jumpY = offsetY;
+
+        LyricShow.setProperties.DrawStyle[n - 1].doCommand(); // lyric.i は対象行なのでn-1がシーク先の行
+    }
+}
+
 
 //===========================================
 //== Create "LyricShow" Object ======================
@@ -685,7 +716,6 @@ LyricShow = new function (Style) {
 
         prop.Edit.Start && Edit.end();
         this.end();
-        auto_scroll = true;
         offsetY = fixY;
     };
 
@@ -1632,8 +1662,10 @@ Edit = new function (Style, p) {
                 apply();
         }
         else {
-            var r = lyric.text[pl + 1].match(timeRe);
-            tt = (RegExp.$1 * 60 + Number(RegExp.$2)) * 100 + Number(RegExp.$3);
+            if (lyric.i !== lyric.text.length) {
+                var r = lyric.text[pl + 1].match(timeRe);
+                tt = (RegExp.$1 * 60 + Number(RegExp.$2)) * 100 + Number(RegExp.$3);
+            }
             if (!r || tt - pt > n) // 上限
                 apply();
         }
@@ -1675,24 +1707,16 @@ Edit = new function (Style, p) {
 
     this.applyTimeDiff = function (time, i, diff) {
 
-        var s, MS, S, M;
-
         if (diff === 0) return;
 
         time += diff;
 
-        if (time > 0) {
-            MS = Math.round(time % 100); // なぜか微量の誤差が生じるので四捨五入処理を入れる
-            s = (time - MS) / 100;
-            S = Math.round(s % 60); // これも同様
-            M = Math.floor(s / 60);
-        }
-        else {
+        if (time < 0)
             time = 0;
-            MS = S = M = 0;
-        }
 
-        lyric.text[i] = lyric.text[i].replace(tagRe, "[" + doubleFig(M) + ":" + doubleFig(S) + "." + doubleFig(MS) + "]");
+        lyric.text[i] = lyric.text[i].slice(10);
+        putTime(time, i);
+
         if (prop.Edit.View) {
             p.lineList[i] = time;
             DrawStyle[i].time = p.lineList[i] / 100;
@@ -2111,6 +2135,61 @@ Buttons = new function () {
         }
     };
     // Constructor END
+};
+
+
+//===========================================
+//== Create "Keybind" Object ======================
+//===========================================
+
+Keybind = new function () {
+
+    var keynum;
+    var commands = {
+        SeekToNextLine: function () { seekLineTo(1); },
+        SeekToPlayingLine: function () { seekLineTo(0); },
+        SeekToPreviousLine: function () { seekLineTo(-1); },
+        SwitchAutoScroll: function () {
+            if (lyric) {
+                auto_scroll = movable = !auto_scroll;
+                ignore_remainder = true;
+                window.Repaint();
+                Menu.build();
+            }
+        },
+        ScrollUp: function () { lyric && applyDelta(20); },
+        ScrollDown: function () { lyric && applyDelta(-20); },
+        ScrollToPlayingLine: function () { lyric && LyricShow.searchLine(fb.PlaybackTime); }
+    };
+
+    for (var name in prop.Panel.Keybind) {
+        keynum = prop.Panel.Keybind[name];
+        this[keynum] = commands[name];
+    }
+
+};
+
+Keybind_Edit = new function () {
+
+    var keynum = prop.Panel.Keybind["SeekToNextLine"];
+    this[keynum] = Keybind[keynum];
+    keynum = prop.Panel.Keybind["SeekToPlayingLine"];
+    this[keynum] = Keybind[keynum];
+    keynum = prop.Panel.Keybind["SeekToPreviousLine"];
+    this[keynum] = Keybind[keynum];
+
+    this[13] = function () { !prop.Edit.View && Edit.moveNextLine(); }; // Enter
+    this[16] = function () { !on_key_down.Shift && (on_key_down.Shift = true); }; // Shift
+    this[33] = function () { !prop.Edit.View && Edit.undo(); }; // Page Up
+    this[38] = function () { // Up
+        if (on_key_down.Shift) Edit.offsetTime(5); // (+Shift)
+        else Edit.adjustTime(-5);
+    }
+    this[40] = function () { // Down
+        if (on_key_down.Shift) Edit.offsetTime(-5); // (+Shift)
+        else Edit.adjustTime(5);
+    }
+
 };
 
 
@@ -2717,6 +2796,7 @@ Menu = new function () {
                     menu_LyricShow[9].Radio = 2; break;
             }
             menu_LyricShow[18].Flag = path ? MF_STRING : MF_GRAYED;
+            menu_LyricShow[4].Caption = auto_scroll ? Label.ForbidAutoScroll : Label.AllowAutoScroll;
 
             if (lyric) {
                 submenu_Display[4].Flag = filetype === "txt" ? prop.Panel.ExpandRepetition ? MF_CHECKED : MF_UNCHECKED : MF_GRAYED;
@@ -2724,7 +2804,6 @@ Menu = new function () {
 
                 menu_LyricShow[2].Flag = MF_STRING;
                 menu_LyricShow[4].Flag = MF_STRING;
-                menu_LyricShow[4].Caption = auto_scroll ? Label.ForbidAutoScroll : Label.AllowAutoScroll;
                 menu_LyricShow[5].Flag = filetype === "lrc" ? MF_STRING : MF_GRAYED;
                 menu_LyricShow[11].Flag = MF_STRING;
                 menu_LyricShow[12].Flag = MF_POPUP;
@@ -2732,7 +2811,6 @@ Menu = new function () {
             }
             else {
                 menu_LyricShow[2].Flag = menu_LyricShow[4].Flag = menu_LyricShow[5].Flag = menu_LyricShow[11].Flag = menu_LyricShow[12].Flag = menu_LyricShow[13].Flag = MF_GRAYED;
-                menu_LyricShow[4].Caption = Label.ForbidAutoScroll;
             }
 
             if (fb.IsPlaying) {
@@ -3020,40 +3098,10 @@ function on_mouse_rbtn_up(x, y, mask) {
 }
 
 function on_key_down(vkey) {
-    if (!prop.Edit.Start) {
-        switch (vkey) {
-            case 38: // Up
-                applyDelta(20);
-                break;
-            case 40: // Down
-                applyDelta(-20);
-                break;
-        }
-    }
-    else if (!Lock) {
-        switch (vkey) {
-            case 13: // Enter
-                !prop.Edit.View && Edit.moveNextLine();
-                break;
-            case 16: // Shift
-                !on_key_down.Shift && (on_key_down.Shift = true);
-                break;
-            case 33: // Page Up
-                if (!prop.Edit.View) {
-                    Edit.undo();
-                }
-                break;
-            case 38: // Up
-                if (on_key_down.Shift) Edit.offsetTime(5);
-                else Edit.adjustTime(-5);
-                break;
-            case 40: // Down
-                if (on_key_down.Shift) Edit.offsetTime(-5);
-                else Edit.adjustTime(5);
-                break;
-        }
-    }
-
+    if (!prop.Edit.Start)
+        Keybind[vkey] && Keybind[vkey]();
+    else if (!Lock)
+        Keybind_Edit[vkey] && Keybind_Edit[vkey]();
 }
 
 function on_key_up(vkey) {
