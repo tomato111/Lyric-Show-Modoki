@@ -3,7 +3,7 @@
 
 // ==PREPROCESSOR==
 // @name "Lyric Show Modoki"
-// @version "1.1.5"
+// @version "1.1.6"
 // @author "tomato111"
 // @import "%fb2k_path%import\common\lib.js"
 // ==/PREPROCESSOR==
@@ -51,7 +51,7 @@ prop = new function () {
         PathFuzzyLevel: window.GetProperty("Panel.Path.FuzzyLevel", 0),
         Lang: window.GetProperty("Panel.Language", ""),
         Conf: window.GetProperty("Panel.HideConfigureMenu", false),
-        Interval: window.GetProperty("Panel.RefreshInterval", 30),
+        Interval: window.GetProperty("Panel.RefreshInterval", 10),
         Editor: window.GetProperty("Panel.ExternalEditor", ""),
         NoLyric: window.GetProperty("Panel.NoLyricsFound", "Title: %title%\\nArtist: %artist%\\nAlbum: %album%\\n\\n-no lyrics-"),
         Priority: window.GetProperty("Panel.Priority", "Sync_Tag,Sync_File,Unsync_Tag,Unsync_File"),
@@ -101,7 +101,7 @@ prop = new function () {
         window.SetProperty("Panel.LRC.ScrollType", this.Panel.ScrollType = 1);
 
     if (typeof this.Panel.Interval !== "number" || this.Panel.Interval < 1)
-        window.SetProperty("Panel.RefreshInterval", this.Panel.Interval = 30);
+        window.SetProperty("Panel.RefreshInterval", this.Panel.Interval = 10);
 
     // ==Style====
     this.Style = {
@@ -1112,8 +1112,9 @@ LyricShow = new function (Style) {
                 } else
                     this.speed = p.scrollSpeedList.degree;
 
-                this.cy = this.y + g_y;
-                this.sy = this.cy + prop.Style.ShadowPosition[1]; // shadow y position
+                this.cy = this.y + g_y; // Coordinate including Vartical-Padding
+                this.sy = this.cy + prop.Style.ShadowPosition[1]; // shadow y position // Coordinate including Vartical-Padding
+                this.nextCY = this.nextY + g_y; // Coordinate including Vartical-Padding
 
             }
             DrawString.prototype.scroll_0 = function (time) { // for unsynced lyrics
@@ -1195,7 +1196,7 @@ LyricShow = new function (Style) {
                 gr.GdiDrawText(text, Style.Font, color, x, this.cy + offsetY, w, this.height, Style.Align);
             };
             DrawString.prototype.onclick = function (x, y) {
-                if (x < g_x || x > g_x + ww || y < offsetY + this.y || y > offsetY + this.nextY)
+                if (x < g_x || x > g_x + ww || y < offsetY + this.y || y > offsetY + this.nextCY)
                     return;
                 this.doCommand();
                 return true;
@@ -1947,7 +1948,6 @@ Edit = new function (Style, p) {
     this.on_paint = function (gr) {
 
         var p = lyric.i - 1; // playing line
-        var tmp = g_y + offsetY;
         var n, str, ci, c;
 
         // background
@@ -1959,7 +1959,7 @@ Edit = new function (Style, p) {
             n = p + i;
             if (i == -2 && n >= 0) { disp.top = n; }
             if (n < 0) continue;
-            else if (n >= lyric.text.length || tmp + DrawStyle[n].nextY > wh) { disp.bottom = n - 1; break; } // 画面下のアイコンに被らない程度に描画
+            else if (n >= lyric.text.length || offsetY + DrawStyle[n].nextY > wh) { disp.bottom = n - 1; break; }
             else {
                 str = lyric.text[n].replace(tagBottomRe, "$1 ");
                 ci = (i < prop.Edit.Step) ? (i < 0) ? (i >= -prop.Edit.Step) ? -i : null : i : null;
@@ -3024,7 +3024,7 @@ function on_mouse_lbtn_down(x, y, mask) {
         else if (!prop.Edit.View) {
             if (mask == 5)
                 Edit.controlLine(0);
-            else if (y < TextHeight * 2)
+            else if (y < TextHeight * 2 + g_y)
                 Edit.undo();
             else
                 Edit.moveNextLine(x, y);
