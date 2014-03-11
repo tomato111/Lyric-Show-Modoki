@@ -3,7 +3,7 @@
 
 // ==PREPROCESSOR==
 // @name "Lyric Show Modoki"
-// @version "1.1.6"
+// @version "1.1.7"
 // @author "tomato111"
 // @import "%fb2k_path%import\common\lib.js"
 // ==/PREPROCESSOR==
@@ -570,7 +570,7 @@ function copyLyric(withTag) { // copy lyric to clipboad
 
 }
 
-function createLyricByClipboard() {
+function createLyricByClipboard(SaveToTag) {
 
     if (fb.IsPlaying)
         var meta = fb.GetNowPlaying();
@@ -582,23 +582,33 @@ function createLyricByClipboard() {
     if (text) {
         var intButton = ws.Popup(text
                          + "\n\n==============================================\n"
-                         + "                                                                           この歌詞を保存しますか？", 0, "確認", 4);
-        if (intButton === 6)
-            try {
+                         + "                                                                           この歌詞を保存しますか？", 0, SaveToTag ? "確認（タグに保存）" : "確認（ファイルに保存）", 4);
+        if (intButton === 6) {
+            if (SaveToTag) {
+                var field = tagRe.test(text) ? "LYRICS" : "UNSYNCED LYRICS";
+                try {
+                    writeTagField(text, field, meta);
+                    Messages[2].popup('"' + field + '"');
+                } catch (e) {
+                    Messages[10].popup("\n" + e.message);
+                }
+            }
+            else {
                 var file = parse_path + (tagRe.test(text) ? ".lrc" : ".txt");
                 var folder = fs.GetParentFolderName(file);
-                if (!fs.FolderExists(folder))
-                    createFolder(fs, folder);
-                writeTextFile(text, file, prop.Save.CharacterCode);
-                Messages[6].popup(file);
-                FuncCommands(prop.Save.RunAfterSave, meta);
-                main();
-            } catch (e) {
-                Messages[5].popup("\n" + e.message);
+                try {
+                    if (!fs.FolderExists(folder))
+                        createFolder(fs, folder);
+                    writeTextFile(text, file, prop.Save.CharacterCode);
+                    Messages[6].popup(file);
+                    FuncCommands(prop.Save.RunAfterSave, meta);
+                } catch (e) {
+                    Messages[5].popup("\n" + e.message);
+                }
             }
-            finally {
-                meta.Dispose();
-            }
+            meta.Dispose();
+            main();
+        }
     }
     else
         Messages[11].popup();
@@ -2221,6 +2231,23 @@ Menu = new function () {
     //============
     //  sub menu items
     //============
+    var submenu_createLyricByClipboard = [
+        {
+            Flag: MF_STRING,
+            Caption: Label.SaveToTag,
+            Func: function () {
+                createLyricByClipboard(true);
+            }
+        },
+        {
+            Flag: MF_STRING,
+            Caption: Label.SaveToFile,
+            Func: function () {
+                createLyricByClipboard();
+            }
+        }
+    ];
+
     var submenu_Copy = [
         {
             Flag: MF_STRING,
@@ -2548,7 +2575,7 @@ Menu = new function () {
         },
         {
             Caption: Label.CreateLyric,
-            Func: createLyricByClipboard
+            Sub: submenu_createLyricByClipboard
         },
         {
             Caption: Label.Open,
@@ -2771,6 +2798,8 @@ Menu = new function () {
             submenu_Display[1].Flag = prop.Style.Shadow ? MF_CHECKED : MF_UNCHECKED;
             submenu_Display[2].Flag = prop.Style.Font_Italic ? MF_CHECKED : MF_UNCHECKED;
             submenu_Display[3].Flag = prop.Panel.BackgroundEnable ? MF_CHECKED : MF_UNCHECKED;
+            submenu_Display[4].Flag = prop.Panel.ExpandRepetition ? MF_CHECKED : MF_UNCHECKED;
+            submenu_Display[5].Flag = prop.Panel.Contain ? MF_CHECKED : MF_UNCHECKED;
             switch (Number(window.GetProperty("Style.Align"))) { // radio number begin with 0
                 case 0: // Left
                     menu_LyricShow[8].Radio = 0; break;
@@ -2799,9 +2828,6 @@ Menu = new function () {
             menu_LyricShow[4].Caption = auto_scroll ? Label.ForbidAutoScroll : Label.AllowAutoScroll;
 
             if (lyric) {
-                submenu_Display[4].Flag = filetype === "txt" ? prop.Panel.ExpandRepetition ? MF_CHECKED : MF_UNCHECKED : MF_GRAYED;
-                submenu_Display[5].Flag = filetype === "lrc" ? prop.Panel.Contain ? MF_CHECKED : MF_UNCHECKED : MF_GRAYED;
-
                 menu_LyricShow[2].Flag = MF_STRING;
                 menu_LyricShow[4].Flag = MF_STRING;
                 menu_LyricShow[5].Flag = filetype === "lrc" ? MF_STRING : MF_GRAYED;

@@ -25,6 +25,18 @@ String.prototype.toHalfWidthNum = function () { //-- Replace full-width number w
     return this.replace(/[０１２３４５６７８９]/g, function (s) { return "０１２３４５６７８９".indexOf(s); });
 };
 
+String.prototype.hexNumRefToString = function () { //-- 数値文字参照(16進数, 10進数)を文字列に変換 -- reference https://gist.github.com/myaumyau/4975024
+    return this.replace(/&#x([0-9a-f]+);/ig, function (match, $1, idx, all) {
+        return String.fromCharCode('0x' + $1);
+    });
+};
+
+String.prototype.decNumRefToString = function () {
+    return this.replace(/&#(\d+);/ig, function (match, $1, idx, all) {
+        return String.fromCharCode($1);
+    });
+};
+
 //-- Trim --
 String.prototype.trim = function (s) {
     return this.replace(/^[\s　]*|[\s　]*$/g, "");

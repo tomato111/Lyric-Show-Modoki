@@ -2,7 +2,7 @@
     name: "dplugin_Miku_Hatsune_wiki",
     commandName: 'Miku_Hatsune_wiki',
     label: prop.Panel.Lang == 'ja' ? '歌詞検索: 初音ミクWiki' : 'Download Lyrics: Miku Hatsune wiki',
-    author: 'Tomato',
+    author: 'tomato111',
     onCommand: function () {
 
         ws = new ActiveXObject("WScript.Shell");
@@ -80,7 +80,7 @@
         }
 
         function AnalyzePage(resArray, found) {
-            var re = new RegExp(found !== true ? '<a href="(.*?)" +?title="(' + title.replaceEach("\\*", "\\*", "\\?", "\\?", "g") + '.*?)">' : 'id_[a-z0-9]{8}|^作詞|^作曲|^編曲|^唄');
+            var re = new RegExp(found !== true ? '<a href="(.*?)" +?title="(' + title.replaceEach("\\*", "\\*", "\\?", "\\?", "g") + '.*?)"(?: style=".+?")?>' : 'id_[a-z0-9]{8}|^作詞|^作曲|^編曲|^唄');
             var lyricsFlag = false, id = null, intButton = null, foundPage = null;
             var aimai = false, mat = false, isCD = false;
             if (found !== true) {
