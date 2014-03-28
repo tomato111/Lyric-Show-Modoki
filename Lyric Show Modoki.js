@@ -3,7 +3,7 @@
 
 // ==PREPROCESSOR==
 // @name "Lyric Show Modoki"
-// @version "1.1.7"
+// @version "1.1.8"
 // @author "tomato111"
 // @import "%fb2k_path%import\common\lib.js"
 // ==/PREPROCESSOR==
@@ -15,7 +15,7 @@
 //============================================
 // user reserved words
 var scriptName, scriptdir, commondir, plugins, lyric, parse_path, path, directory, filename, basename, filetype, dateLastModified, dateCreated, dataSize, offsetinfo, backalpha
-, fs, ws, prop, Messages, Label, tagRe, timeRe, firstRe, repeatRes, TextHeight, offsetY, fixY, moveY, lineY, drag, drag_y, down_pos, g_x, g_y, ww, wh, larea_seek, rarea_seek, seek_width, rarea_seek_x, disp, Lock, auto_scroll, movable, jumpY
+, fs, ws, prop, Messages, Label, tagRe, timeRe, firstRe, repeatRes, TextHeight, TextHeightWithoutLPadding, offsetY, fixY, moveY, lineY, drag, drag_y, down_pos, g_x, g_y, ww, wh, larea_seek, rarea_seek, seek_width, rarea_seek_x, disp, Lock, auto_scroll, movable, jumpY
 , DT_LEFT, DT_CENTER, DT_RIGHT, DT_WORDBREAK, DT_NOPREFIX, Left_Center, Center_Left, Center_Right, Right_Center, centerleftX
 , LyricShow, Edit, Buttons, Keybind, Keybind_Edit, Menu, Trace;
 
@@ -248,7 +248,7 @@ prop = new function () {
     ww = window.Width - g_x * 2;
     wh = window.Height - g_y * 2;
     centerleftX = Math.round(ww / 5 + g_x);
-    fixY = wh / 2 - 14;
+    fixY = wh / 2 - 12;
     seek_width = Math.floor(ww * 15 / 100);
     rarea_seek_x = ww - seek_width;
 
@@ -1010,8 +1010,10 @@ LyricShow = new function (Style) {
             var temp_bmp = gdi.CreateImage(1, 1);
             var temp_gr = temp_bmp.GetGraphics();
 
-            if (!TextHeight)
+            if (!TextHeight) {
                 TextHeight = temp_gr.CalcTextHeight("Sample", Style.Font) + Style.LPadding;
+                TextHeightWithoutLPadding = temp_gr.CalcTextHeight("Sample", Style.Font);
+            }
 
             var numOfWordbreak = 0;
             var wordbreakList = [];
@@ -1071,12 +1073,12 @@ LyricShow = new function (Style) {
             var h, t, l, d;
 
             l = lyric.text.length + Number(this.numOfWordbreak); // 1ファイルの行数(ワードブレイク含む)
-            this.h = l * TextHeight; // 1ファイルの高さ // Set FileHeight
+            this.h = l * TextHeight - Number(this.numOfWordbreak) * Style.LPadding; // 1ファイルの高さ // Set FileHeight //ワードブレイク時の行間にLPaddingは入らないので余分なLPadding値を引いて計算
             this.minOffsetY = fixY - this.h + TextHeight; // オフセットYの最小値 // Set minimum offsetY
 
             if (lineList) {
                 for (var i = 0; i < lineList.length; i++) {
-                    h = this.wordbreakList[i] * TextHeight; // 行の高さ
+                    h = this.wordbreakList[i] * TextHeightWithoutLPadding + Style.LPadding; // 行の高さ
                     t = (lineList[i + 1] - lineList[i]) * 10; // 次の行までの時間[ms]
                     scrollSpeedList[i] = h / t * prop.Panel.Interval; // 1回の更新での移動量(行ごとに変化する)
                     scrollSpeedType2List[i] = t >= prop.Panel.ScrollType2 * 10 ? h / (prop.Panel.ScrollType2 * 10 / prop.Panel.Interval) : null; // Panel.ScrollType == 2 での移動量. スクロール開始は(prop.Panel.ScrollType2*10)ミリ秒前. よって, 更新回数はそれをprop.Panel.Intervalで割ると求まる.
@@ -1112,7 +1114,7 @@ LyricShow = new function (Style) {
 
                 this.text = prop.Edit.Start ? lyric.text[i] : p.wordbreakText[i];
                 this.y = DrawStyle[i - 1].nextY;
-                this.height = p.wordbreakList[i] * TextHeight;
+                this.height = p.wordbreakList[i] * TextHeightWithoutLPadding + Style.LPadding;
                 this.nextY = this.y + this.height;
                 this.time = p.lineList ? p.lineList[i] / 100 : null;
 
@@ -1586,8 +1588,10 @@ LyricShow = new function (Style) {
             gr.GdiDrawText("Click here to enable this panel.", Style.Font, Style.Color.Text, g_x, g_y + offsetY - 6, ww, wh, DT_CENTER | DT_WORDBREAK | DT_NOPREFIX);
         }
         else if (fb.IsPlaying) { // lyrics is not found
-            if (!TextHeight)
+            if (!TextHeight) {
                 TextHeight = gr.CalcTextHeight("Sample", Style.Font) + Style.LPadding;
+                TextHeightWithoutLPadding = gr.CalcTextHeight("Sample", Style.Font);
+            }
             var s = fb.TitleFormat(prop.Panel.NoLyric).Eval().split("\\n");
             var offset = g_y + (wh / 2) - s.length / 2 * TextHeight;
             var wordbreak = 0;
@@ -2952,7 +2956,7 @@ function on_size() {
     ww = window.Width - g_x * 2;
     wh = window.Height - g_y * 2;
     centerleftX = Math.round(ww / 5 + g_x);
-    fixY = wh / 2 - 14;
+    fixY = wh / 2 - 12;
 
     seek_width = Math.floor(ww * 15 / 100);
     rarea_seek_x = ww - seek_width;
