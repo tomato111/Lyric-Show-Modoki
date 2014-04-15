@@ -1,5 +1,10 @@
 ﻿http://ashiato1.blog62.fc2.com/blog-entry-64.html
 
+--v1.2.1(2014/04/15)--------------------------------------------------
+
+・特定のパネルサイズでカクつき易くなる不具合を修正
+・Panel.RefreshInterval2 を追加（ScrollType:2 or 3 の更新間隔）
+
 --v1.2.0(2014/04/12)--------------------------------------------------
 
 ・Panel.Keybind.Reload を追加（Default is 'R' key）

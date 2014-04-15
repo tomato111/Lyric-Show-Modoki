@@ -3,7 +3,7 @@
 
 // ==PREPROCESSOR==
 // @name "Lyric Show Modoki"
-// @version "1.2.0"
+// @version "1.2.1"
 // @author "tomato111"
 // @import "%fb2k_path%import\common\lib.js"
 // ==/PREPROCESSOR==
@@ -52,12 +52,13 @@ prop = new function () {
         Lang: window.GetProperty("Panel.Language", ""),
         Conf: window.GetProperty("Panel.HideConfigureMenu", false),
         Interval: window.GetProperty("Panel.RefreshInterval", 10),
+        Interval2: window.GetProperty("Panel.RefreshInterval2", 5),
         Editor: window.GetProperty("Panel.ExternalEditor", ""),
         NoLyric: window.GetProperty("Panel.NoLyricsFound", "Title: %title%\\nArtist: %artist%\\nAlbum: %album%\\n\\n-no lyrics-"),
         Priority: window.GetProperty("Panel.Priority", "Sync_Tag,Sync_File,Unsync_Tag,Unsync_File"),
         Contain: window.GetProperty("Panel.LRC.ContainNormalLines", false),
         ScrollType: window.getProperty("Panel.LRC.ScrollType", 1),
-        ScrollType2: 120, // Interval/10 の倍数である必要がある // value*10 [ms]前からスクロール開始
+        ScrollType2: 140, // Interval/10 の倍数である必要がある // value*10 [ms]前からスクロール開始
         BackgroundEnable: window.GetProperty("Panel.Background.Enable", true),
         BackgroundPath: window.GetProperty("Panel.Background.Image", "<embed>||$directory_path(%path%)\\*.*||'%fb2k_path%'\\import\\Lyric Show Modoki\\background.jpg"),
         BackgroundRaw: window.GetProperty("Panel.Background.ImageToRawBitmap", false),
@@ -103,6 +104,9 @@ prop = new function () {
 
     if (typeof this.Panel.Interval !== "number" || this.Panel.Interval < 1)
         window.SetProperty("Panel.RefreshInterval", this.Panel.Interval = 10);
+
+    if (typeof this.Panel.Interval2 !== "number" || this.Panel.Interval2 < 1)
+        window.SetProperty("Panel.RefreshInterval2", this.Panel.Interval2 = 5);
 
     // ==Style====
     this.Style = {
@@ -254,20 +258,20 @@ prop = new function () {
     ww = window.Width - g_x * 2;
     wh = window.Height - g_y * 2;
     centerleftX = Math.round(ww / 5 + g_x);
-    fixY = wh / 2 + Number(this.Style.CenterPosition);
+    fixY = Math.round(wh / 2 + Number(this.Style.CenterPosition));
     seek_width = Math.floor(ww * 15 / 100);
     rarea_seek_x = ww - seek_width;
 
     // ==Edit====
     this.Edit = {
         Rule: window.GetProperty("Edit.ShowRuledLine", true),
-        Step: window.GetProperty("Edit.Step", 15),
+        Step: window.GetProperty("Edit.Step", 14),
         Start: false,
         View: false
     };
 
     if (!this.Edit.Step && typeof this.Edit.Step != "number" || this.Edit.Step < 0)
-        window.SetProperty("Edit.Step", this.Edit.Step = 15);
+        window.SetProperty("Edit.Step", this.Edit.Step = 14);
 
     // ==Save====
     this.Save = {
@@ -466,7 +470,7 @@ PluginLoader = {
 
         fc = new Enumerator(f.Files);
 
-        for (; !fc.atEnd(); fc.moveNext()) {
+        for (; !fc.atEnd() ; fc.moveNext()) {
             try {
                 str = readTextFile(fc.item());
             } catch (e) { continue; }
@@ -535,12 +539,12 @@ function trimLine_TopAndBottom(withTag) { // trim top and bottom
         text.unshift("");
         text.push("");
 
-        for (; ; )
+        for (; ;)
             if (text[1] == "")
                 text.splice(1, 1);
             else break;
 
-        for (; ; )
+        for (; ;)
             if (text[text.length - 2] == "")
                 text.splice(text.length - 2, 1);
             else break;
@@ -746,62 +750,62 @@ LyricShow = new function (Style) {
         var str, arr, exp;
 
         L:
-        {
-            for (var i = 0; i < prop.Panel.PathFuzzyLevel + 1; i++) { // Fuzzy Search
-                switch (i) {
-                    case 0:
-                        try {
-                            var f = fs.GetFile(file);
-                            break L;
-                        } catch (e) {
+            {
+                for (var i = 0; i < prop.Panel.PathFuzzyLevel + 1; i++) { // Fuzzy Search
+                    switch (i) {
+                        case 0:
                             try {
-                                directory = file.match(directoryRe)[0];
-                            } catch (e) { }
-                        }
-                        break;
-                    case 1:
-                        try {
-                            // create File Collection
-                            if (!Files_Collection[directory] || Files_Collection[directory].DateLastModified != String(fs.GetFolder(directory).DateLastModified)) {
-                                Files_Collection[directory] = [];
-                                Files_Collection[directory].DateLastModified = String(fs.GetFolder(directory).DateLastModified);
-                                arr = utils.Glob(directory + "*.*").toArray(); // fs.GetFolder(directory).Files でのコレクション処理は各アイテムのプロパティアクセスが遅すぎる. 代わりにutils.Glob()を使う
-                                for (var j = 0; j < arr.length; j++) {
-                                    if (extensionRe.test(fs.GetExtensionName(arr[j]))) {
-                                        exp = fs.GetFileName(arr[j]).replace(FuzzyRE[i], "");
-                                        Files_Collection[directory].push({ Name1: exp, Name2: exp.replace(FuzzyRE[i + 1], ""), Path: arr[j] });
+                                var f = fs.GetFile(file);
+                                break L;
+                            } catch (e) {
+                                try {
+                                    directory = file.match(directoryRe)[0];
+                                } catch (e) { }
+                            }
+                            break;
+                        case 1:
+                            try {
+                                // create File Collection
+                                if (!Files_Collection[directory] || Files_Collection[directory].DateLastModified != String(fs.GetFolder(directory).DateLastModified)) {
+                                    Files_Collection[directory] = [];
+                                    Files_Collection[directory].DateLastModified = String(fs.GetFolder(directory).DateLastModified);
+                                    arr = utils.Glob(directory + "*.*").toArray(); // fs.GetFolder(directory).Files でのコレクション処理は各アイテムのプロパティアクセスが遅すぎる. 代わりにutils.Glob()を使う
+                                    for (var j = 0; j < arr.length; j++) {
+                                        if (extensionRe.test(fs.GetExtensionName(arr[j]))) {
+                                            exp = fs.GetFileName(arr[j]).replace(FuzzyRE[i], "");
+                                            Files_Collection[directory].push({ Name1: exp, Name2: exp.replace(FuzzyRE[i + 1], ""), Path: arr[j] });
+                                        }
+                                    }
+                                } // create File Collection END
+
+                                exp = fs.GetFileName(file).replace(FuzzyRE[i], "");
+
+                                for (j = 0; j < Files_Collection[directory].length; j++) {
+                                    if (Files_Collection[directory][j].Name1 == exp) {
+                                        file = Files_Collection[directory][j].Path;
+                                        f = fs.GetFile(file);
+                                        break L;
                                     }
                                 }
-                            } // create File Collection END
+                            } catch (e) { }
+                            break;
+                        case 2:
+                            try {
+                                exp = exp.replace(FuzzyRE[i], "");
 
-                            exp = fs.GetFileName(file).replace(FuzzyRE[i], "");
-
-                            for (j = 0; j < Files_Collection[directory].length; j++) {
-                                if (Files_Collection[directory][j].Name1 == exp) {
-                                    file = Files_Collection[directory][j].Path;
-                                    f = fs.GetFile(file);
-                                    break L;
+                                for (j = 0; j < Files_Collection[directory].length; j++) {
+                                    if (Files_Collection[directory][j].Name2 == exp) {
+                                        file = Files_Collection[directory][j].Path;
+                                        f = fs.GetFile(file);
+                                        break L;
+                                    }
                                 }
-                            }
-                        } catch (e) { }
-                        break;
-                    case 2:
-                        try {
-                            exp = exp.replace(FuzzyRE[i], "");
+                            } catch (e) { }
+                            break;
+                    } // switch END
 
-                            for (j = 0; j < Files_Collection[directory].length; j++) {
-                                if (Files_Collection[directory][j].Name2 == exp) {
-                                    file = Files_Collection[directory][j].Path;
-                                    f = fs.GetFile(file);
-                                    break L;
-                                }
-                            }
-                        } catch (e) { }
-                        break;
-                } // switch END
-
-            } // for END
-        } // Label END
+                } // for END
+            } // Label END
 
         if (!f) return;
 
@@ -948,45 +952,45 @@ LyricShow = new function (Style) {
                 var temp;
                 for (i = 0; i < lyric.text.length; i++) {
                     Li:
-                    { // start label
-                        for (j = 0; j < repeatRes.length; j++) {
-                            if (!repeatRes[j].e.length && repeatRes[j].a.test(lyric.text[i])) { // put lyrics for repeats
-                                // console("put i:" + i + ", " + lyric.text[i]);
-                                for (k = i; k < lyric.text.length; k++) {
-                                    if (k === i && repeatRes[j].d > 0)
-                                        repeatRes[j].e.push(lyric.text[k].slice(repeatRes[j].d));
-                                    else
-                                        repeatRes[j].e.push(lyric.text[k]);
+                        { // start label
+                            for (j = 0; j < repeatRes.length; j++) {
+                                if (!repeatRes[j].e.length && repeatRes[j].a.test(lyric.text[i])) { // put lyrics for repeats
+                                    // console("put i:" + i + ", " + lyric.text[i]);
+                                    for (k = i; k < lyric.text.length; k++) {
+                                        if (k === i && repeatRes[j].d > 0)
+                                            repeatRes[j].e.push(lyric.text[k].slice(repeatRes[j].d));
+                                        else
+                                            repeatRes[j].e.push(lyric.text[k]);
 
-                                    if (repeatRes[j].b.test(lyric.text[k]))
-                                        break;
+                                        if (repeatRes[j].b.test(lyric.text[k]))
+                                            break;
+                                    }
+
+                                    // console("fin k:" + k + ", " + lyric.text[k]);
+                                    for (; ;) // trim
+                                        if (repeatRes[j].e[0] == "")
+                                            repeatRes[j].e.shift();
+                                        else if (repeatRes[j].e[repeatRes[j].e.length - 1] == "")
+                                            repeatRes[j].e.pop();
+                                        else
+                                            break;
+                                    i = k;
+                                    break Li;
                                 }
-
-                                // console("fin k:" + k + ", " + lyric.text[k]);
-                                for (; ; ) // trim
-                                    if (repeatRes[j].e[0] == "")
-                                        repeatRes[j].e.shift();
-                                    else if (repeatRes[j].e[repeatRes[j].e.length - 1] == "")
-                                        repeatRes[j].e.pop();
-                                    else
-                                        break;
-                                i = k;
-                                break Li;
+                                else if (repeatRes[j].c.test(lyric.text[i])) { // replace lyric for repeats
+                                    // console("before i:" + i + ", " + lyric.text[i]);
+                                    repeatRes[j].e.unshift(lyric.text.length - i);
+                                    repeatRes[j].e.unshift(i);
+                                    temp = Array.prototype.splice.apply(lyric.text, repeatRes[j].e) // splice は配列を展開しないで挿入するので、範囲を含めた配列にし(上2行)、applyで展開させて渡す
+                                    temp.shift();
+                                    lyric.text = lyric.text.concat(temp);
+                                    // console("after i:" + i + ", " + lyric.text[i]);
+                                    repeatRes[j].e.shift();
+                                    repeatRes[j].e.shift();
+                                    i += repeatRes[j].e.length - 1;
+                                }
                             }
-                            else if (repeatRes[j].c.test(lyric.text[i])) { // replace lyric for repeats
-                                // console("before i:" + i + ", " + lyric.text[i]);
-                                repeatRes[j].e.unshift(lyric.text.length - i);
-                                repeatRes[j].e.unshift(i);
-                                temp = Array.prototype.splice.apply(lyric.text, repeatRes[j].e) // splice は配列を展開しないで挿入するので、範囲を含めた配列にし(上2行)、applyで展開させて渡す
-                                temp.shift();
-                                lyric.text = lyric.text.concat(temp);
-                                // console("after i:" + i + ", " + lyric.text[i]);
-                                repeatRes[j].e.shift();
-                                repeatRes[j].e.shift();
-                                i += repeatRes[j].e.length - 1;
-                            }
-                        }
-                    } // label END 
+                        } // label END 
                 }
             }
 
@@ -1082,18 +1086,19 @@ LyricShow = new function (Style) {
 
             var scrollSpeedList = [], scrollSpeedType2List = [];
             var lineList = this.lineList;
-            var h, t, l, d;
+            var h, t, l, d, interval;
 
             l = lyric.text.length + Number(this.numOfWordbreak); // 1ファイルの行数(ワードブレイク含む)
             this.h = l * TextHeight - Number(this.numOfWordbreak) * Style.LPadding; // 1ファイルの高さ // Set FileHeight //ワードブレイク時の行間にLPaddingは入らないので余分なLPadding値を引いて計算
             this.minOffsetY = fixY - this.h + TextHeight; // オフセットYの最小値 // Set minimum offsetY
 
             if (lineList) {
+                interval = prop.Panel.ScrollType === 1 ? prop.Panel.Interval : prop.Panel.Interval2;
                 for (var i = 0; i < lineList.length; i++) {
                     h = this.wordbreakList[i] * TextHeightWithoutLPadding + Style.LPadding; // 行の高さ
                     t = (lineList[i + 1] - lineList[i]) * 10 || 1; // 次の行までの時間[ms] // Infinity 対策で最小値を1にする
-                    scrollSpeedList[i] = h / t * prop.Panel.Interval; // 1回の更新での移動量(行ごとに変化する)
-                    scrollSpeedType2List[i] = t >= prop.Panel.ScrollType2 * 10 ? h / (prop.Panel.ScrollType2 * 10) * prop.Panel.Interval : null; // Panel.ScrollType == 2 での1回の更新の移動量. スクロール開始は(prop.Panel.ScrollType2*10)ミリ秒前.
+                    scrollSpeedList[i] = h / t * interval; // 1回の更新での移動量(行ごとに変化する)
+                    scrollSpeedType2List[i] = t >= prop.Panel.ScrollType2 * 10 ? h / (prop.Panel.ScrollType2 * 10) * interval : null; // Panel.ScrollType == 2 での1回の更新の移動量. スクロール開始は(prop.Panel.ScrollType2*10)ミリ秒前.
                     if (scrollSpeedList[i] > h) // 1回の更新で行の高さを超える移動量となった場合はスキップ
                         scrollSpeedList[i] = h;
                 }
@@ -1113,7 +1118,7 @@ LyricShow = new function (Style) {
             var p = LyricShow.setProperties;
             var isLRC = filetype === "lrc";
 
-            var DrawStyle = { "-1": { y: 0, height: 0, nextY: 0} };
+            var DrawStyle = { "-1": { y: 0, height: 0, nextY: 0 } };
             for (var i = 0; i < lyric.text.length; i++)
                 DrawStyle[i] = new DrawString(i, isLRC);
 
@@ -1134,15 +1139,15 @@ LyricShow = new function (Style) {
                     this.speed = p.scrollSpeedList[i];
                     this.speedType2 = p.scrollSpeedType2List[i];
 
-                    if (!this.speedType2 && i !== lyric.text.length - 1) { // 現在の行が prop.Panel.ScrollType2 * 10 以上の時間を持つか判別して speedType3 を作成
+                    if (!this.speedType2 && i !== lyric.text.length - 1) { // 現在の行が prop.Panel.ScrollType2 * 10 以上の時間を持つか判別して speedType3 を作成 // 前の行の高さを移動するので再計算している
                         var h = DrawStyle[i - 1].height;
                         var t = (p.lineList[i + 1] - p.lineList[i]) * 10 || 1; // Infinity 対策で最小値を1にする
-                        this.speedType3 = h / t * prop.Panel.Interval;
+                        this.speedType3 = h / t * prop.Panel.Interval2;
                     }
-                    else { // 最終行はこちらに分岐
+                    else { // 最終行もこちらに分岐 // 前の行の高さを移動するので再計算している
                         h = DrawStyle[i - 1].height;
                         t = prop.Panel.ScrollType2 * 10;
-                        this.speedType3 = h / t * prop.Panel.Interval;
+                        this.speedType3 = h / t * prop.Panel.Interval2;
                         if (i === lyric.text.length - 1)
                             this.speedType3EOL = this.speedType3;
                     }
@@ -1187,7 +1192,7 @@ LyricShow = new function (Style) {
                     }
                 }
                 else if (time >= this.p.lineList[this.i + 1]) {
-                    moveY && lineY && (moveY = lineY = 0);
+                    moveY = lineY = 0;
                     lyric.i++;
                     return true; // refresh flag
                 }
@@ -1223,7 +1228,7 @@ LyricShow = new function (Style) {
                     }
                 }
                 else if (time >= this.p.lineList[this.i + 1]) {
-                    moveY && lineY && (moveY = lineY = 0);
+                    moveY = lineY = 0;
                     lyric.i++;
                     return true; // refresh flag
                 }
@@ -1251,7 +1256,7 @@ LyricShow = new function (Style) {
                     }
                 }
                 else if (time >= this.p.lineList[this.i + 1]) {
-                    moveY && lineY && (moveY = lineY = 0);
+                    moveY = lineY = 0;
                     lyric.i++;
                     return true; // refresh flag
                 }
@@ -1303,12 +1308,12 @@ LyricShow = new function (Style) {
                     if (lineList[i] - time > prop.Panel.ScrollType2)
                         offsetY = fixY - DrawStyle[i - 1].y;
                     else {
-                        lineY = (prop.Panel.ScrollType2 - (lineList[i] - time)) * 10 / prop.Panel.Interval * DrawStyle[i - 1].speedType2;
+                        lineY = (prop.Panel.ScrollType2 - (lineList[i] - time)) * 10 / prop.Panel.Interval2 * DrawStyle[i - 1].speedType2;
                         offsetY = fixY - DrawStyle[i - 1].y - lineY;
                     }
                 }
                 else { // そうでなければ　ScrollType === 1　と同じ動作をする
-                    lineY = (time - lineList[i - 1]) * 10 / prop.Panel.Interval * DrawStyle[i - 1].speed;
+                    lineY = (time - lineList[i - 1]) * 10 / prop.Panel.Interval2 * DrawStyle[i - 1].speed;
                     offsetY = fixY - DrawStyle[i - 1].y - lineY;
                 }
             }
@@ -1318,7 +1323,7 @@ LyricShow = new function (Style) {
                     if (time - lineList[i - 1] > prop.Panel.ScrollType2)
                         offsetY = fixY - DrawStyle[i - 1].y;
                     else {
-                        lineY = (time - lineList[i - 1]) * 10 / prop.Panel.Interval * DrawStyle[i - 1].speedType3;
+                        lineY = (time - lineList[i - 1]) * 10 / prop.Panel.Interval2 * DrawStyle[i - 1].speedType3;
                         offsetY = fixY - DrawStyle[i - 2].y - lineY;
                     }
                 }
@@ -1326,7 +1331,7 @@ LyricShow = new function (Style) {
                     if (time - lineList[i - 1] > prop.Panel.ScrollType2)
                         offsetY = fixY - DrawStyle[i - 1].y;
                     else {
-                        lineY = (time - lineList[i - 1]) * 10 / prop.Panel.Interval * (DrawStyle[i - 1].speedType3EOL || DrawStyle[i - 1].speedType3);
+                        lineY = (time - lineList[i - 1]) * 10 / prop.Panel.Interval2 * (DrawStyle[i - 1].speedType3EOL || DrawStyle[i - 1].speedType3);
                         offsetY = fixY - DrawStyle[i - 2].y - lineY;
                     }
                 }
@@ -1339,7 +1344,12 @@ LyricShow = new function (Style) {
         else
             offsetY = fixY - this.setProperties.h * time / Math.round(fb.PlaybackLength * 100); // パネルの半分 - (1ファイルの高さ * 再生時間の割合)
 
-        moveY = Math.abs(offsetY % 1);
+        if (offsetY == parseInt(offsetY)) // 整数かどうか
+            moveY = 0;
+        else if (offsetY > 0)
+            moveY = parseFloat("0." + String(fixY - offsetY).split(".")[1]);
+        else
+            moveY = parseFloat("0." + String(Math.abs(offsetY)).split(".")[1]);
         window.Repaint();
         this.pauseTimer(fb.IsPaused);
     };
@@ -1354,7 +1364,7 @@ LyricShow = new function (Style) {
         else if (filetype === "txt")
             this.scroll_0.interval(prop.Panel.Interval)
         else
-            this["scroll_" + prop.Panel.ScrollType].interval(prop.Panel.Interval);
+            this["scroll_" + prop.Panel.ScrollType].interval(prop.Panel.ScrollType === 1 ? prop.Panel.Interval : prop.Panel.Interval2);
     };
 
     this.fadeTimer = function (reverse) {
@@ -1503,38 +1513,38 @@ LyricShow = new function (Style) {
         this.init();
         prop.Panel.BackgroundEnable && this.setBackgroundImage();
         L:
-        {
-            if (extRe.test(path) && this.readLyric(path)) break L; // for FileDialog
-            var pathIsArray = path instanceof Array;
-            parse_path = pathIsArray ? path[0] : path; // set default parse_path for save
-            for (var p = prop.Panel.Priority, i = 0; i < p.length; i++) { // according to priority order
-                switch (p[i]) {
-                    case "Sync_Tag":
-                        if (this.readLyric("LYRICS")) break L;
-                        else break;
-                    case "Sync_File":
-                        if (pathIsArray)
-                            for (var j = 0; j < path.length; j++) {
-                                if (this.readLyric(path[j] + ".lrc")) break L;
-                            }
-                        else
-                            if (this.readLyric(path + ".lrc")) break L;
-                        break;
-                    case "Unsync_Tag":
-                        if (this.readLyric("UNSYNCED LYRICS")) break L;
-                        else break;
-                    case "Unsync_File":
-                        if (pathIsArray)
-                            for (j = 0; j < path.length; j++) {
-                                if (this.readLyric(path[j] + ".txt")) break L;
-                            }
-                        else
-                            if (this.readLyric(path + ".txt")) break L;
-                        break;
+            {
+                if (extRe.test(path) && this.readLyric(path)) break L; // for FileDialog
+                var pathIsArray = path instanceof Array;
+                parse_path = pathIsArray ? path[0] : path; // set default parse_path for save
+                for (var p = prop.Panel.Priority, i = 0; i < p.length; i++) { // according to priority order
+                    switch (p[i]) {
+                        case "Sync_Tag":
+                            if (this.readLyric("LYRICS")) break L;
+                            else break;
+                        case "Sync_File":
+                            if (pathIsArray)
+                                for (var j = 0; j < path.length; j++) {
+                                    if (this.readLyric(path[j] + ".lrc")) break L;
+                                }
+                            else
+                                if (this.readLyric(path + ".lrc")) break L;
+                            break;
+                        case "Unsync_Tag":
+                            if (this.readLyric("UNSYNCED LYRICS")) break L;
+                            else break;
+                        case "Unsync_File":
+                            if (pathIsArray)
+                                for (j = 0; j < path.length; j++) {
+                                    if (this.readLyric(path[j] + ".txt")) break L;
+                                }
+                            else
+                                if (this.readLyric(path + ".txt")) break L;
+                            break;
+                    }
                 }
+                return Messages[0].trace(); // file is not found
             }
-            return Messages[0].trace(); // file is not found
-        }
 
         this.setProperties.setLineList();
         this.setProperties.setWordbreakList();
@@ -1695,7 +1705,7 @@ LyricShow = new function (Style) {
         }
     };
 
-} (prop.Style);
+}(prop.Style);
 
 
 //===========================================
@@ -2092,7 +2102,7 @@ Edit = new function (Style, p) {
         }
     };
 
-} (prop.Style, LyricShow.setProperties);
+}(prop.Style, LyricShow.setProperties);
 
 
 //===========================================
@@ -3066,9 +3076,9 @@ main();
 //== Callback function =========================
 //========================================
 function on_paint(gr) {
-    /* gr.SetTextRenderingHint(5);
+    //gr.SetTextRenderingHint(5);
     gr.SetSmoothingMode(2);
-    gr.SetInterpolationMode(7); */
+    //gr.SetInterpolationMode(7);
 
     if (!prop.Edit.Start)
         LyricShow && LyricShow.on_paint(gr);
@@ -3082,7 +3092,7 @@ function on_size() {
     ww = window.Width - g_x * 2;
     wh = window.Height - g_y * 2;
     centerleftX = Math.round(ww / 5 + g_x);
-    fixY = wh / 2 + Number(prop.Style.CenterPosition);
+    fixY = Math.round(wh / 2 + Number(prop.Style.CenterPosition));
 
     seek_width = Math.floor(ww * 15 / 100);
     rarea_seek_x = ww - seek_width;
