@@ -866,14 +866,10 @@ LyricShow = new function (Style) {
 
         isSync = tagRe.test(str);
 
-        if (filetype === "lrc" && !isSync) { // check // LYRICSタグでは警告は表示しない
+        if (filetype === "lrc" && !isSync) // check
             filetype = "txt";
-            !/^LYRICS$/.test(file) && Messages[3].fbpopup("UNSYNCED LYRICS\n\n" + (path ? "file:" + path : fb.TitleFormat("title: %title%'\n'artist: %artist%").Eval()));
-        }
-        else if (filetype === "txt" && isSync) {
+        else if (filetype === "txt" && isSync)
             filetype = "lrc";
-            Messages[3].fbpopup("SYNCED LYRICS\n\n" + (path ? "file:" + path : fb.TitleFormat("title: %title%'\n'artist: %artist%").Eval()));
-        }
 
         lyric = { text: str.trim().split(getLineFeedCode(str)), i: 1, info: [] };
 
