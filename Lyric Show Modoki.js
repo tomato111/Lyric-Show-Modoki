@@ -3,7 +3,7 @@
 
 // ==PREPROCESSOR==
 // @name "Lyric Show Modoki"
-// @version "1.2.2"
+// @version "1.2.3"
 // @author "tomato111"
 // @import "%fb2k_path%import\common\lib.js"
 // ==/PREPROCESSOR==
@@ -17,7 +17,7 @@
 var scriptName, scriptdir, commondir, plugins, lyric, parse_path, path, directory, filename, basename, filetype, dateLastModified, dateCreated, dataSize, offsetinfo, backalpha
 , fs, ws, prop, Messages, Label, tagRe, timeRe, firstRe, repeatRes, TextHeight, TextHeightWithoutLPadding, offsetY, fixY, moveY, lineY, drag, drag_y, down_pos, g_x, g_y, ww, wh, larea_seek, rarea_seek, seek_width, rarea_seek_x, disp, Lock, auto_scroll, movable, jumpY
 , DT_LEFT, DT_CENTER, DT_RIGHT, DT_WORDBREAK, DT_NOPREFIX, Left_Center, Center_Left, Center_Right, Right_Center, centerleftX
-, LyricShow, Edit, Buttons, Keybind, Keybind_Edit, Menu, Trace;
+, LyricShow, Edit, Buttons, StatusBar, Keybind, Keybind_Edit, Menu, Trace;
 
 fs = new ActiveXObject("Scripting.FileSystemObject"); // File System Object
 ws = new ActiveXObject("WScript.Shell"); // WScript Shell Object
@@ -262,6 +262,12 @@ prop = new function () {
     seek_width = Math.floor(ww * 15 / 100);
     rarea_seek_x = ww - seek_width;
 
+    // StatusBar setting
+    this.Style.StatusBarFont = gdi.Font(this.Style.Font_Family, 12, 0);
+    this.Style.StatusBarColor = RGB(220, 220, 220);
+    this.Style.StatusBarBackground = RGBA(90, 90, 90, 255);
+    this.Style.StatusBarRect = RGBA(200, 200, 200, 255);
+
     // ==Edit====
     this.Edit = {
         Rule: window.GetProperty("Edit.ShowRuledLine", true),
@@ -281,7 +287,8 @@ prop = new function () {
         LineFeedCode: window.GetProperty("Save.LineFeedCode", "CR+LF"),
         // Run command after save
         RunAfterSave: window.GetProperty("Save.RunAfterSave", ""),
-        TimetagSign: window.GetProperty("Save.Timetag[12:34:56]", false)
+        TimetagSign: window.GetProperty("Save.Timetag[12:34:56]", false),
+        ClipbordAutoSaveTo: window.GetProperty("Save.GetClipbord.AutoSaveTo", "")
     };
 
     if (!this.Save.CharacterCode || !/^(?:Unicode|Shift_JIS|EUC-JP|UTF-8|UTF-8N)$/i.test(this.Save.CharacterCode))
@@ -294,6 +301,9 @@ prop = new function () {
     if (this.Save.RunAfterSave) this.Save.RunAfterSave = this.Save.RunAfterSave.split("||");
 
     this.Save.TimetagSign = this.Save.TimetagSign ? ":" : ".";
+
+    if (!this.Save.ClipbordAutoSaveTo || !/^(?:File|Tag)$/i.test(this.Save.ClipbordAutoSaveTo))
+        window.SetProperty("Save.GetClipbord.AutoSaveTo", this.Save.ClipbordAutoSaveTo = "");
 };
 
 //========
@@ -317,11 +327,11 @@ switch (prop.Panel.Lang) {
         Messages = [
             new Message("Lyric is not found (" + scriptName + ")", "Info", 48), //0
             new Message("Couldn't open file.\nIt has most likely been moved, renamed, or deleted.", "Error", 48), //1
-            new Message("Saved to tag.\n", "Info", 64), //2
+            new Message("Saved to tag.", "Info", 64), //2
             new Message("The extension of reading lyrics is wrong.\nIt is read as ", scriptName, 48), //3
             new Message("Save？", "Confirmation", 36), //4
             new Message("Couldn't save lyrics to a text file.", "Error", 48), //5
-            new Message("Saved!\n", "Info", 64), //6
+            new Message("Saved!", "Info", 64), //6
             new Message("The file is locked or does not exist", "Error", 48), //7
             new Message("Delete? \n", "Confirmation", 36), //8
             new Message("Deleted.", "Info", 64), //9
@@ -330,7 +340,7 @@ switch (prop.Panel.Lang) {
         ];
         Label = {
             Prop: "Properties...",
-            Help: "Help...",
+            Help: "Help",
             Conf: "Configure...",
             Edit: "Edit",
             Save: "[ Save ]",
@@ -386,20 +396,20 @@ switch (prop.Panel.Lang) {
         Messages = [
             new Message("歌詞はありません (" + scriptName + ")", "情報", 48), //0
             new Message("ファイルが開けませんでした。\nファイルが移動、リネーム、または削除された可能性があります。", "エラー", 48), //1
-            new Message("タグに保存しました\n", "情報", 64), //2
+            new Message("タグに保存しました。", "情報", 64), //2
             new Message("拡張子とファイルの内容が一致しません。\n以下として読み込みます。\n", scriptName, 48), //3
             new Message("保存しますか？", "確認", 36), //4
             new Message("ファイルに保存出来ませんでした。", "エラー", 48), //5
-            new Message("保存しました\n", "情報", 64), //6
+            new Message("保存しました。", "情報", 64), //6
             new Message("ファイルがロックされているか、ファイルが存在しません。", "エラー", 48), //7
             new Message("削除しますか? \n", "確認", 36), //8
-            new Message("削除しました", "Info", 64), //9
+            new Message("削除しました。", "Info", 64), //9
             new Message("タグに保存できませんでした。", "エラー", 48), //10
             new Message("文字を取得できませんでした。", "エラー", 48) //11
         ];
         Label = {
             Prop: "設定...",
-            Help: "ヘルプﾟ...",
+            Help: "ヘルプ",
             Conf: "Configure...",
             Edit: "編集開始",
             Save: "[保存]",
@@ -599,18 +609,18 @@ function saveToTag(fieldname) {
     if (lyric && fieldname) {
         Lock = true;
         var meta = fb.GetNowPlaying();
-        var fieldname = "LYRICS";
         var LineFeedCode = prop.Save.LineFeedCode;
         var text = (lyric.info.length ? lyric.info.join(LineFeedCode) + LineFeedCode : "") + lyric.text.join(LineFeedCode);
         try {
             writeTagField(text, fieldname, meta);
-            Messages[2].popup('"' + fieldname + '"');
+            StatusBar.setText(Messages[2].ret('"' + fieldname + '"'));
+            StatusBar.show();
         } catch (e) {
             Messages[10].popup("\n" + e.message);
         }
         meta.Dispose();
         Lock = false;
-        main();
+        (function () { main(); }).timeout(200);
     }
 }
 
@@ -626,7 +636,8 @@ function saveToFile(file) {
             if (!fs.FolderExists(folder))
                 createFolder(fs, folder);
             writeTextFile(text, file, prop.Save.CharacterCode);
-            Messages[6].popup(file);
+            StatusBar.setText(Messages[6].ret(file));
+            StatusBar.show();
             FuncCommands(prop.Save.RunAfterSave, meta);
         } catch (e) {
             Messages[5].popup("\n" + e.message);
@@ -1643,13 +1654,11 @@ LyricShow = new function (Style) {
 
         this.on_paintInfo.x = Left_Center ? this.setProperties.leftcenterX : Center_Left ? centerleftX : g_x;
         this.on_paintInfo.w = Left_Center || Right_Center ? ww - this.setProperties.leftcenterX + g_x : Center_Left || Center_Right ? ww - centerleftX + g_x : ww;
-        this.on_paintInfo.unsyncc = Style.Highline ? Style.Color.PlayingText : Style.Color.Text;
     };
 
     this.on_paintInfo = {
         x: null,
         w: null,
-        unsyncc: null
     };
 
     this.on_paint = function (gr) {
@@ -1690,14 +1699,14 @@ LyricShow = new function (Style) {
                         c = offsetY + DrawStyle[i].y;
                         if (c > wh) { disp.bottom = i - 1; break; }
                         else if (c < -DrawStyle[i].height) { disp.top = i + 1; continue; }
-                        else DrawStyle[i].draw_withShadow(gr, DrawStyle[i].text, this.on_paintInfo.unsyncc, this.on_paintInfo.x, this.on_paintInfo.w);
+                        else DrawStyle[i].draw_withShadow(gr, DrawStyle[i].text, Style.Highline ? Style.Color.PlayingText : Style.Color.Text, this.on_paintInfo.x, this.on_paintInfo.w);
                     }
                 else
                     for (i = 0; i < lyric.text.length; i++) {
                         c = offsetY + DrawStyle[i].y;
                         if (c > wh) { disp.bottom = i - 1; break; }
                         else if (c < -DrawStyle[i].height) { disp.top = i + 1; continue; }
-                        else DrawStyle[i].draw(gr, DrawStyle[i].text, this.on_paintInfo.unsyncc, this.on_paintInfo.x, this.on_paintInfo.w);
+                        else DrawStyle[i].draw(gr, DrawStyle[i].text, Style.Highline ? Style.Color.PlayingText : Style.Color.Text, this.on_paintInfo.x, this.on_paintInfo.w);
                     }
         }
         else if (!main.IsVisible) {
@@ -1913,7 +1922,8 @@ Edit = new function (Style, p) {
             case 3:
                 try {
                     writeTagField(text, field, meta);
-                    Messages[2].popup('"' + field + '"');
+                    StatusBar.setText(Messages[2].ret('"' + field + '"'));
+                    StatusBar.show();
                 } catch (e) {
                     Messages[10].popup("\n" + e.message);
                 }
@@ -1923,7 +1933,8 @@ Edit = new function (Style, p) {
                     if (!fs.FolderExists(folder))
                         createFolder(fs, folder);
                     writeTextFile(text, file, prop.Save.CharacterCode);
-                    Messages[6].popup(file);
+                    StatusBar.setText(Messages[6].ret(file));
+                    StatusBar.show();
                     FuncCommands(prop.Save.RunAfterSave, meta);
                 } catch (e) {
                     Messages[5].popup("\n" + e.message);
@@ -1940,7 +1951,8 @@ Edit = new function (Style, p) {
         try {
             sendToRecycleBin(file);
             Menu.build(Menu.Edit);
-            Messages[9].popup();
+            StatusBar.setText(Messages[9].ret());
+            StatusBar.show();
         } catch (e) {
             Messages[7].popup();
         }
@@ -2270,6 +2282,50 @@ Buttons = new function () {
 
 
 //===========================================
+//== Create "StatusBar" Object ======================
+//===========================================
+
+StatusBar = new function (Style) {
+    this.TIMER = false;
+
+    this.setText = function (Text) {
+        this.Text = Text;
+
+        var temp_bmp = gdi.CreateImage(1, 1);
+        var temp_gr = temp_bmp.GetGraphics();
+        var width = temp_gr.CalcTextWidth(Text, Style.StatusBarFont);
+
+        this.Height = temp_gr.CalcTextHeight(Text, Style.StatusBarFont) * Math.ceil(width / (ww - 3));
+        this.Y = g_y + wh - this.Height;
+
+        temp_bmp.ReleaseGraphics(temp_gr);
+        temp_bmp.Dispose();
+        temp_gr = temp_bmp = null;
+    };
+
+    this.show = function (time) {
+        this.hide.clearTimeout();
+        this.TIMER = true;
+        window.Repaint();
+        this.hide.timeout(time || 6000);
+    }
+
+    this.hide = function () { // mainly for timer
+        StatusBar.TIMER = false;
+        window.Repaint();
+    }
+    this.on_paint = function (gr) {
+        if (this.TIMER) {
+            gr.FillSolidRect(g_x, this.Y, ww, this.Height, Style.StatusBarBackground);
+            gr.DrawRect(g_x - 1, this.Y - 1, ww + 2, this.Height + 2, 1, Style.StatusBarRect);
+            gr.GdiDrawText(this.Text, Style.StatusBarFont, Style.StatusBarColor, g_x + 3, this.Y, ww - 3, this.Height, DT_LEFT | DT_WORDBREAK | DT_NOPREFIX);
+        }
+    }
+
+}(prop.Style);
+
+
+//===========================================
 //== Create "Keybind" Object ======================
 //===========================================
 
@@ -2304,7 +2360,15 @@ Keybind = new function () {
         if (on_key_down.Ctrl && lyric) copyLyric(true); // (+Ctrl)
     };
     this[86] = function () { // V
-        if (on_key_down.Ctrl && fb.IsPlaying) getLyricFromClipboard(); // (+Ctrl)
+        if (on_key_down.Ctrl && fb.IsPlaying) { // (+Ctrl)
+            getLyricFromClipboard();
+            if (prop.Save.ClipbordAutoSaveTo) {
+                if (/^Tag$/i.test(prop.Save.ClipbordAutoSaveTo))
+                    saveToTag(filetype === "lrc" ? "LYRICS" : "UNSYNCED LYRICS");
+                else if (/^File$/i.test(prop.Save.ClipbordAutoSaveTo))
+                    saveToFile(parse_path + (filetype === "lrc" ? ".lrc" : ".txt"));
+            }
+        }
     };
 
 };
@@ -2710,6 +2774,12 @@ Menu = new function () {
             Caption: Label.GetClipboard,
             Func: function () {
                 getLyricFromClipboard();
+                if (prop.Save.ClipbordAutoSaveTo) {
+                    if (/^Tag$/i.test(prop.Save.ClipbordAutoSaveTo))
+                        saveToTag(filetype === "lrc" ? "LYRICS" : "UNSYNCED LYRICS");
+                    else if (/^File$/i.test(prop.Save.ClipbordAutoSaveTo))
+                        saveToFile(parse_path + (filetype === "lrc" ? ".lrc" : ".txt"));
+                }
             }
         },
         {
@@ -3043,7 +3113,7 @@ function main(text) {
     window.Repaint();
     Menu.build();
 
-    // (function () { if (lyric) { Edit.start(); } }).timeout(400);
+    //(function () { if (lyric) { Edit.start(); } }).timeout(400);
 }
 main();
 
@@ -3056,12 +3126,14 @@ function on_paint(gr) {
     gr.SetSmoothingMode(2);
     //gr.SetInterpolationMode(7);
 
-    if (!prop.Edit.Start)
+    if (!prop.Edit.Start) // Normal
         LyricShow && LyricShow.on_paint(gr);
-    else {
+    else { // Edit
         Edit.on_paint(gr);
         Buttons.on_paint_Button(gr);
     }
+
+    StatusBar.on_paint(gr); // Status Bar
 }
 
 function on_size() {
@@ -3147,6 +3219,7 @@ function on_mouse_leave() {
 }
 
 function on_mouse_lbtn_down(x, y, mask) {
+    //StatusBar.setText("foo bar baz qux quux foobar"); StatusBar.show();
     if (!prop.Edit.Start) {
         if (lyric) {
             drag = true;
@@ -3194,7 +3267,8 @@ function on_mouse_lbtn_up(x, y, mask) {
 
 function on_mouse_lbtn_dblclk(x, y, mask) {
     if (prop.Edit.Start) on_mouse_lbtn_down(x, y, mask);
-    else if (!prop.Panel.SingleClickSeek && filetype === "lrc") {
+    else if (filetype !== "lrc") main();
+    else if (!prop.Panel.SingleClickSeek) {
         jumpY = offsetY;
         for (var i = disp.top, j = disp.bottom; i <= j; i++)
             if (LyricShow.setProperties.DrawStyle[i].onclick(x, y))

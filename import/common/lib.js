@@ -71,15 +71,18 @@ Function.prototype.interval = function (time, callback) {
 Function.prototype.timeout = function (time, callback) {
     var __method = this;
     var __callback = callback || function () { };
-    var id = window.setTimeout(function () {
+    this.$$timerid$$ = window.setTimeout(function () {
         __method.apply(this, arguments);
         __callback.apply(this, arguments);
-        window.clearTimeout(id);
     }, time);
 };
 
 Function.prototype.clearInterval = function () {
     window.clearInterval(this.$$timerid$$);
+};
+
+Function.prototype.clearTimeout = function () {
+    window.clearTimeout(this.$$timerid$$);
 };
 
 //============================================
@@ -97,6 +100,9 @@ Message.prototype.popup = function (s) {
 };
 Message.prototype.trace = function (s) {
     fb.trace(this.text + (s ? s : ""));
+};
+Message.prototype.ret = function (s) {
+    return (this.text + (s ? s : ""));
 };
 Message.prototype.fbpopup = function (s) {
     fb.ShowPopupMessage(this.text + (s ? s : ""), this.title);
@@ -136,7 +142,7 @@ function FileDialog(exe) {
             }
             arguments.callee.clearInterval();
             onReady(file);
-        }).interval(100);
+        }).interval(1000);
     };
 
     this.setOnReady = function (f) { onReady = f; };
