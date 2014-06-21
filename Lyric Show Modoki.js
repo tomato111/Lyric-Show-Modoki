@@ -3,7 +3,7 @@
 
 // ==PREPROCESSOR==
 // @name "Lyric Show Modoki"
-// @version "1.2.3"
+// @version "1.2.4"
 // @author "tomato111"
 // @import "%fb2k_path%import\common\lib.js"
 // ==/PREPROCESSOR==
@@ -336,7 +336,8 @@ switch (prop.Panel.Lang) {
             new Message("Delete? \n", "Confirmation", 36), //8
             new Message("Deleted.", "Info", 64), //9
             new Message("Couldn't save lyrics to tag.", "Error", 48), //10
-            new Message("Couldn't read the text.", "Error", 48) //11
+            new Message("Couldn't read the text.", "Error", 48), //11
+            new Message("Get clipboard.", "Info", 48) //12
         ];
         Label = {
             Prop: "Properties...",
@@ -403,9 +404,10 @@ switch (prop.Panel.Lang) {
             new Message("保存しました。", "情報", 64), //6
             new Message("ファイルがロックされているか、ファイルが存在しません。", "エラー", 48), //7
             new Message("削除しますか? \n", "確認", 36), //8
-            new Message("削除しました。", "Info", 64), //9
+            new Message("削除しました", "Info", 64), //9
             new Message("タグに保存できませんでした。", "エラー", 48), //10
-            new Message("文字を取得できませんでした。", "エラー", 48) //11
+            new Message("文字を取得できませんでした。", "エラー", 48), //11
+            new Message("取得完了", "情報", 48) //12
         ];
         Label = {
             Prop: "設定...",
@@ -598,8 +600,11 @@ function copyLyric(withTag) { // copy lyric to clipboad
 function getLyricFromClipboard() {
     var ws = new ActiveXObject("WScript.Shell");
     var text = getClipboard();
-    if (text)
+    if (text) {
         main(text);
+        StatusBar.setText(Messages[12].ret());
+        StatusBar.show();
+    }
     else
         Messages[11].popup();
 }
@@ -615,12 +620,13 @@ function saveToTag(fieldname) {
             writeTagField(text, fieldname, meta);
             StatusBar.setText(Messages[2].ret('"' + fieldname + '"'));
             StatusBar.show();
+            playSoundSimple(commondir + "finished.wav");
         } catch (e) {
             Messages[10].popup("\n" + e.message);
         }
         meta.Dispose();
         Lock = false;
-        (function () { main(); }).timeout(200);
+        (function () { main(); }).timeout(500);
     }
 }
 
@@ -638,6 +644,7 @@ function saveToFile(file) {
             writeTextFile(text, file, prop.Save.CharacterCode);
             StatusBar.setText(Messages[6].ret(file));
             StatusBar.show();
+            playSoundSimple(commondir + "finished.wav");
             FuncCommands(prop.Save.RunAfterSave, meta);
         } catch (e) {
             Messages[5].popup("\n" + e.message);
@@ -1188,7 +1195,7 @@ LyricShow = new function (Style) {
                 offsetY -= this.speed;
                 moveY += this.speed;
 
-                if (moveY > 1) {
+                if (moveY >= 1) {
                     moveY -= Math.floor(moveY);
                     return true; // refresh flag
                 }
@@ -1209,7 +1216,7 @@ LyricShow = new function (Style) {
                         lyric.i++;
                         return true; // refresh flag
                     }
-                    else if (moveY > 1) {
+                    else if (moveY >= 1) {
                         moveY -= Math.floor(moveY);
                         return true; // refresh flag
                     }
@@ -1924,6 +1931,7 @@ Edit = new function (Style, p) {
                     writeTagField(text, field, meta);
                     StatusBar.setText(Messages[2].ret('"' + field + '"'));
                     StatusBar.show();
+                    playSoundSimple(commondir + "finished.wav");
                 } catch (e) {
                     Messages[10].popup("\n" + e.message);
                 }
@@ -1935,6 +1943,7 @@ Edit = new function (Style, p) {
                     writeTextFile(text, file, prop.Save.CharacterCode);
                     StatusBar.setText(Messages[6].ret(file));
                     StatusBar.show();
+                    playSoundSimple(commondir + "finished.wav");
                     FuncCommands(prop.Save.RunAfterSave, meta);
                 } catch (e) {
                     Messages[5].popup("\n" + e.message);
@@ -3220,6 +3229,7 @@ function on_mouse_leave() {
 
 function on_mouse_lbtn_down(x, y, mask) {
     //StatusBar.setText("foo bar baz qux quux foobar"); StatusBar.show();
+    //playSoundSimple(commondir + "finished.wav");
     if (!prop.Edit.Start) {
         if (lyric) {
             drag = true;

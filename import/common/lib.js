@@ -243,6 +243,17 @@ function prompt(text, title, defaultText) {
     return sc.Run("fn", text, title, defaultText);
 }
 
+//-- Play Sound --
+function playSoundSimple(url) {
+    var mp = arguments.callee.mp;
+    try {
+        if (!mp)
+            mp = arguments.callee.mp = new ActiveXObject("WMPlayer.OCX");
+        mp.URL = url;
+        mp.Controls.Play();
+    } catch (e) { }
+}
+
 //-- Execute Command --
 function FuncCommand(path) {
     var sa = new ActiveXObject("Shell.Application");
