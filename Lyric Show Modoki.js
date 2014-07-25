@@ -3,7 +3,7 @@
 
 // ==PREPROCESSOR==
 // @name "Lyric Show Modoki"
-// @version "1.2.4"
+// @version "1.2.5"
 // @author "tomato111"
 // @import "%fb2k_path%import\common\lib.js"
 // ==/PREPROCESSOR==
@@ -886,7 +886,7 @@ LyricShow = new function (Style) {
         if (/^(?:LYRICS|UNSYNCED LYRICS)$/.test(file)) {
             if (!(str = this.initWithTag(file))) return;
         }
-        else if (/^[a-z]:\\.+\.(?:lrc|txt)$/i.test(file)) {
+        else if (/^(?:[a-z]:|\\)\\.+\.(?:lrc|txt)$/i.test(file)) {
             if (!(str = this.initWithFile(file, IsSpecifiedPath))) return;
         }
         else {
