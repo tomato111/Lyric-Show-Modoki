@@ -3,7 +3,7 @@
 
 // ==PREPROCESSOR==
 // @name "Lyric Show Modoki"
-// @version "1.2.5"
+// @version "1.2.6"
 // @author "tomato111"
 // @import "%fb2k_path%import\common\lib.js"
 // ==/PREPROCESSOR==
@@ -310,160 +310,77 @@ prop = new function () {
 //  language
 //========
 
-var definedLanguage = ["en", "ja"]; // available language
+LanguageLoader = {
 
-if (!prop.Panel.Lang || !checkLang(prop.Panel.Lang)) { // get lang from environment variable. show propmt if it cannot get a available language,  
-    var EnvLang = ws.Environment("USER").Item("LANG").substring(0, 2);
-    if (!checkLang(EnvLang)) {
-        EnvLang = prompt("Please input menu language.\n\"" + definedLanguage.join('", "') + "\" is available.", scriptName, "en");
-        if (!checkLang(EnvLang))
-            EnvLang = "en";
-    }
-    window.SetProperty("Panel.Language", prop.Panel.Lang = EnvLang);
-}
+    Messages: {},
+    Label: {},
 
-switch (prop.Panel.Lang) {
-    case "en":
-        Messages = [
-            new Message("Lyric is not found (" + scriptName + ")", "Info", 48), //0
-            new Message("Couldn't open file.\nIt has most likely been moved, renamed, or deleted.", "Error", 48), //1
-            new Message("Saved to tag.", "Info", 64), //2
-            new Message("The extension of reading lyrics is wrong.\nIt is read as ", scriptName, 48), //3
-            new Message("Save？", "Confirmation", 36), //4
-            new Message("Couldn't save lyrics to a text file.", "Error", 48), //5
-            new Message("Saved!", "Info", 64), //6
-            new Message("The file is locked or does not exist", "Error", 48), //7
-            new Message("Delete? \n", "Confirmation", 36), //8
-            new Message("Deleted.", "Info", 64), //9
-            new Message("Couldn't save lyrics to tag.", "Error", 48), //10
-            new Message("Couldn't read the text.", "Error", 48), //11
-            new Message("Get clipboard.", "Info", 48) //12
-        ];
-        Label = {
-            Prop: "Properties...",
-            Help: "Help",
-            Conf: "Configure...",
-            Edit: "Edit",
-            Save: "[ Save ]",
-            Open: "Open...",
-            OpenIn: "Open with external editor",
-            OpenFolder: "Open folder",
-            SaveToTag: "Save to tag",
-            SaveToFile: "Save to file",
-            Refresh: "Refresh",
-            About: "About current lyric",
-            AllowAutoScroll: "Start auto-scrolling",
-            ForbidAutoScroll: "Stop auto-scrolling",
-            ChangeScroll: "Type of scroll",
-            ScrollType1: "Type 1",
-            ScrollType2: "Type 2",
-            ScrollType3: "Type 3",
-            Copy: "Copy lyrics",
-            CopyWith: "Copy with timetag",
-            CopyWithout: "Copy without timetag",
-            GetClipboard: "Get clipboard",
-            Align: "Align",
-            Align_Left: "Left",
-            Align_Center: "Center",
-            Align_Right: "Right",
-            Align_Left_Center: "Left-Center",
-            Align_Center_Left: "Center-Left",
-            Align_Center_Right: "Center-Right",
-            Align_Right_Center: "Right-Center",
-            Display: "Display",
-            Bold: "Font-Bold",
-            Shadow: "Text-Shadow",
-            Italic: "Font-Italic",
-            BEnable: "Show Background Image",
-            ExpandR: "Expand Repetition [TXT]",
-            Contain: "Contain Normal Lines [LRC]",
-            Color: "Color",
-            Rule: "Show Ruled Line",
-            View: "Vew Mode",
-            EditLine: "Edit Line",
-            InsertLine: "Insert Line",
-            DeleteLine: "Delete Line",
-            DeleteFile: "Delete TXT File",
-            LyricShow: "Cancel",
-            InserLineText: "Please input a sentence to insert.\n(begin with '##' to add it to the end)",
-            Clear: "Clear All",
-            Reload: "Reload",
-            Plugins: "Plugins",
-            OffsetP: "Offset+",
-            OffsetM: "Offset-"
+    Load: function (objFSO, path) {
+
+        function checkLang(lang) {
+            for (var i = 0; i < definedLanguage.length; i++)
+                if (lang === definedLanguage[i])
+                    return true;
+            return false;
+        }
+
+        var definedLanguage = [];
+        var languages = utils.Glob(path + "*.ini").toArray();
+
+        for (var i = 0; i < languages.length; i++) {
+            definedLanguage.push(objFSO.GetBaseName(languages[i]));
+        }
+
+        if (!prop.Panel.Lang || !checkLang(prop.Panel.Lang)) { // get lang from environment variable. show propmt if it cannot get a available language,  
+            var EnvLang = ws.Environment("USER").Item("LANG").substring(0, 2);
+            if (!checkLang(EnvLang)) {
+                EnvLang = prompt("Please input menu language.\n\"" + definedLanguage.join('", "') + "\" is available.", scriptName, "en");
+                if (!checkLang(EnvLang))
+                    EnvLang = "en";
+            }
+            window.SetProperty("Panel.Language", prop.Panel.Lang = EnvLang);
+        }
+
+        languages[0] = new Ini(path + "default", 'UTF-8');
+        languages[1] = new Ini(path + prop.Panel.Lang + ".ini", 'UTF-8');
+
+        if (!languages[0].items.hasOwnProperty("Message") || !languages[0].items.hasOwnProperty("Label"))
+            throw new Error("Faild to load default language file. (" + scriptName + ")");
+        if (!languages[1].items.hasOwnProperty("Message"))
+            languages[1].items.Message = {};
+        if (!languages[1].items.hasOwnProperty("Label"))
+            languages[1].items.Label = {};
+
+        var lang0 = languages[0].items.Message;
+        var lang1 = languages[1].items.Message;
+
+        this.Messages = {
+            NotFound: new Message(lang1.NotFound || lang0.NotFound, "Info", 48),
+            FailedToOpen: new Message(lang1.FailedToOpen || lang0.FailedToOpen, "Error", 48),
+            SavedToTag: new Message(lang1.SavedToTag || lang0.SavedToTag, "Info", 64),
+            FailedToSaveLyricsToFile: new Message(lang1.FailedToSaveLyricsToFile || lang0.FailedToSaveLyricsToFile, "Error", 48),
+            Saved: new Message(lang1.Saved || lang0.Saved, "Info", 64),
+            FailedToDelete: new Message(lang1.FailedToDelete || lang0.FailedToDelete, "Error", 48),
+            Delete: new Message(lang1.Delete || lang0.Delete, "Confirmation", 36),
+            Deleted: new Message(lang1.Deleted || lang0.Deleted, "Info", 64),
+            FailedToSaveLyricsToTag: new Message(lang1.FailedToSaveLyricsToTag || lang0.FailedToSaveLyricsToTag, "Error", 48),
+            FailedToReadText: new Message(lang1.FailedToReadText || lang0.FailedToReadText, "Error", 48),
+            GetClipboard: new Message(lang1.GetClipboard || lang0.GetClipboard, "Info", 48)
         };
-        break;
-    case "ja":
-        Messages = [
-            new Message("歌詞はありません (" + scriptName + ")", "情報", 48), //0
-            new Message("ファイルが開けませんでした。\nファイルが移動、リネーム、または削除された可能性があります。", "エラー", 48), //1
-            new Message("タグに保存しました。", "情報", 64), //2
-            new Message("拡張子とファイルの内容が一致しません。\n以下として読み込みます。\n", scriptName, 48), //3
-            new Message("保存しますか？", "確認", 36), //4
-            new Message("ファイルに保存出来ませんでした。", "エラー", 48), //5
-            new Message("保存しました。", "情報", 64), //6
-            new Message("ファイルがロックされているか、ファイルが存在しません。", "エラー", 48), //7
-            new Message("削除しますか? \n", "確認", 36), //8
-            new Message("削除しました", "Info", 64), //9
-            new Message("タグに保存できませんでした。", "エラー", 48), //10
-            new Message("文字を取得できませんでした。", "エラー", 48), //11
-            new Message("取得完了", "情報", 48) //12
-        ];
-        Label = {
-            Prop: "設定...",
-            Help: "ヘルプ",
-            Conf: "Configure...",
-            Edit: "編集開始",
-            Save: "[保存]",
-            Open: "開く...",
-            OpenIn: "外部エディタで開く",
-            OpenFolder: "フォルダを開く",
-            SaveToTag: "タグに保存",
-            SaveToFile: "ファイルに保存",
-            Refresh: "更新",
-            About: "この歌詞について",
-            AllowAutoScroll: "スクロールの開始",
-            ForbidAutoScroll: "スクロールの停止",
-            ChangeScroll: "スクロール方法",
-            ScrollType1: "タイプ 1",
-            ScrollType2: "タイプ 2",
-            ScrollType3: "タイプ 3",
-            Copy: "コピー",
-            CopyWith: "タイムタグ付きでコピー",
-            CopyWithout: "タイムタグなしでコピー",
-            GetClipboard: "クリップボードから取得",
-            Align: "列揃え",
-            Align_Left: "左",
-            Align_Center: "中央",
-            Align_Right: "右",
-            Align_Left_Center: "左-中央",
-            Align_Center_Left: "中央-左",
-            Align_Center_Right: "中央-右",
-            Align_Right_Center: "右-中央",
-            Display: "表示",
-            Bold: "文字を太くする",
-            Shadow: "文字に影をつける",
-            Italic: "文字を斜体にする",
-            BEnable: "背景画像を表示する",
-            ExpandR: "繰り返しを展開する [TXT]",
-            Contain: "タイムタグのない行を含める [LRC]",
-            Color: "カラー",
-            Rule: "罫線を表示",
-            View: "ビューモード",
-            EditLine: "行を編集",
-            InsertLine: "行を挿入",
-            DeleteLine: "行を削除",
-            DeleteFile: "TXTファイルを削除",
-            LyricShow: "編集をやめる",
-            InserLineText: "挿入する文字を入力してください。\n(ﾌｧｲﾙ末尾へ挿入するには先頭を##で開始)",
-            Clear: "すべてクリア",
-            Reload: "再読み込み",
-            Plugins: "プラグイン",
-            OffsetP: "オフセット＋",
-            OffsetM: "オフセット－"
-        };
-        break;
-}
+
+        lang0 = languages[0].items.Label;
+        lang1 = languages[1].items.Label;
+
+        for (var name in lang0) {
+            this.Label[name] = lang1[name] || lang0[name];
+        }
+    },
+    Dispose: function () { delete LanguageLoader; }
+};
+
+LanguageLoader.Load(fs, scriptdir + "language\\");
+Messages = LanguageLoader.Messages;
+Label = LanguageLoader.Label;
 
 //=========
 // load plugins
@@ -471,31 +388,30 @@ switch (prop.Panel.Lang) {
 
 PluginLoader = {
 
-    Load: function (objFSO, path) {
-        if (path) this.path = path;
+    Plugins: {},
 
-        var f, fc, item, stm, str, p = {}, i = 0;
-        this.Plugins = p;
+    Load: function (objFSO, path) {
+        var f, fc, item, stm, str, i = 0;
+
         try {
-            f = objFSO.GetFolder(this.path);
-        } catch (e) { throw new Error("The pass to a plugins folder is wrong. (" + scriptName + ")"); }
+            f = objFSO.GetFolder(path);
+        } catch (e) { throw new Error("The path to a plugins folder is wrong. (" + scriptName + ")"); }
 
         fc = new Enumerator(f.Files);
 
         for (; !fc.atEnd() ; fc.moveNext()) {
             try {
-                str = readTextFile(fc.item());
+                str = readTextFile(fc.item().Path);
             } catch (e) { continue; }
             try {
                 item = eval(str);
             } catch (e) {
-                fb.trace(fc.item().name + " is SyntaxError. (" + scriptName + ")");
+                fb.trace(fc.item().Name + " is SyntaxError. (" + scriptName + ")");
                 continue;
             }
-            p[item.commandName] = item;
+            this.Plugins[item.name] = item;
         }
     },
-    Refresh: function () { this.load(this.path); },
     Dispose: function () { delete PluginLoader; }
 };
 
@@ -503,9 +419,10 @@ PluginLoader.Load(fs, scriptdir + "plugins\\");
 plugins = PluginLoader.Plugins;
 
 //=======
-// release Object 
+// release Object
 //=======
 
+LanguageLoader.Dispose();
 PluginLoader.Dispose();
 ws = null;
 
@@ -518,26 +435,17 @@ function getRepeatRes(userfile, defaultfile) {
     var file = fs.FileExists(userfile) ? userfile : defaultfile;
 
     try {
-        return eval("[" + readTextFile(file) + "]");
+        return eval("[" + readTextFile(file, 'UTF-8') + "]");
     } catch (e) {
         console("faild to load \"repeat.txt\" or \"repeat-default.txt\" (" + scriptName + ")");
         return;
     }
 }
 
-function checkLang(lang) {
-
-    for (var i = 0; i < definedLanguage.length; i++)
-        if (lang === definedLanguage[i])
-            return true;
-    return false;
-}
-
 function setRGBdiff(color, dr, dg, db) {
 
     return RGB(getRed(color) + dr, getGreen(color) + dg, getBlue(color) + db);
 }
-
 
 function trimLine_TopAndBottom(withTag) { // trim top and bottom
 
@@ -602,11 +510,11 @@ function getLyricFromClipboard() {
     var text = getClipboard();
     if (text) {
         main(text);
-        StatusBar.setText(Messages[12].ret());
+        StatusBar.setText(Messages.GetClipboard.ret());
         StatusBar.show();
     }
     else
-        Messages[11].popup();
+        Messages.FailedToReadText.popup();
 }
 
 function saveToTag(fieldname) {
@@ -615,14 +523,14 @@ function saveToTag(fieldname) {
         Lock = true;
         var meta = fb.GetNowPlaying();
         var LineFeedCode = prop.Save.LineFeedCode;
-        var text = (lyric.info.length ? lyric.info.join(LineFeedCode) + LineFeedCode : "") + lyric.text.join(LineFeedCode);
+        var text = (lyric.info.length ? lyric.info.join(LineFeedCode) + LineFeedCode : "") + lyric.text.join(LineFeedCode).trim();
         try {
             writeTagField(text, fieldname, meta);
-            StatusBar.setText(Messages[2].ret('"' + fieldname + '"'));
+            StatusBar.setText(Messages.SavedToTag.ret('"' + fieldname + '"'));
             StatusBar.show();
             playSoundSimple(commondir + "finished.wav");
         } catch (e) {
-            Messages[10].popup("\n" + e.message);
+            Messages.FailedToSaveLyricsToTag.popup("\n" + e.message);
         }
         meta.Dispose();
         Lock = false;
@@ -637,17 +545,17 @@ function saveToFile(file) {
         var meta = fb.GetNowPlaying();
         var folder = fs.GetParentFolderName(file);
         var LineFeedCode = prop.Save.LineFeedCode;
-        var text = (lyric.info.length ? lyric.info.join(LineFeedCode) + LineFeedCode : "") + lyric.text.join(LineFeedCode);
+        var text = (lyric.info.length ? lyric.info.join(LineFeedCode) + LineFeedCode : "") + lyric.text.join(LineFeedCode).trim();
         try {
             if (!fs.FolderExists(folder))
                 createFolder(fs, folder);
             writeTextFile(text, file, prop.Save.CharacterCode);
-            StatusBar.setText(Messages[6].ret(file));
+            StatusBar.setText(Messages.Saved.ret(file));
             StatusBar.show();
             playSoundSimple(commondir + "finished.wav");
             FuncCommands(prop.Save.RunAfterSave, meta);
         } catch (e) {
-            Messages[5].popup("\n" + e.message);
+            Messages.FailedToSaveLyricsToFile.popup("\n" + e.message);
         }
         meta.Dispose();
         Lock = false;
@@ -836,7 +744,7 @@ LyricShow = new function (Style) {
         try {
             str = readTextFile(file);
         } catch (e) {
-            Messages[1].popup();
+            Messages.FailedToOpen.popup();
             return;
         }
 
@@ -1548,7 +1456,7 @@ LyricShow = new function (Style) {
                 parse_path = pathIsArray ? path[0] : path; // set default parse_path for save
                 if (text) { // for Clipboad and FileDialog 
                     if (this.readLyric(text, true)) break L; // 第二引数は IsSpecifiedPath. 保存パスに影響
-                    else return Messages[0].trace();
+                    else return Messages.NotFound.trace();
                 }
                 for (var p = prop.Panel.Priority, i = 0; i < p.length; i++) { // according to priority order
                     switch (p[i]) {
@@ -1576,7 +1484,7 @@ LyricShow = new function (Style) {
                             break;
                     }
                 }
-                return Messages[0].trace(); // lyric is not found
+                return Messages.NotFound.trace(); // lyric is not found
             }
 
         this.setProperties.setLineList();
@@ -1929,11 +1837,11 @@ Edit = new function (Style, p) {
             case 3:
                 try {
                     writeTagField(text, field, meta);
-                    StatusBar.setText(Messages[2].ret('"' + field + '"'));
+                    StatusBar.setText(Messages.SavedToTag.ret('"' + field + '"'));
                     StatusBar.show();
                     playSoundSimple(commondir + "finished.wav");
                 } catch (e) {
-                    Messages[10].popup("\n" + e.message);
+                    Messages.FailedToSaveLyricsToTag.popup("\n" + e.message);
                 }
                 break;
             case 4:
@@ -1941,12 +1849,12 @@ Edit = new function (Style, p) {
                     if (!fs.FolderExists(folder))
                         createFolder(fs, folder);
                     writeTextFile(text, file, prop.Save.CharacterCode);
-                    StatusBar.setText(Messages[6].ret(file));
+                    StatusBar.setText(Messages.Saved.ret(file));
                     StatusBar.show();
                     playSoundSimple(commondir + "finished.wav");
                     FuncCommands(prop.Save.RunAfterSave, meta);
                 } catch (e) {
-                    Messages[5].popup("\n" + e.message);
+                    Messages.FailedToSaveLyricsToFile.popup("\n" + e.message);
                 }
                 break;
         }
@@ -1955,15 +1863,15 @@ Edit = new function (Style, p) {
 
     this.deleteFile = function (file) {
 
-        if (!file || Messages[8].popup(file) != 6)
+        if (!file || Messages.Delete.popup(file) != 6)
             return;
         try {
             sendToRecycleBin(file);
             Menu.build(Menu.Edit);
-            StatusBar.setText(Messages[9].ret());
+            StatusBar.setText(Messages.Deleted.ret());
             StatusBar.show();
         } catch (e) {
-            Messages[7].popup();
+            Messages.FailedToDelete.popup();
         }
     };
 
@@ -2748,7 +2656,7 @@ Menu = new function () {
 
                 if (path)
                     var str = path + "\nLastModified: " + dateLastModified + "\nCreated: " + dateCreated + "\n"
-                            + "Lyrics: " + Number(lyric.text.length - 1) + " lines, " + dataSize / 1000 + " KB, read as " + readTextFile.lastCharset + "(character code)\n"
+                            + "Lyrics: " + Number(lyric.text.length - 1) + " lines, " + dataSize / 1000 + " KB, read as " + readTextFile.lastCharset + "\n"
                             + (offsetinfo ? "Applied offset: " + offsetinfo + " ms\n" : filetype === "lrc" ? "Applied offset: 0 ms\n" : "")
                             + lyrics;
                 else

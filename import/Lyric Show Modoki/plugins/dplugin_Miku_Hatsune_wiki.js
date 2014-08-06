@@ -1,6 +1,5 @@
 ﻿dplugin_Miku_Hatsune_wiki = {
     name: "dplugin_Miku_Hatsune_wiki",
-    commandName: 'Miku_Hatsune_wiki',
     label: prop.Panel.Lang == 'ja' ? '歌詞検索: 初音ミクWiki' : 'Download Lyrics: Miku Hatsune wiki',
     author: 'tomato111',
     onCommand: function () {
@@ -12,8 +11,8 @@
         }
 
         //###### Properties ########
-        var File = parse_path + ".txt";
-        var ShowInputDialog = true;
+        var ShowInputDialog = true; //タイトル名、アーティスト名の入力ダイアログを表示するならtrue
+        var AutoSave = false; //歌詞が見つかったと同時にファイルに保存するならtrue
         //##########################
 
         var debug_html = false; // for debug
@@ -35,6 +34,8 @@
             if (!artist) return;
         }
 
+        StatusBar.setText("検索中......");
+        StatusBar.show();
         getHTML(null, "GET", createQuery(title), async, first, onLoaded);
 
         function createQuery(word) {
@@ -42,6 +43,8 @@
         }
 
         function onLoaded(request, depth) {
+            StatusBar.setText("検索中......");
+            StatusBar.show();
             debug_html && fb.trace("\nOpen#" + getHTML.PRESENT.depth + ": " + getHTML.PRESENT.file + "\n");
             var res = request.responseText;
             var resArray = res.split('\n');
@@ -56,27 +59,15 @@
             if (Page.errorMes)
                 Page.errorMes();
             if (Page.FoundLyrics) {
-                var MetadbHandle = fb.GetNowPlaying();
                 var text = (Page.Info + LineFeedCode + Page.Lyrics).replace(/\s{1,}$/, LineFeedCode);
 
                 debug_html && fb.trace("\n" + text + "\n===End debug=============");
-                var intButton = ws.Popup(text
-                         + "\n\n==============================================\n"
-                         + "                                                                           この歌詞を保存しますか？", 0, "確認", 4);
-                if (intButton != 7)
-                    try {
-                        writeTextFile(text, File, prop.Save.CharacterCode);
-                        Messages[6].popup(File);
-                        FuncCommands(prop.Save.RunAfterSave, MetadbHandle);
-                        main();
-                    } catch (e) {
-                        Messages[5].popup();
-                    }
-                    finally {
-                        MetadbHandle.Dispose();
-                    }
+                main(text);
+                StatusBar.setText("検索終了。歌詞を取得しました。");
+                StatusBar.show();
+                if (AutoSave)
+                    saveToFile(parse_path + (filetype === "lrc" ? ".lrc" : ".txt"));
             }
-
         }
 
         function AnalyzePage(resArray, found) {
@@ -103,6 +94,7 @@
                     this.FoundPage = foundPage;
                 else if (found == -2) {
                     this.errorMes = function () {
+                        StatusBar.hide();
                         var mes = aimai ? "ページが取得出来ませんでした。\nアーティスト名が間違っていないか確認してください。" : "ページが見つかりませんでした。";
                         var intButton = ws.Popup(mes + "\n\ブラウザで開きますか？", 0, "確認", 36);
                         if (intButton == 6)
@@ -137,6 +129,7 @@
 
                 if (!lyricsFlag) {
                     this.errorMes = function () {
+                        StatusBar.hide();
                         var intButton = ws.Popup((isCD ? "ページがありません" : "ページ内に歌詞が記載されていません") + "\nブラウザで開きますか？", 0, "確認", 36);
                         if (intButton == 6)
                             sa.ShellExecute('"' + getHTML.PRESENT.file + '"', "", "", "open", 1);

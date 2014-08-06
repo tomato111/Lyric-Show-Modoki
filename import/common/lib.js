@@ -91,7 +91,7 @@ Function.prototype.clearTimeout = function () {
 
 //-- Message --
 function Message(text, title, type) {
-    this.text = text;
+    this.text = text.replace(/\\n/g, "\n");
     this.title = title;
     this.type = type;
 }
@@ -172,6 +172,110 @@ Binary.prototype.getArray = function (n) {
     for (var i = 0; i < n; i++)
         this[i] = this.At(i);
 };
+
+
+//-- ini file reader (UTF-8 with BOM)-- reference http://shoji.blog1.fc2.com/blog-entry-130.html
+function Ini() {
+    this.initialize.apply(this, arguments);
+}
+Ini.prototype = {
+    initialize: function (file, charset) {
+        this.clear();
+        if (file != null) this.open(file, charset);
+    },
+
+    // clearメソッド - 全削除
+    clear: function () {
+        try { delete this.items; } catch (e) { }
+        this.items = new Array();  // 項目
+        this.filename = null;    // ファイル名
+    },
+
+    // openメソッド - Iniファイルの読込
+    open: function (filename, charset) {
+        try {
+            var stm = new ActiveXObject('ADODB.Stream');
+            stm.type = 2;
+            stm.charset = charset || GetCharsetFromCodepage(utils.FileTest(file, "chardet"));
+            stm.open();
+            stm.loadFromFile(filename); // stm.position -> 0
+
+            this.clear();
+            var sectionname = null;
+            var p = -1;
+
+            while (!stm.EOS) {
+                var line = stm.readText(-2);
+
+                line = line.replace(/^[ \t]+/, "");  // 先頭の空白は削除
+                if (!line.match(/^(?:;|[ \t]*$)/))    // ;で開始しない, 空行ではない
+                {
+                    if (line.match(/^\[(.+)\][ \t]*$/))  // セクション行
+                    {
+                        sectionname = RegExp.$1;
+                        this.items[sectionname] = new Array();  // セクション行を追加
+                    }
+                    else if (sectionname != null && (p = line.indexOf('=')) >= 0) {
+                        var keyname = line.substr(0, p).trim();
+                        var value = line.substr(p + 1, line.length - p - 1).trim();
+
+                        this.items[sectionname][keyname] = value;
+                    }
+                }
+            }
+
+            this.filename = filename;
+
+            stm.close();
+            stm = null; delete stm;
+            fso = null; delete fso;
+
+            return true;
+        }
+        catch (e) {
+            this.filename = filename;
+            return false;
+        }
+    },
+
+    // updateメソッド - iniファイルの更新
+    update: function (filename) {
+        if (filename != null) this.filename = filename;
+
+        try {
+            var fso = new ActiveXObject("Scripting.FileSystemObject");  // FileSystemObjectを作成
+            var ini = fso.OpenTextFile(this.filename, 2, true)
+
+            for (var sectionname in this.items) {
+                ini.WriteLine('[' + sectionname + ']');
+                for (var keyname in this.items[sectionname])
+                    ini.WriteLine(keyname + '=' + this.items[sectionname][keyname]);
+                ini.WriteLine('');
+            }
+            ini = null; delete ini;
+            fso = null; delete fso;
+
+            this.open(this.filename);
+            return true;
+        }
+        catch (e) {
+            return false;
+        }
+    },
+
+    // setItemメソッド - 項目の値設定
+    setItem: function (sectionname, keyname, value, updateflag) {
+        if (updateflag == null) updateflag = true;
+
+        if (!(sectionname in this.items))
+            this.items[sectionname] = new Array();
+
+        this.items[sectionname][keyname] = value;
+
+        if (updateflag && this.filename != null) this.update();
+    }
+};
+
 
 //============================================
 //== Function ===================================
@@ -353,11 +457,11 @@ function writeTextFile(text, file, charset) {
 
 // バイナリモードでstreamへ流して_autodetect_allでテキスト取得した際に、BOMが文字として取り込まれるバグがある
 // そのようにADODB.Streamを扱う場合は、Unicode体系において_autodetect_allを回避する必要がある
-function readTextFile(file) {
-    var bin, buf, c, str;
+function readTextFile(file, charset) {
+    var str;
     var stm = new ActiveXObject('ADODB.Stream');
     stm.type = 2;
-    stm.charset = arguments.callee.lastCharset = GetCharsetFromCodepage(utils.FileTest(file, "chardet"));
+    stm.charset = arguments.callee.lastCharset = charset || GetCharsetFromCodepage(utils.FileTest(file, "chardet"));
     stm.open();
     try {
         stm.loadFromFile(file); // stm.position -> 0

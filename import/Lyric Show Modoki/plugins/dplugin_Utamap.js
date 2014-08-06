@@ -1,8 +1,7 @@
 ﻿dplugin_Utamap = {
     name: "dplugin_Utamap",
-    commandName: 'Utamap',
     label: prop.Panel.Lang == 'ja' ? '歌詞検索: うたまっぷ' : 'Download Lyrics: Utamap',
-    author: 'Tomato',
+    author: 'tomato111',
     onCommand: function () {
 
         ws = new ActiveXObject("WScript.Shell");
@@ -12,8 +11,8 @@
         }
 
         //###### Properties ########
-        var File = parse_path + ".txt";
-        var ShowInputDialog = true;
+        var ShowInputDialog = true; //タイトル名、アーティスト名の入力ダイアログを表示するならtrue
+        var AutoSave = false; //歌詞が見つかったと同時にファイルに保存するならtrue
         //##########################
 
         var debug_html = false; // for debug
@@ -23,7 +22,6 @@
         var info = false;
         var txt = true;
         var LineFeedCode = prop.Save.LineFeedCode;
-        var MetadbHandle = fb.GetNowPlaying();
         var searchRe = new RegExp('<TD class=(ct\\d{3})>(?:<A href="(.+?=(.+?))">)?(.*?)(?:</A>)?</td>', "i");
         var infoRe = new RegExp('<td class="pad5x10x0x10">(.*?)</td>', "i");
 
@@ -38,6 +36,8 @@
             if (!artist) return;
         }
 
+        StatusBar.setText("検索中......");
+        StatusBar.show();
         getHTML(null, "GET", createQuery(title), async, depth, onLoaded);
 
         function createQuery(word, page, id) {
@@ -48,6 +48,8 @@
         }
 
         function onLoaded(request, depth) {
+            StatusBar.setText("検索中......");
+            StatusBar.show();
             debug_html && fb.trace("\nOpen#" + getHTML.PRESENT.depth + ": " + getHTML.PRESENT.file + "\n");
             if (depth === true) {
                 var res = request.responseBody; // binary for without character corruption
@@ -68,25 +70,16 @@
                     var text = onLoaded.Info + Page.Lyrics;
 
                     debug_html && fb.trace("\n" + text + "\n===End debug=============");
-                    var intButton = ws.Popup(text
-                                  + "\n\n==============================================\n"
-                                  + "                                                                           この歌詞を保存しますか？", 0, "確認", 4);
-                    if (intButton != 7) {
-                        try {
-                            writeTextFile(text, File, prop.Save.CharacterCode);
-                            Messages[6].popup(File);
-                            FuncCommands(prop.Save.RunAfterSave, MetadbHandle);
-                            main();
-                        } catch (e) {
-                            Messages[5].popup();
-                        }
-                    }
-                    MetadbHandle.Dispose();
+                    main(text);
+                    StatusBar.setText("検索終了。歌詞を取得しました。");
+                    StatusBar.show();
+                    if (AutoSave)
+                        saveToFile(parse_path + (filetype === "lrc" ? ".lrc" : ".txt"));
                 }
                 else if (onLoaded.Info) { return; }
                 else {
-                    MetadbHandle.Dispose();
-                    intButton = ws.Popup("ページが見つかりませんでした。\nブラウザで開きますか？", 0, "確認", 36);
+                    StatusBar.hide();
+                    var intButton = ws.Popup("ページが見つかりませんでした。\nブラウザで開きますか？", 0, "確認", 36);
                     if (intButton == 6)
                         sa.ShellExecute('"' + getHTML.PRESENT.file.replace(/&page=\d+/, "") + '"', "", "", "open", 1);
                 }
