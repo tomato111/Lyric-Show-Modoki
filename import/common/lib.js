@@ -494,6 +494,22 @@ function responseBodyToCharset(bin, charset) { // Mozilla: overrideMimeType, IE:
     return str;
 }
 
+function responseBodyToFile(bin, file) {
+    var str;
+    var stm = new ActiveXObject("ADODB.Stream");
+    try {
+        stm.open();
+        stm.type = 1; // write once in binary mode
+        stm.write(bin); // stm.position -> eos
+        stm.position = 0;
+        stm.saveToFile(file, 2);
+    } finally {
+        stm.close();
+    }
+
+    return file;
+}
+
 function getHTML(data, method, file, async, depth, onLoaded) {
     var request = new ActiveXObject("Msxml2.XMLHTTP");
     getHTML.PRESENT = { file: file, depth: depth };
@@ -502,7 +518,7 @@ function getHTML(data, method, file, async, depth, onLoaded) {
 
     request.onreadystatechange = function () {
         if (request.readyState == 4 && request.status == 200) {
-            onLoaded(request, depth);
+            onLoaded(request, depth, file);
         }
     }
 

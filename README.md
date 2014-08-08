@@ -1,6 +1,18 @@
 ﻿##Installation
 <http://ashiato1.blog62.fc2.com/blog-entry-64.html>
 ##History
+--v1.2.7(2014/08/09)--------------------------------------------------
+
+* 最後に使ったプラグインを呼び出すキーバインドと  
+　設定を呼び出すキーバインドを追加  
+  Panel.Keybind.LastUsedPlugin（Default is 'U' key）  
+  Panel.Keybind.Properties（Default is 'P' key）  
+* 更新チェックプラグインを追加  
+* Style.HighlineColorをオン/オフできるメニューを追加  
+* 他の WSH Panel Mod からstringデータを受け取れるようにした（再生中）  
+　　他のWSHパネルで例えば以下を実行すると"hello world"を受け取って表示  
+　　window.NotifyOthers("Lyric Show Modoki", "hello world");  
+
 --v1.2.6(2014/08/07)--------------------------------------------------
 
 * 同梱プラグインの修正  

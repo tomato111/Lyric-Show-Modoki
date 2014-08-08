@@ -3,7 +3,7 @@
 
 // ==PREPROCESSOR==
 // @name "Lyric Show Modoki"
-// @version "1.2.6"
+// @version "1.2.7"
 // @author "tomato111"
 // @import "%fb2k_path%import\common\lib.js"
 // ==/PREPROCESSOR==
@@ -14,7 +14,7 @@
 //== Global Variable and Function =====================
 //============================================
 // user reserved words
-var scriptName, scriptdir, commondir, plugins, lyric, parse_path, path, directory, filename, basename, filetype, dateLastModified, dateCreated, dataSize, offsetinfo, backalpha
+var scriptName, scriptVersion, scriptdir, commondir, plugins, lyric, parse_path, path, directory, filename, basename, filetype, dateLastModified, dateCreated, dataSize, offsetinfo, backalpha
 , fs, ws, prop, Messages, Label, tagRe, timeRe, firstRe, repeatRes, TextHeight, TextHeightWithoutLPadding, offsetY, fixY, moveY, lineY, drag, drag_y, down_pos, g_x, g_y, ww, wh, larea_seek, rarea_seek, seek_width, rarea_seek_x, disp, Lock, auto_scroll, movable, jumpY
 , DT_LEFT, DT_CENTER, DT_RIGHT, DT_WORDBREAK, DT_NOPREFIX, Left_Center, Center_Left, Center_Right, Right_Center, centerleftX
 , LyricShow, Edit, Buttons, StatusBar, Keybind, Keybind_Edit, Menu, Trace;
@@ -23,6 +23,7 @@ fs = new ActiveXObject("Scripting.FileSystemObject"); // File System Object
 ws = new ActiveXObject("WScript.Shell"); // WScript Shell Object
 Trace = new TraceLog();
 scriptName = "Lyric Show Modoki";
+scriptVersion = "1.2.7";
 scriptdir = fb.FoobarPath + "import\\" + scriptName + "\\";
 commondir = fb.FoobarPath + "import\\common\\";
 auto_scroll = true;
@@ -77,7 +78,9 @@ prop = new function () {
             ScrollUp: window.GetProperty("Panel.Keybind.ScrollUp", 38), // Default is 'Up' Key
             ScrollDown: window.GetProperty("Panel.Keybind.ScrollDown", 40), // Default is 'Down' Key
             ScrollToPlayingLine: window.GetProperty("Panel.Keybind.ScrollToPlayingLine", 81), // Default is 'Q' Key
-            Reload: window.GetProperty("Panel.Keybind.Reload", 82) // Default is 'R' Key
+            Reload: window.GetProperty("Panel.Keybind.Reload", 82), // Default is 'R' Key
+            LastUsedPlugin: window.GetProperty("Panel.Keybind.LastUsedPlugin", 85), // Default is 'U' Key
+            Properties: window.GetProperty("Panel.Keybind.Properties", 80) // Default is 'P' Key
         }
     };
 
@@ -263,7 +266,7 @@ prop = new function () {
     rarea_seek_x = ww - seek_width;
 
     // StatusBar setting
-    this.Style.StatusBarFont = gdi.Font(this.Style.Font_Family, 12, 0);
+    this.Style.StatusBarFont = gdi.Font(this.Style.Font_Family, 12, 1);
     this.Style.StatusBarColor = RGB(220, 220, 220);
     this.Style.StatusBarBackground = RGBA(90, 90, 90, 255);
     this.Style.StatusBarRect = RGBA(200, 200, 200, 255);
@@ -800,7 +803,7 @@ LyricShow = new function (Style) {
         else {
             if (!file || !parse_path) return; // 条件を満たす曲をスキップするようなコンポを入れているとparse_pathがなぜか空になってエラーを起こすので回避
             str = file;
-            basename = "Clipboad Text";
+            basename = "Temporary Text";
             filetype = "txt";
             directory = parse_path.match(directoryRe)[0];
         }
@@ -2234,7 +2237,7 @@ StatusBar = new function (Style) {
     this.on_paint = function (gr) {
         if (this.TIMER) {
             gr.FillSolidRect(g_x, this.Y, ww, this.Height, Style.StatusBarBackground);
-            gr.DrawRect(g_x - 1, this.Y - 1, ww + 2, this.Height + 2, 1, Style.StatusBarRect);
+            gr.DrawRect(g_x - 1, this.Y - 2, ww + 2, this.Height + 4, 1, Style.StatusBarRect);
             gr.GdiDrawText(this.Text, Style.StatusBarFont, Style.StatusBarColor, g_x + 3, this.Y, ww - 3, this.Height, DT_LEFT | DT_WORDBREAK | DT_NOPREFIX);
         }
     }
@@ -2264,7 +2267,9 @@ Keybind = new function () {
         ScrollUp: function () { lyric && applyDelta(20); },
         ScrollDown: function () { lyric && applyDelta(-20); },
         ScrollToPlayingLine: function () { lyric && LyricShow.searchLine(fb.PlaybackTime); },
-        Reload: function () { main(); }
+        Reload: function () { main(); },
+        LastUsedPlugin: function () { Menu.LastUsedPlugin.Func(); },
+        Properties: function () { window.ShowProperties(); }
     };
 
     for (var name in prop.Panel.Keybind) {
@@ -2510,6 +2515,13 @@ Menu = new function () {
             }
         },
         {
+            Caption: Label.Contain,
+            Func: function () {
+                window.SetProperty("Panel.LRC.ContainNormalLines", prop.Panel.Contain = !prop.Panel.Contain);
+                main();
+            }
+        },
+        {
             Caption: Label.ExpandR,
             Func: function () {
                 window.SetProperty("Panel.ExpandRepetition", prop.Panel.ExpandRepetition = !prop.Panel.ExpandRepetition);
@@ -2517,10 +2529,11 @@ Menu = new function () {
             }
         },
         {
-            Caption: Label.Contain,
+            Caption: Label.Highline,
             Func: function () {
-                window.SetProperty("Panel.LRC.ContainNormalLines", prop.Panel.Contain = !prop.Panel.Contain);
-                main();
+                window.SetProperty("Style.HighlineColor for unsynced lyrics", prop.Style.Highline = !prop.Style.Highline);
+                window.Repaint();
+                Menu.build();
             }
         }
     ];
@@ -2585,6 +2598,7 @@ Menu = new function () {
             item["Flag"] = MF_STRING;
             item["Caption"] = plugins[name].label;
             item["Func"] = plugins[name].onCommand;
+            item["isPlugin"] = true;
             items.push(item);
         }
 
@@ -2892,8 +2906,9 @@ Menu = new function () {
             submenu_Display[1].Flag = prop.Style.Shadow ? MF_CHECKED : MF_UNCHECKED;
             submenu_Display[2].Flag = prop.Style.Font_Italic ? MF_CHECKED : MF_UNCHECKED;
             submenu_Display[3].Flag = prop.Panel.BackgroundEnable ? MF_CHECKED : MF_UNCHECKED;
-            submenu_Display[4].Flag = prop.Panel.ExpandRepetition ? MF_CHECKED : MF_UNCHECKED;
-            submenu_Display[5].Flag = prop.Panel.Contain ? MF_CHECKED : MF_UNCHECKED;
+            submenu_Display[4].Flag = prop.Panel.Contain ? MF_CHECKED : MF_UNCHECKED;
+            submenu_Display[5].Flag = prop.Panel.ExpandRepetition ? MF_CHECKED : MF_UNCHECKED;
+            submenu_Display[6].Flag = prop.Style.Highline ? MF_CHECKED : MF_UNCHECKED;
             switch (prop.Panel.ScrollType) { // radio number begin with 0
                 case 1:
                     menu_LyricShow[5].Radio = 0; break;
@@ -2998,13 +3013,18 @@ Menu = new function () {
     this.show = function (x, y) {
         var ret = _menu.TrackPopupMenu(x, y);
         if (ret != 0)
-            if (item_list[ret]) item_list[ret].Func();
+            if (item_list[ret]) {
+                item_list[ret].Func();
+                item_list[ret].isPlugin && (this.LastUsedPlugin = item_list[ret]);
+            }
             else item_list._context.ExecuteByID(ret - item_list._contextIdx);
     };
 
     this.getMenu = function () {
         return _menu;
     };
+
+    this.LastUsedPlugin = { Func: function () { } }; // Initial value is dummy plugin.
 
 };
 
@@ -3232,6 +3252,7 @@ function on_mouse_rbtn_up(x, y, mask) {
 }
 
 function on_key_down(vkey) {
+    //console(vkey);
     if (!prop.Edit.Start)
         Keybind[vkey] && Keybind[vkey]();
     else if (!Lock)
@@ -3246,7 +3267,8 @@ function on_key_up(vkey) {
 }
 
 function on_notify_data(name, info) {
-    name == scriptName && main();
+    if (name === scriptName && typeof info === "string")
+        main(typeof info === "string" ? info : null);
 }
 
 //EOF
