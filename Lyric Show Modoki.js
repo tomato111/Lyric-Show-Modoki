@@ -3,7 +3,7 @@
 
 // ==PREPROCESSOR==
 // @name "Lyric Show Modoki"
-// @version "1.2.7"
+// @version "1.2.8"
 // @author "tomato111"
 // @import "%fb2k_path%import\common\lib.js"
 // ==/PREPROCESSOR==
@@ -14,7 +14,7 @@
 //== Global Variable and Function =====================
 //============================================
 // user reserved words
-var scriptName, scriptVersion, scriptdir, commondir, plugins, lyric, parse_path, path, directory, filename, basename, filetype, dateLastModified, dateCreated, dataSize, offsetinfo, backalpha
+var scriptName, scriptVersion, scriptdir, commondir, plugins, lyric, parse_path, path, directory, filename, basename, filetype, dateLastModified, dateCreated, dataSize, charset, offsetinfo, backalpha
 , fs, ws, prop, Messages, Label, tagRe, timeRe, firstRe, repeatRes, TextHeight, TextHeightWithoutLPadding, offsetY, fixY, moveY, lineY, drag, drag_y, down_pos, g_x, g_y, ww, wh, larea_seek, rarea_seek, seek_width, rarea_seek_x, disp, Lock, auto_scroll, movable, jumpY
 , DT_LEFT, DT_CENTER, DT_RIGHT, DT_WORDBREAK, DT_NOPREFIX, Left_Center, Center_Left, Center_Right, Right_Center, centerleftX
 , LyricShow, Edit, Buttons, StatusBar, Keybind, Keybind_Edit, Menu, Trace;
@@ -23,7 +23,7 @@ fs = new ActiveXObject("Scripting.FileSystemObject"); // File System Object
 ws = new ActiveXObject("WScript.Shell"); // WScript Shell Object
 Trace = new TraceLog();
 scriptName = "Lyric Show Modoki";
-scriptVersion = "1.2.7";
+scriptVersion = "1.2.8";
 scriptdir = fb.FoobarPath + "import\\" + scriptName + "\\";
 commondir = fb.FoobarPath + "import\\common\\";
 auto_scroll = true;
@@ -310,7 +310,7 @@ prop = new function () {
 };
 
 //========
-//  language
+//  load language
 //========
 
 LanguageLoader = {
@@ -358,17 +358,17 @@ LanguageLoader = {
         var lang1 = languages[1].items.Message;
 
         this.Messages = {
-            NotFound: new Message(lang1.NotFound || lang0.NotFound, "Info", 48),
-            FailedToOpen: new Message(lang1.FailedToOpen || lang0.FailedToOpen, "Error", 48),
-            SavedToTag: new Message(lang1.SavedToTag || lang0.SavedToTag, "Info", 64),
-            FailedToSaveLyricsToFile: new Message(lang1.FailedToSaveLyricsToFile || lang0.FailedToSaveLyricsToFile, "Error", 48),
-            Saved: new Message(lang1.Saved || lang0.Saved, "Info", 64),
-            FailedToDelete: new Message(lang1.FailedToDelete || lang0.FailedToDelete, "Error", 48),
-            Delete: new Message(lang1.Delete || lang0.Delete, "Confirmation", 36),
-            Deleted: new Message(lang1.Deleted || lang0.Deleted, "Info", 64),
-            FailedToSaveLyricsToTag: new Message(lang1.FailedToSaveLyricsToTag || lang0.FailedToSaveLyricsToTag, "Error", 48),
-            FailedToReadText: new Message(lang1.FailedToReadText || lang0.FailedToReadText, "Error", 48),
-            GetClipboard: new Message(lang1.GetClipboard || lang0.GetClipboard, "Info", 48)
+            NotFound: new Message(lang1.NotFound || lang0.NotFound, scriptName, 48),
+            FailedToOpen: new Message(lang1.FailedToOpen || lang0.FailedToOpen, scriptName, 48),
+            SavedToTag: new Message(lang1.SavedToTag || lang0.SavedToTag, scriptName, 64),
+            FailedToSaveLyricsToFile: new Message(lang1.FailedToSaveLyricsToFile || lang0.FailedToSaveLyricsToFile, scriptName, 48),
+            Saved: new Message(lang1.Saved || lang0.Saved, scriptName, 64),
+            FailedToDelete: new Message(lang1.FailedToDelete || lang0.FailedToDelete, scriptName, 48),
+            Delete: new Message(lang1.Delete || lang0.Delete, scriptName, 36),
+            Deleted: new Message(lang1.Deleted || lang0.Deleted, scriptName, 64),
+            FailedToSaveLyricsToTag: new Message(lang1.FailedToSaveLyricsToTag || lang0.FailedToSaveLyricsToTag, scriptName, 48),
+            FailedToReadText: new Message(lang1.FailedToReadText || lang0.FailedToReadText, scriptName, 48),
+            GetClipboard: new Message(lang1.GetClipboard || lang0.GetClipboard, scriptName, 48)
         };
 
         lang0 = languages[0].items.Label;
@@ -395,6 +395,7 @@ PluginLoader = {
 
     Load: function (objFSO, path) {
         var f, fc, item, stm, str, i = 0;
+        var jsRE = /\.js$/i;
 
         try {
             f = objFSO.GetFolder(path);
@@ -403,6 +404,7 @@ PluginLoader = {
         fc = new Enumerator(f.Files);
 
         for (; !fc.atEnd() ; fc.moveNext()) {
+            if (!jsRE.test(fc.item().Name)) continue;
             try {
                 str = readTextFile(fc.item().Path);
             } catch (e) { continue; }
@@ -759,6 +761,7 @@ LyricShow = new function (Style) {
         dateLastModified = f.DateLastModified;
         dateCreated = f.DateCreated;
         dataSize = f.Size;
+        charset = readTextFile.lastCharset;
         if (!IsSpecifiedPath)
             parse_path = directory + "\\" + basename;
         return str;
@@ -1029,9 +1032,9 @@ LyricShow = new function (Style) {
             var lineList = this.lineList;
             var h, t, l, d, interval;
 
-            l = lyric.text.length + Number(this.numOfWordbreak); // 1ファイルの行数(ワードブレイク含む)
+            l = lyric.text.length - 1 + Number(this.numOfWordbreak); // 1ファイルの行数(ワードブレイク含む) //-1は最後の行の高さを無視するため
             this.h = l * TextHeight - Number(this.numOfWordbreak) * Style.LPadding; // 1ファイルの高さ // Set FileHeight //ワードブレイク時の行間にLPaddingは入らないので余分なLPadding値を引いて計算
-            this.minOffsetY = fixY - this.h + TextHeight; // オフセットYの最小値 // Set minimum offsetY
+            this.minOffsetY = fixY - this.h; // オフセットYの最小値 // Set minimum offsetY
 
             if (lineList) {
                 interval = prop.Panel.ScrollType === 1 ? prop.Panel.Interval : prop.Panel.Interval2;
@@ -1504,7 +1507,7 @@ LyricShow = new function (Style) {
     this.end = function () {
 
         this.pauseTimer(true); // 従来のタイマーの後処理のようにtimerにnull等を代入するとclearで引っかかって余計に処理の記述が増える。中身はただの数字なので何もしなくて良い
-        path = directory = filename = basename = filetype = lyric = offsetinfo = readTextFile.lastCharset = null;
+        path = directory = filename = basename = filetype = lyric = offsetinfo = null;
         this.setProperties.lineList = this.setProperties.leftcenterX = this.setProperties.wordbreakList = this.setProperties.wordbreakText = this.setProperties.scrollSpeedList = this.scrollSpeedType2List = this.setProperties.DrawStyle = this.setProperties.h = null;
         lineY = moveY = null;
 
@@ -2667,19 +2670,21 @@ Menu = new function () {
                 if (!lyric) return;
                 var LineFeedCode = prop.Save.LineFeedCode;
                 var lyrics = (lyric.info.length ? lyric.info.join(LineFeedCode) + LineFeedCode : "") + lyric.text.join(LineFeedCode).trim();
+                var lineNum = lyric.text.length - (filetype === "lrc" ? 0 : 2);
+                var strCount = lyrics.replace(new RegExp(LineFeedCode, "g"), "").length;
 
                 if (path)
-                    var str = path + "\nLastModified: " + dateLastModified + "\nCreated: " + dateCreated + "\n"
-                            + "Lyrics: " + Number(lyric.text.length - 1) + " lines, " + dataSize / 1000 + " KB, read as " + readTextFile.lastCharset + "\n"
+                    var str = path + "\nType: " + filetype.toUpperCase() + "\n"
+                            + "Lyrics: " + lineNum + " lines, " + strCount + " length, " + dataSize / 1000 + " KB, read as " + charset + "\n"
                             + (offsetinfo ? "Applied offset: " + offsetinfo + " ms\n" : filetype === "lrc" ? "Applied offset: 0 ms\n" : "")
                             + lyrics;
                 else
-                    str = "Field: " + basename + "\n" + filetype.toUpperCase() + "\n"
-                        + "Lyrics: " + Number(lyric.text.length - 1) + " lines\n"
+                    str = "Field: " + basename + "\nType: " + filetype.toUpperCase() + "\n"
+                        + "Lyrics: " + lineNum + " lines, " + strCount + " length\n"
                         + (offsetinfo ? "Applied offset: " + offsetinfo + " ms\n" : filetype === "lrc" ? "Applied offset: 0 ms\n" : "")
                         + lyrics;
 
-                fb.ShowPopupMessage(str);
+                fb.ShowPopupMessage(str, scriptName);
             }
         },
         {

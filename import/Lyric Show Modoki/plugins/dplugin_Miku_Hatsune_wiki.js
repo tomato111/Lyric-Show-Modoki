@@ -28,9 +28,9 @@
         var artist = fb.TitleFormat("%artist%").Eval();
 
         if (ShowInputDialog) {
-            title = prompt("Please input TITLE", "Lyrics Downloader", title);
+            title = prompt("Please input TITLE", "Miku_Hatsune_wiki", title);
             if (!title) return;
-            artist = prompt("Please input ARTIST", "Lyrics Downloader", artist);
+            artist = prompt("Please input ARTIST", "Miku_Hatsune_wiki", artist);
             if (!artist) return;
         }
 

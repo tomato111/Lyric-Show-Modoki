@@ -58,6 +58,17 @@
 
                     if (diff > 0) // there is a new version.
                         this.result = function () {
+                            getHTML(null, "GET", "https://raw.githubusercontent.com/tomato111/Lyric-Show-Modoki/master/README.md", !async, depth,
+                                function (request) {
+                                    var res = request.responseBody;
+                                    res = responseBodyToCharset(res, "UTF-8");
+                                    var historyRE = new RegExp("(--v[\\S\\s]+)--v" + scriptVersion);
+                                    var asteriskRE = /\* /g;
+                                    var hyphenRE = /-{3,}/g;
+                                    var spaceRE = /  $/mg;
+                                    if (historyRE.test(res))
+                                        fb.ShowPopupMessage(RegExp.$1.replace(asteriskRE, "- ").replace(hyphenRE, "--------------------------------").replace(spaceRE, "").trim(), "Change Log");
+                                });
                             StatusBar.hide();
                             var intButton = ws.Popup(prop.Panel.Lang == 'ja'
                                 ? "新しいバージョンがあります。\n現在: v" + scriptVersion + "  最新: v" + this.LatestVersion + "\n\nダウンロードしますか？（デスクトップに保存）"
@@ -65,16 +76,6 @@
                             if (intButton == 6) {
                                 StatusBar.setText(prop.Panel.Lang == 'ja' ? "ダウンロード中......" : "Downloading......");
                                 StatusBar.show();
-                                getHTML(null, "GET", "https://raw.githubusercontent.com/tomato111/Lyric-Show-Modoki/master/README.md", async, depth,
-                                    function (request) {
-                                        var res = request.responseBody;
-                                        res = responseBodyToCharset(res, "UTF-8");
-                                        var historyRE = new RegExp("(--v[\\S\\s]+)--v" + scriptVersion);
-                                        var asteriskRE = /\* /g;
-                                        var hyphenRE = /-{3,}/g;
-                                        var spaceRE = /  $/mg;
-                                        fb.ShowPopupMessage(res.match(historyRE)[1].replace(asteriskRE, "- ").replace(hyphenRE, "--------------------------------").replace(spaceRE, "").trim(), "Change Log");
-                                    });
                                 getHTML(null, "GET", this.LatestFilePath, async, depth,
                                     function (request, depth, file) {
                                         var res = request.responseBody;

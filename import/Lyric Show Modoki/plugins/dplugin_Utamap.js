@@ -30,9 +30,9 @@
         var artist = fb.TitleFormat("%artist%").Eval();
 
         if (ShowInputDialog) {
-            title = prompt("Please input TITLE", "Lyrics Downloader", title);
+            title = prompt("Please input TITLE", "Utamap", title);
             if (!title) return;
-            artist = prompt("Please input ARTIST", "Lyrics Downloader", artist);
+            artist = prompt("Please input ARTIST", "Utamap", artist);
             if (!artist) return;
         }
 
@@ -44,7 +44,7 @@
             if (id)
                 return "http://www.utamap.com/phpflash/flashfalsephp.php?unum=" + id;
             else
-                return "http://www.utamap.com/searchkasi.php?searchname=title&word=" + encodeURIComponent(word) + (page ? ("&page=" + page) : "") + "&act=search&sortname=1&pattern=4";
+                return "http://www.utamap.com/searchkasi.php?searchname=title&word=" + encodeURIComponent(word) + (page ? ("&page=" + page) : "") + "&act=search&sortname=1&pattern=1";
         }
 
         function onLoaded(request, depth) {

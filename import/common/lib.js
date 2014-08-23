@@ -37,6 +37,13 @@ String.prototype.decNumRefToString = function () {
     });
 };
 
+String.prototype.stringTodecNumRef = function () {
+    var ref = "";
+    for (var i = 0; i < this.length; i++)
+        ref += "&#" + this.charCodeAt(i) + ";";
+    return ref;
+};
+
 //-- Trim --
 String.prototype.trim = function (s) {
     return this.replace(/^[\s　]*|[\s　]*$/g, "");
