@@ -1,0 +1,2 @@
+Please put the language file(.ini) here.
+And set a file name without extension in "Panel.Language".

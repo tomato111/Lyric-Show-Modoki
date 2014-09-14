@@ -3,7 +3,7 @@
 
 // ==PREPROCESSOR==
 // @name "Lyric Show Modoki"
-// @version "1.2.8"
+// @version "1.2.9"
 // @author "tomato111"
 // @import "%fb2k_path%import\common\lib.js"
 // ==/PREPROCESSOR==
@@ -15,7 +15,7 @@
 //============================================
 // user reserved words
 var scriptName, scriptVersion, scriptdir, commondir, plugins, lyric, parse_path, path, directory, filename, basename, filetype, dateLastModified, dateCreated, dataSize, charset, offsetinfo, backalpha
-, fs, ws, prop, Messages, Label, tagRe, timeRe, firstRe, repeatRes, TextHeight, TextHeightWithoutLPadding, offsetY, fixY, moveY, lineY, drag, drag_y, down_pos, g_x, g_y, ww, wh, larea_seek, rarea_seek, seek_width, rarea_seek_x, disp, Lock, auto_scroll, movable, jumpY
+, fs, ws, prop, Messages, Label, tagRe, timeRe, firstRe, repeatRes, TextHeight, TextHeightWithoutLPadding, offsetY, fixY, moveY, lineY, drag, drag_y, down_pos, g_x, g_y, ww, wh, larea_seek, rarea_seek, seek_width, rarea_seek_x, disp, Lock, movable, jumpY
 , DT_LEFT, DT_CENTER, DT_RIGHT, DT_WORDBREAK, DT_NOPREFIX, Left_Center, Center_Left, Center_Right, Right_Center, centerleftX
 , LyricShow, Edit, Buttons, StatusBar, Keybind, Keybind_Edit, Menu, Trace;
 
@@ -23,10 +23,9 @@ fs = new ActiveXObject("Scripting.FileSystemObject"); // File System Object
 ws = new ActiveXObject("WScript.Shell"); // WScript Shell Object
 Trace = new TraceLog();
 scriptName = "Lyric Show Modoki";
-scriptVersion = "1.2.8";
+scriptVersion = "1.2.9";
 scriptdir = fb.FoobarPath + "import\\" + scriptName + "\\";
 commondir = fb.FoobarPath + "import\\common\\";
-auto_scroll = true;
 down_pos = {};
 disp = {};
 DT_LEFT = 0x00000000;
@@ -69,6 +68,7 @@ prop = new function () {
         ExpandRepetition: window.GetProperty("Panel.ExpandRepetition", false),
         AdjustScrolling: window.GetProperty("Panel.AdjustScrolling", 100),
         SingleClickSeek: window.GetProperty("Panel.SingleClickSeek", false),
+        AutoScroll: window.GetProperty("Panel.AutoScroll", true),
         Keybind:
         {
             SeekToNextLine: window.GetProperty("Panel.Keybind.SeekToNextLine", 88), // Default is 'X' Key
@@ -110,6 +110,7 @@ prop = new function () {
 
     if (typeof this.Panel.Interval2 !== "number" || this.Panel.Interval2 < 1)
         window.SetProperty("Panel.RefreshInterval2", this.Panel.Interval2 = 5);
+
 
     // ==Style====
     this.Style = {
@@ -243,8 +244,8 @@ prop = new function () {
     this.Style.ShadowPosition[1] = Number(this.Style.ShadowPosition[1]);
 
     // check CenterPosition
-    if (typeof this.Style.CenterPosition != "number")
-        window.SetProperty("Style.CenterPosition", this.Style.CenterPosition = -12);
+    if (typeof this.Style.CenterPosition != "number" || this.Style.CenterPosition < 0 || this.Style.CenterPosition > 100)
+        window.SetProperty("Style.CenterPosition", this.Style.CenterPosition = 46);
 
     // check Padding
     if (typeof this.Style.HPadding != "number")
@@ -256,20 +257,12 @@ prop = new function () {
     if (typeof this.Style.LPadding != "number")
         window.SetProperty("Style.Line-Padding", this.Style.LPadding = 1);
 
-    g_x = this.Style.HPadding;
-    g_y = this.Style.VPadding;
-    ww = window.Width - g_x * 2;
-    wh = window.Height - g_y * 2;
-    centerleftX = Math.round(ww / 5 + g_x);
-    fixY = Math.round(wh / 2 + Number(this.Style.CenterPosition));
-    seek_width = Math.floor(ww * 15 / 100);
-    rarea_seek_x = ww - seek_width;
-
     // StatusBar setting
     this.Style.StatusBarFont = gdi.Font(this.Style.Font_Family, 12, 1);
     this.Style.StatusBarColor = RGB(220, 220, 220);
     this.Style.StatusBarBackground = RGBA(90, 90, 90, 255);
     this.Style.StatusBarRect = RGBA(200, 200, 200, 255);
+
 
     // ==Edit====
     this.Edit = {
@@ -281,6 +274,7 @@ prop = new function () {
 
     if (!this.Edit.Step && typeof this.Edit.Step != "number" || this.Edit.Step < 0)
         window.SetProperty("Edit.Step", this.Edit.Step = 14);
+
 
     // ==Save====
     this.Save = {
@@ -584,7 +578,7 @@ function applyDelta(delta) {
     }
     else {
         offsetY = temp;
-        auto_scroll && !movable && (movable = true);
+        prop.Panel.AutoScroll && !movable && (movable = true);
     }
 
     window.Repaint();
@@ -1232,7 +1226,7 @@ LyricShow = new function (Style) {
         this.pauseTimer(true);
         disp.top = 0;
         disp.bottom = lyric.text.length - 1;
-        auto_scroll && (movable = true);
+        prop.Panel.AutoScroll && (movable = true);
         ignore_remainder = false; // 誤差補正ON
         time *= 100;
         var DrawStyle = LyricShow.setProperties.DrawStyle;
@@ -1585,13 +1579,16 @@ LyricShow = new function (Style) {
     this.on_paint = function (gr) {
         var DrawStyle = LyricShow.setProperties.DrawStyle;
 
+        // background color
         gr.FillSolidRect(-1, -1, window.Width + 1, window.Height + 1, Style.Color.Background);
+        // background image
         if (BackgroundImg)
             if (prop.Panel.BackgroundRaw)
                 gr.GdiDrawBitmap(BackgroundImg, BackgroundSize.x, BackgroundSize.y, BackgroundSize.width, BackgroundSize.height, 0, 0, BackgroundImg.Width, BackgroundImg.Height);
             else
                 gr.DrawImage(BackgroundImg, BackgroundSize.x, BackgroundSize.y, BackgroundSize.width, BackgroundSize.height, 0, 0, BackgroundImg.Width, BackgroundImg.Height, BackOption[0], backalpha);
 
+        // lyrics
         if (lyric) { // lyrics is found
             if (lyric.info.length && offsetY > 0)
                 for (var i = 1; i <= lyric.info.length; i++) {
@@ -2016,12 +2013,13 @@ Edit = new function (Style, p) {
         var p = lyric.i - 1; // playing line
         var n, str, ci, c;
 
-        // background
+        // background color
         gr.FillSolidRect(-1, -1, window.Width + 1, window.Height + 1, prop.Edit.View ? Style.Color.ViewBackground : Style.Color.Background);
-        // playing line
+        // playing line color
         gr.FillRoundRect(g_x + 1, g_y + edit_fixY, ww - 2, DrawStyle[p].height, 5, 5, Style.Color.Line);
 
-        for (var i = -2; i < lyric.text.length - 2; i++) { // lyrics
+        // lyrics
+        for (var i = -2; i < lyric.text.length - 2; i++) {
             n = p + i;
             if (i == -2 && n >= 0) { disp.top = n; }
             if (n < 0) continue;
@@ -2261,7 +2259,8 @@ Keybind = new function () {
         SeekToPreviousLine: function () { seekLineTo(-1); },
         SwitchAutoScroll: function () {
             if (lyric) {
-                auto_scroll = movable = !auto_scroll;
+                window.SetProperty("Panel.AutoScroll", prop.Panel.AutoScroll = !prop.Panel.AutoScroll)
+                movable = prop.Panel.AutoScroll;
                 ignore_remainder = true;
                 window.Repaint();
                 Menu.build();
@@ -2630,7 +2629,8 @@ Menu = new function () {
         },
         {
             Func: function () {
-                auto_scroll = movable = !auto_scroll;
+                window.SetProperty("Panel.AutoScroll", prop.Panel.AutoScroll = !prop.Panel.AutoScroll)
+                movable = prop.Panel.AutoScroll;
                 ignore_remainder = true;
                 window.Repaint();
                 Menu.build();
@@ -2947,7 +2947,7 @@ Menu = new function () {
                     menu_LyricShow[9].Radio = 2; break;
             }
             menu_LyricShow[19].Flag = path ? MF_STRING : MF_GRAYED;
-            menu_LyricShow[4].Caption = auto_scroll ? Label.ForbidAutoScroll : Label.AllowAutoScroll;
+            menu_LyricShow[4].Caption = prop.Panel.AutoScroll ? Label.ForbidAutoScroll : Label.AllowAutoScroll;
 
             if (lyric) {
                 menu_LyricShow[2].Flag = MF_STRING;
@@ -3057,6 +3057,7 @@ function main(text) {
 
     //(function () { if (lyric) { Edit.start(); } }).timeout(400);
 }
+on_size();
 main();
 
 
@@ -3079,10 +3080,12 @@ function on_paint(gr) {
 }
 
 function on_size() {
+    g_x = prop.Style.HPadding;
+    g_y = prop.Style.VPadding;
     ww = window.Width - g_x * 2;
     wh = window.Height - g_y * 2;
     centerleftX = Math.round(ww / 5 + g_x);
-    fixY = Math.round(wh / 2 + Number(prop.Style.CenterPosition));
+    fixY = Math.round(wh * (prop.Style.CenterPosition / 100));
 
     seek_width = Math.floor(ww * 15 / 100);
     rarea_seek_x = ww - seek_width;
