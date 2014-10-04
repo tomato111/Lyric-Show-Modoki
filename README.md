@@ -1,11 +1,19 @@
 ﻿##Installation
 <http://ashiato1.blog62.fc2.com/blog-entry-64.html>
 ##History
+--v1.2.10(2014/10/04)--------------------------------------------------
+
+* 先頭行or曲の先頭へシークするキーバインドと  
+　曲名+アーティスト名をGoogle検索するキーバインドを追加  
+　Panel.Keybind.SeekToTop （Default is 'E' key）  
+　Panel.Keybind.GoogleSearch （Default is 'G' key）  
+* 「開く...」に関するいくつかの不具合を修正  
+
 --v1.2.9(2014/09/15)--------------------------------------------------
 
 * 自動スクロールの有効/無効を設定として記憶するようにした  
 　Panel.AutoScroll  
-* Panel.CenterPosition をパネルの高さに対する割合に変更. 0～100[%]  
+* Style.CenterPosition をパネルの高さに対する割合に変更. 0～100[%]  
 
 --v1.2.8(2014/08/23)--------------------------------------------------
 

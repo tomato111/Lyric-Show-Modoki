@@ -134,22 +134,20 @@ TraceLog.prototype = {
 
 //-- File Dialog --
 function FileDialog(exe) {
-    var file;
+    var file, proc;
     var ws = new ActiveXObject("WScript.Shell");
 
     var onReady = function () { };
 
     this.open = function () {
-        var proc = ws.Exec(exe);
+        proc = ws.Exec(exe);
         (function () {
-            file = proc.StdOut.ReadAll();
-
-            if (!file && proc.Status == 0) {
+            if (proc.Status == 0)
                 return;
-            }
             arguments.callee.clearInterval();
+            file = proc.StdOut.ReadAll();
             onReady(file);
-        }).interval(1000);
+        }).interval(100);
     };
 
     this.setOnReady = function (f) { onReady = f; };
@@ -529,6 +527,7 @@ function getHTML(data, method, file, async, depth, onLoaded) {
         }
     }
 
+    request.setRequestHeader("Cache-Control", "max-age=0");
     request.setRequestHeader("content-type", "application/x-www-form-urlencoded");
     request.send(data);
 }

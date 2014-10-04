@@ -3,7 +3,7 @@
 
 // ==PREPROCESSOR==
 // @name "Lyric Show Modoki"
-// @version "1.2.9"
+// @version "1.2.10"
 // @author "tomato111"
 // @import "%fb2k_path%import\common\lib.js"
 // ==/PREPROCESSOR==
@@ -23,7 +23,7 @@ fs = new ActiveXObject("Scripting.FileSystemObject"); // File System Object
 ws = new ActiveXObject("WScript.Shell"); // WScript Shell Object
 Trace = new TraceLog();
 scriptName = "Lyric Show Modoki";
-scriptVersion = "1.2.9";
+scriptVersion = "1.2.10";
 scriptdir = fb.FoobarPath + "import\\" + scriptName + "\\";
 commondir = fb.FoobarPath + "import\\common\\";
 down_pos = {};
@@ -74,13 +74,15 @@ prop = new function () {
             SeekToNextLine: window.GetProperty("Panel.Keybind.SeekToNextLine", 88), // Default is 'X' Key
             SeekToPreviousLine: window.GetProperty("Panel.Keybind.SeekToPreviousLine", 65), // Default is 'A' Key
             SeekToPlayingLine: window.GetProperty("Panel.Keybind.SeekToPlayingLine", 83), // Default is 'S' Key
+            SeekToTop: window.GetProperty("Panel.Keybind.SeekToTop", 69), // Default is 'E' Key
             SwitchAutoScroll: window.GetProperty("Panel.Keybind.SwitchAutoScroll", 90), // Default is 'Z' Key
             ScrollUp: window.GetProperty("Panel.Keybind.ScrollUp", 38), // Default is 'Up' Key
             ScrollDown: window.GetProperty("Panel.Keybind.ScrollDown", 40), // Default is 'Down' Key
             ScrollToPlayingLine: window.GetProperty("Panel.Keybind.ScrollToPlayingLine", 81), // Default is 'Q' Key
             Reload: window.GetProperty("Panel.Keybind.Reload", 82), // Default is 'R' Key
             LastUsedPlugin: window.GetProperty("Panel.Keybind.LastUsedPlugin", 85), // Default is 'U' Key
-            Properties: window.GetProperty("Panel.Keybind.Properties", 80) // Default is 'P' Key
+            Properties: window.GetProperty("Panel.Keybind.Properties", 80), // Default is 'P' Key
+            GoogleSearch: window.GetProperty("Panel.Keybind.GoogleSearch", 71) // Default is 'G' Key
         }
     };
 
@@ -2257,6 +2259,11 @@ Keybind = new function () {
         SeekToNextLine: function () { seekLineTo(1); },
         SeekToPlayingLine: function () { seekLineTo(0); },
         SeekToPreviousLine: function () { seekLineTo(-1); },
+        SeekToTop: function () {
+            if (prop.Edit.View || (!prop.Edit.Start && filetype === "lrc"))
+                LyricShow.setProperties.DrawStyle[1].doCommand();
+            else fb.PlaybackTime = 0;
+        },
         SwitchAutoScroll: function () {
             if (lyric) {
                 window.SetProperty("Panel.AutoScroll", prop.Panel.AutoScroll = !prop.Panel.AutoScroll)
@@ -2271,7 +2278,8 @@ Keybind = new function () {
         ScrollToPlayingLine: function () { lyric && LyricShow.searchLine(fb.PlaybackTime); },
         Reload: function () { main(); },
         LastUsedPlugin: function () { Menu.LastUsedPlugin.Func(); },
-        Properties: function () { window.ShowProperties(); }
+        Properties: function () { window.ShowProperties(); },
+        GoogleSearch: function () { fb.IsPlaying && FuncCommand("https://www.google.com/search?q=" + encodeURIComponent(fb.TitleFormat("%artist% %title%").Eval())); }
     };
 
     for (var name in prop.Panel.Keybind) {
@@ -2304,6 +2312,8 @@ Keybind_Edit = new function () {
     keynum = prop.Panel.Keybind["SeekToPlayingLine"];
     this[keynum] = Keybind[keynum];
     keynum = prop.Panel.Keybind["SeekToPreviousLine"];
+    this[keynum] = Keybind[keynum];
+    keynum = prop.Panel.Keybind["SeekToTop"];
     this[keynum] = Keybind[keynum];
 
     this[13] = function () { !prop.Edit.View && Edit.moveNextLine(); }; // Enter
@@ -2723,7 +2733,7 @@ Menu = new function () {
             Func: function () {
                 var filter = "Lyric Files(*.lrc;*.txt)|*.txt;*.lrc|LRC Files(*.lrc)|*.lrc|Text Files(*.txt)|*.txt|All Files(*.*)|*.*";
                 var fd = new FileDialog(commondir + 'FileDialog.exe -o "' + filter + '" txt');
-                fd.setOnReady(function (file) { main(file); });
+                fd.setOnReady(function (file) { file && main(file); });
                 fd.open();
             }
         },
