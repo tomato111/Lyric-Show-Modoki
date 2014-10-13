@@ -51,6 +51,7 @@
 	ExpandR = Expand Repetition [TXT]
 	Highline = Use Highline Color [TXT]
 	Color = Color
+	DrawingMethod = Drawing
 	Rule = Show Ruled Line
 	View = Vew Mode
 	EditLine = Edit Line

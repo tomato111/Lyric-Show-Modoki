@@ -1,6 +1,18 @@
 ﻿##Installation
 <http://ashiato1.blog62.fc2.com/blog-entry-64.html>
 ##History
+--v1.3.0(2014/10/14)--------------------------------------------------
+
+* DrawString(GDI+) や StyleTextRender(GDI+) による文字描画を実装  
+　それに伴い Style.DrawingMethod を追加  
+　また、右クリックメニューに切り替え用の項目を追加  
+　※StyleTextRender(GDI+)はCPU負荷が大きくなるので注意  
+* StyleTextRender(GDI+) を使用した際の文字周りの色を設定できる  
+　Style.User.LyricShow.TextRound を追加  
+* 誤差補正の程度を状況によって弱くするように修正  
+* あいまい検索（Panel.Path.FuzzyLevel が1以上）で  
+　ファイル名の大文字と小文字が区別される不具合を修正  
+
 --v1.2.10(2014/10/04)--------------------------------------------------
 
 * 先頭行or曲の先頭へシークするキーバインドと  
