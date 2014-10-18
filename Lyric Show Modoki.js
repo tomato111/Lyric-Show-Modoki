@@ -3,7 +3,7 @@
 
 // ==PREPROCESSOR==
 // @name "Lyric Show Modoki"
-// @version "1.3.0"
+// @version "1.3.1"
 // @author "tomato111"
 // @import "%fb2k_path%import\common\lib.js"
 // ==/PREPROCESSOR==
@@ -23,7 +23,7 @@ var fs = new ActiveXObject("Scripting.FileSystemObject"); // File System Object
 var ws = new ActiveXObject("WScript.Shell"); // WScript Shell Object
 var Trace = new TraceLog();
 var scriptName = "Lyric Show Modoki";
-var scriptVersion = "1.3.0";
+var scriptVersion = "1.3.1";
 var scriptdir = fb.FoobarPath + "import\\" + scriptName + "\\";
 var commondir = fb.FoobarPath + "import\\common\\";
 var down_pos = {};
@@ -152,7 +152,7 @@ prop = new function () {
         black: {
             Text: RGB(190, 190, 190),
             TextShadow: RGB(55, 55, 55),
-            TextRound: RGBA(35, 35, 35, 128),
+            TextRound: RGBA(35, 35, 35, 90),
             Background: RGBA(76, 76, 76, 255),
             PlayingText: RGB(255, 142, 196)
         },
@@ -453,28 +453,35 @@ function set_align() {
     switch (window.GetProperty("Style.Align", DT_CENTER)) {
         case 0x00000000:
             prop.Style.Align = prop.Style.DrawingMethod === 0 ? DT_LEFT | DT_NOPREFIX : GDIPlus_LEFT;
+            prop.Edit.Align = DT_LEFT | DT_NOPREFIX | DT_WORDBREAK;
             break;
         case 0x00000001:
             prop.Style.Align = prop.Style.DrawingMethod === 0 ? DT_CENTER | DT_NOPREFIX : GDIPlus_CENTER;
+            prop.Edit.Align = DT_CENTER | DT_NOPREFIX | DT_WORDBREAK;
             break;
         case 0x00000002:
             prop.Style.Align = prop.Style.DrawingMethod === 0 ? DT_RIGHT | DT_NOPREFIX : GDIPlus_RIGHT;
+            prop.Edit.Align = DT_RIGHT | DT_NOPREFIX | DT_WORDBREAK;
             break;
         case 0x00000003:
             prop.Style.Align = prop.Style.DrawingMethod === 0 ? DT_LEFT | DT_NOPREFIX : GDIPlus_LEFT;
             Left_Center = true;
+            prop.Edit.Align = DT_LEFT | DT_NOPREFIX | DT_WORDBREAK;
             break;
         case 0x00000004:
             prop.Style.Align = prop.Style.DrawingMethod === 0 ? DT_LEFT | DT_NOPREFIX : GDIPlus_LEFT;
             Center_Left = true;
+            prop.Edit.Align = DT_LEFT | DT_NOPREFIX | DT_WORDBREAK;
             break;
         case 0x00000005:
             prop.Style.Align = prop.Style.DrawingMethod === 0 ? DT_RIGHT | DT_NOPREFIX : GDIPlus_RIGHT;
             Center_Right = true;
+            prop.Edit.Align = DT_RIGHT | DT_NOPREFIX | DT_WORDBREAK;
             break;
         case 0x00000006:
             prop.Style.Align = prop.Style.DrawingMethod === 0 ? DT_RIGHT | DT_NOPREFIX : GDIPlus_RIGHT;
             Right_Center = true;
+            prop.Edit.Align = DT_RIGHT | DT_NOPREFIX | DT_WORDBREAK;
             break;
     }
 
@@ -2032,7 +2039,6 @@ Edit = new function (Style, p) {
         LyricShow.pauseTimer(true);
         with (prop.Style) { Color = CE[CSE]; }
         prop.Edit.Start = true;
-        prop.Edit.Align = DT_CENTER | DT_WORDBREAK | DT_NOPREFIX;
         filetype === "txt" && putTime(0, 0);
 
         p.setLineList(true);
@@ -2056,7 +2062,6 @@ Edit = new function (Style, p) {
         prop.Edit.Start = false;
         prop.Edit.View && this.View.end();
         with (prop.Style) { Color = CLS[CSLS]; }
-        prop.Edit.Align = null;
 
     };
 
