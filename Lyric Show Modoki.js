@@ -3,7 +3,7 @@
 
 // ==PREPROCESSOR==
 // @name "Lyric Show Modoki"
-// @version "1.3.1"
+// @version "1.3.2"
 // @author "tomato111"
 // @import "%fb2k_path%import\common\lib.js"
 // ==/PREPROCESSOR==
@@ -16,14 +16,14 @@
 // user reserved words
 var plugins, lyric, parse_path, path, directory, filename, basename, filetype, dateLastModified, dateCreated, dataSize, charset, offsetinfo, backalpha
 , offsetY, fixY, moveY, lineY, drag, drag_y, g_x, g_y, ww, wh, larea_seek, rarea_seek, seek_width, rarea_seek_x, Lock, movable, jumpY
-, Left_Center, Center_Left, Center_Right, Right_Center, centerleftX, TextHeight, TextHeightWithoutLPadding
+, Left_Center, Center_Left, Center_Right, Right_Center, centerleftX, TextHeight, TextHeightWithoutLPadding, BackgroundImg, isM4A
 , prop, LyricShow, Edit, Buttons, StatusBar, Keybind, Keybind_Edit, Menu, Messages, Label;
 
 var fs = new ActiveXObject("Scripting.FileSystemObject"); // File System Object
 var ws = new ActiveXObject("WScript.Shell"); // WScript Shell Object
 var Trace = new TraceLog();
 var scriptName = "Lyric Show Modoki";
-var scriptVersion = "1.3.1";
+var scriptVersion = "1.3.2";
 var scriptdir = fb.FoobarPath + "import\\" + scriptName + "\\";
 var commondir = fb.FoobarPath + "import\\common\\";
 var down_pos = {};
@@ -40,6 +40,7 @@ var GDIPlus_RIGHT = 0x20000000;
 var tagRe = /\[\d\d:\d\d[.:]\d\d\]/;
 var timeRe = /\[(\d\d):(\d\d)[.:](\d\d)\]/;
 var firstRe = /^\[00:00[.:]00\]/;
+var m4aRE = /^m4a$/i;
 var repeatRes = getRepeatRes(scriptdir + "repeat.txt", scriptdir + "repeat-default.txt");
 
 //========
@@ -73,6 +74,7 @@ prop = new function () {
         AdjustScrolling: window.GetProperty("Panel.AdjustScrolling", 100),
         SingleClickSeek: window.GetProperty("Panel.SingleClickSeek", false),
         AutoScroll: window.GetProperty("Panel.AutoScroll", true),
+        RunInTheBackground: window.GetProperty("Panel.RunInTheBackground", false),
         Keybind:
         {
             SeekToNextLine: window.GetProperty("Panel.Keybind.SeekToNextLine", 88), // Default is 'X' Key
@@ -283,7 +285,8 @@ prop = new function () {
         // Run command after save
         RunAfterSave: window.GetProperty("Save.RunAfterSave", ""),
         TimetagSign: window.GetProperty("Save.Timetag[12:34:56]", false),
-        ClipbordAutoSaveTo: window.GetProperty("Save.GetClipbord.AutoSaveTo", "")
+        ClipbordAutoSaveTo: window.GetProperty("Save.GetClipbord.AutoSaveTo", ""),
+        iTunesMode: window.GetProperty("Save.iTunesMode", false)
     };
 
     if (!this.Save.CharacterCode || !/^(?:Unicode|Shift_JIS|EUC-JP|UTF-8|UTF-8N)$/i.test(this.Save.CharacterCode))
@@ -485,6 +488,11 @@ function set_align() {
             break;
     }
 
+    RefreshDrawStyle();
+}
+
+function RefreshDrawStyle() {
+
     if (lyric) {
         LyricShow.setProperties.setWordbreakList();
         LyricShow.setProperties.setScrollSpeedList();
@@ -492,6 +500,9 @@ function set_align() {
         LyricShow.set_on_paintInfo();
         ignore_remainder = true;
     }
+
+    if (BackgroundImg)
+        LyricShow.setBackgroundImage();
 }
 
 function putTime(n, i) { // add timetag to i line
@@ -529,6 +540,7 @@ function copyLyric(withTag) { // copy lyric to clipboad
 }
 
 function getLyricFromClipboard() {
+
     var ws = new ActiveXObject("WScript.Shell");
     var text = getClipboard();
     if (text) {
@@ -538,6 +550,15 @@ function getLyricFromClipboard() {
     }
     else
         Messages.FailedToReadText.popup();
+}
+
+function getFieldName(isEdit) {
+
+    if (prop.Save.iTunesMode)
+        var field = isM4A ? "LYRICS" : "UNSYNCED LYRICS";
+    else
+        field = (filetype === "lrc" || isEdit) ? "LYRICS" : "UNSYNCED LYRICS";
+    return field;
 }
 
 function saveToTag(fieldname) {
@@ -637,7 +658,7 @@ LyricShow = new function (Style) {
     var directoryRe = /.+\\/;
     var extensionRe = /^lrc|txt$/i;
     var FuzzyRE = ["", /[ 　]/g, /\(.*?\)/g];
-    var BackgroundPath, BackgroundImg, BackgroundSize;
+    var BackgroundPath, BackgroundSize;
     var BackOption = prop.Panel.BackgroundOption;
 
     this.init = function () {
@@ -1508,7 +1529,7 @@ LyricShow = new function (Style) {
             return size;
         }
 
-        var newImg, path, tmp, foldername, exp, e, file, res;
+        var newImg, path, tmp, foldername, exp, e, file, res, same;
         var p = prop.Panel.BackgroundPath;
         if (p) {
             try {
@@ -1551,10 +1572,11 @@ LyricShow = new function (Style) {
             }
 
             if (newImg) {
-                if (path == BackgroundPath) {
+                /*if (path == BackgroundPath) {
                     newImg.Dispose();
-                    return; // skip Calc, Reseize, and Fade effect
-                }
+                    return; // skip Calc, Resize, and Fade effect
+                }*/
+                same = Boolean(path == BackgroundPath);
                 BackgroundPath = path;
                 BackgroundSize = CalcImgSize(newImg, window.Width, window.Height, prop.Panel.BackgroundStretch, prop.Panel.BackgroundKAR);
                 tmp = newImg.Resize(BackgroundSize.width, BackgroundSize.height, 7); // DrawImage関数でリサイズやアルファ値(255以外)を指定し頻繁に更新すると負荷が無視できないので先に適用しておく
@@ -1566,7 +1588,7 @@ LyricShow = new function (Style) {
                     BackgroundImg.Dispose(); // 同じくその都度解放する
                     BackgroundImg = tmp;
                 }
-                this.fadeTimer();
+                !same && this.fadeTimer();
             }
             else
                 this.releaseGlaphic();
@@ -1623,6 +1645,8 @@ LyricShow = new function (Style) {
 
         this.searchLine(fb.PlaybackTime);
         filetype === "txt" && (function () { offsetY = Math.ceil(offsetY) - (moveY - Math.floor(moveY)); }).timeout(1000) // 再生始めは不安定であるが、非同期歌詞ではlineYでの修正が出来ないのでディレイで一度だけ小数点以下を揃えて安定化させる
+        isM4A = m4aRE.test(fs.GetExtensionName(fb.GetNowPlaying().Path));
+
     };
 
     this.end = function () {
@@ -1981,7 +2005,7 @@ Edit = new function (Style, p) {
     this.saveMenu = function (x, y) {
 
         var meta = fb.GetNowPlaying();
-        var field = "LYRICS";
+        var field = getFieldName(true);
         var file = parse_path + ".lrc";
         var folder = fs.GetParentFolderName(file);
         var LineFeedCode = prop.Save.LineFeedCode;
@@ -2447,7 +2471,7 @@ Keybind = new function () {
             getLyricFromClipboard();
             if (prop.Save.ClipbordAutoSaveTo) {
                 if (/^Tag$/i.test(prop.Save.ClipbordAutoSaveTo))
-                    saveToTag(filetype === "lrc" ? "LYRICS" : "UNSYNCED LYRICS");
+                    saveToTag(getFieldName());
                 else if (/^File$/i.test(prop.Save.ClipbordAutoSaveTo))
                     saveToFile(parse_path + (filetype === "lrc" ? ".lrc" : ".txt"));
             }
@@ -2859,7 +2883,7 @@ Menu = new function () {
         {
             Caption: Label.SaveToTag,
             Func: function () {
-                saveToTag(filetype === "lrc" ? "LYRICS" : "UNSYNCED LYRICS");
+                saveToTag(getFieldName());
             }
         },
         {
@@ -2877,7 +2901,7 @@ Menu = new function () {
                 getLyricFromClipboard();
                 if (prop.Save.ClipbordAutoSaveTo) {
                     if (/^Tag$/i.test(prop.Save.ClipbordAutoSaveTo))
-                        saveToTag(filetype === "lrc" ? "LYRICS" : "UNSYNCED LYRICS");
+                        saveToTag(getFieldName());
                     else if (/^File$/i.test(prop.Save.ClipbordAutoSaveTo))
                         saveToFile(parse_path + (filetype === "lrc" ? ".lrc" : ".txt"));
                 }
@@ -2936,7 +2960,7 @@ Menu = new function () {
         {
             Caption: Label.SaveToTag,
             Func: function () {
-                saveToTag("LYRICS");
+                saveToTag(getFieldName(true));
             }
         },
         {
@@ -3214,7 +3238,7 @@ Menu = new function () {
 function main(text) {
 
     if (arguments.callee.IsVisible !== window.IsVisible)
-        arguments.callee.IsVisible = window.IsVisible;
+        arguments.callee.IsVisible = prop.Panel.RunInTheBackground ? true : window.IsVisible;
 
     if (arguments.callee.IsVisible && fb.IsPlaying) {
         var parse_paths = fb.TitleFormat(prop.Panel.Path).Eval().split("||");
@@ -3261,6 +3285,8 @@ function on_size() {
 
     seek_width = Math.floor(ww * 15 / 100);
     rarea_seek_x = ww - seek_width;
+
+    RefreshDrawStyle();
 }
 
 function on_focus(is_focused) {
