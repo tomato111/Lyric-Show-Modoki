@@ -1,8 +1,14 @@
-﻿dplugin_Utamap = {
+﻿pl = {
     name: "dplugin_Utamap",
     label: prop.Panel.Lang == 'ja' ? '歌詞検索: うたまっぷ' : 'Download Lyrics: Utamap',
     author: 'tomato111',
-    onCommand: function () {
+    onStartUp: function () { // 最初に一度だけ呼び出される関数
+        var temp = window.GetProperty("Plugin.Search.AutoSaveTo", ""); // 空欄 or Tag or File
+        if (!/^(?:File|Tag)$/i.test(temp))
+            window.SetProperty("Plugin.Search.AutoSaveTo", "");
+    },
+    onPlay: function () { }, // 新たに曲が再生される度に呼び出される関数
+    onCommand: function () { // プラグインのメニューをクリックすると呼び出される関数
 
         ws = new ActiveXObject("WScript.Shell");
         if (!fb.IsPlaying) {
@@ -12,7 +18,6 @@
 
         //###### Properties ########
         var ShowInputDialog = true; //タイトル名、アーティスト名の入力ダイアログを表示するならtrue
-        var AutoSave = false; //歌詞が見つかったと同時にファイルに保存するならtrue
         //##########################
 
         var debug_html = false; // for debug
@@ -22,6 +27,7 @@
         var info = false;
         var txt = true;
         var LineFeedCode = prop.Save.LineFeedCode;
+        var AutoSaveTo = window.GetProperty("Plugin.Search.AutoSaveTo");
         var searchRe = new RegExp('<TD class=(ct\\d{3})>(?:<A href="(.+?=(.+?))">)?(.*?)(?:</A>)?</td>', "i");
         var infoRe = new RegExp('<td class="pad5x10x0x10">(.*?)</td>', "i");
 
@@ -39,6 +45,8 @@
         StatusBar.setText("検索中......");
         StatusBar.show();
         getHTML(null, "GET", createQuery(title), async, depth, onLoaded);
+
+        //------------------------------------
 
         function createQuery(word, page, id) {
             if (id)
@@ -73,8 +81,11 @@
                     main(text);
                     StatusBar.setText("検索終了。歌詞を取得しました。");
                     StatusBar.show();
-                    if (AutoSave)
-                        saveToFile(parse_path + (filetype === "lrc" ? ".lrc" : ".txt"));
+                    if (AutoSaveTo)
+                        if (/^Tag$/i.test(AutoSaveTo))
+                            saveToTag(getFieldName());
+                        else if (/^File$/i.test(AutoSaveTo))
+                            saveToFile(parse_path + (filetype === "lrc" ? ".lrc" : ".txt"));
                 }
                 else if (onLoaded.Info) { return; }
                 else {

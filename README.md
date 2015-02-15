@@ -1,6 +1,16 @@
 ﻿##Installation
 <http://ashiato1.blog62.fc2.com/blog-entry-64.html>
 ##History
+--v1.3.3(2015/02/15)--------------------------------------------------
+
+* インストール場所をプロファイルフォルダに変更（利便性の観点から）  
+　※以前のファイルは削除し、インストールの項を参考に再インストールして下さい  
+　※Panel.BackgroundPath は一度「Delete」して「Apply」後に再設定して下さい  
+* プラグインに関する設定を追加  
+　Plugin.Search.AutoSaveTo （空欄 or Tag or File を記述）  
+　Plugin.CheckUpdateOnStartUp （更新があると右クリックメニューに通知される）  
+* 「フォルダを開く」で場合によって保存先とは違うフォルダが開かれる不具合を修正
+
 --v1.3.2(2015/01/20)--------------------------------------------------
 
 * パネルが非表示でも動作を継続する設定 Panel.RunInTheBackground  

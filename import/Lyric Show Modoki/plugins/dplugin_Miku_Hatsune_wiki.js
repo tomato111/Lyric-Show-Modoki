@@ -1,8 +1,14 @@
-﻿dplugin_Miku_Hatsune_wiki = {
+﻿pl = {
     name: "dplugin_Miku_Hatsune_wiki",
     label: prop.Panel.Lang == 'ja' ? '歌詞検索: 初音ミクWiki' : 'Download Lyrics: Miku Hatsune wiki',
     author: 'tomato111',
-    onCommand: function () {
+    onStartUp: function () { // 最初に一度だけ呼び出される関数
+        var temp = window.GetProperty("Plugin.Search.AutoSaveTo", ""); // 空欄 or Tag or File
+        if (!/^(?:File|Tag)$/i.test(temp))
+            window.SetProperty("Plugin.Search.AutoSaveTo", "");
+    },
+    onPlay: function () { }, // 新たに曲が再生される度に呼び出される関数
+    onCommand: function () { // プラグインのメニューをクリックすると呼び出される関数
 
         ws = new ActiveXObject("WScript.Shell");
         if (!fb.IsPlaying) {
@@ -12,7 +18,6 @@
 
         //###### Properties ########
         var ShowInputDialog = true; //タイトル名、アーティスト名の入力ダイアログを表示するならtrue
-        var AutoSave = false; //歌詞が見つかったと同時にファイルに保存するならtrue
         //##########################
 
         var debug_html = false; // for debug
@@ -22,6 +27,7 @@
         var second = -2;
         var found = true;
         var LineFeedCode = prop.Save.LineFeedCode;
+        var AutoSaveTo = window.GetProperty("Plugin.Search.AutoSaveTo");
 
         // title, artist for search
         var title = fb.TitleFormat("%title%").Eval();
@@ -37,6 +43,8 @@
         StatusBar.setText("検索中......");
         StatusBar.show();
         getHTML(null, "GET", createQuery(title), async, first, onLoaded);
+
+        //------------------------------------
 
         function createQuery(word) {
             return "http://www5.atwiki.jp/hmiku/?cmd=search&keyword=" + encodeURIComponent(word) + "&andor=and&ignore=1";
@@ -65,8 +73,11 @@
                 main(text);
                 StatusBar.setText("検索終了。歌詞を取得しました。");
                 StatusBar.show();
-                if (AutoSave)
-                    saveToFile(parse_path + (filetype === "lrc" ? ".lrc" : ".txt"));
+                if (AutoSaveTo)
+                    if (/^Tag$/i.test(AutoSaveTo))
+                        saveToTag(getFieldName());
+                    else if (/^File$/i.test(AutoSaveTo))
+                        saveToFile(parse_path + (filetype === "lrc" ? ".lrc" : ".txt"));
             }
         }
 

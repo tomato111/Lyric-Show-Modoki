@@ -3,9 +3,9 @@
 
 // ==PREPROCESSOR==
 // @name "Lyric Show Modoki"
-// @version "1.3.2"
+// @version "1.3.3"
 // @author "tomato111"
-// @import "%fb2k_path%import\common\lib.js"
+// @import "%fb2k_profile_path%import\common\lib.js"
 // ==/PREPROCESSOR==
 /// <reference path="lib.js"/>
 
@@ -23,9 +23,9 @@ var fs = new ActiveXObject("Scripting.FileSystemObject"); // File System Object
 var ws = new ActiveXObject("WScript.Shell"); // WScript Shell Object
 var Trace = new TraceLog();
 var scriptName = "Lyric Show Modoki";
-var scriptVersion = "1.3.2";
-var scriptdir = fb.FoobarPath + "import\\" + scriptName + "\\";
-var commondir = fb.FoobarPath + "import\\common\\";
+var scriptVersion = "1.3.3";
+var scriptdir = fb.ProfilePath + "import\\" + scriptName + "\\";
+var commondir = fb.ProfilePath + "import\\common\\";
 var down_pos = {};
 var disp = {};
 var TextRender = gdi.CreateStyleTextRender();
@@ -65,7 +65,7 @@ prop = new function () {
         ScrollType: window.getProperty("Panel.LRC.ScrollType", 1),
         ScrollType2: 140, // Interval/10 の倍数である必要がある // value*10 [ms]前からスクロール開始
         BackgroundEnable: window.GetProperty("Panel.Background.Enable", true),
-        BackgroundPath: window.GetProperty("Panel.Background.Image", "<embed>||$directory_path(%path%)\\*.*||'%fb2k_path%'\\import\\Lyric Show Modoki\\background.jpg"),
+        BackgroundPath: window.GetProperty("Panel.Background.Image", "<embed>||$directory_path(%path%)\\*.*||'%fb2k_profile_path%'\\import\\Lyric Show Modoki\\background.jpg"),
         BackgroundRaw: window.GetProperty("Panel.Background.ImageToRawBitmap", false),
         BackgroundOption: window.GetProperty("Panel.Background.ImageOption", "20,50").split(/[ 　]*,[ 　]*/),
         BackgroundKAR: window.GetProperty("Panel.Background.KeepAspectRatio", true),
@@ -680,11 +680,7 @@ LyricShow = new function (Style) {
                             try {
                                 var f = fs.GetFile(file);
                                 break L;
-                            } catch (e) {
-                                try {
-                                    directory = file.match(directoryRe)[0];
-                                } catch (e) { }
-                            }
+                            } catch (e) { }
                             break;
                         case 1:
                             try {
@@ -1603,6 +1599,7 @@ LyricShow = new function (Style) {
             {
                 var pathIsArray = path instanceof Array;
                 parse_path = pathIsArray ? path[0] : path; // set default parse_path for save
+                directory = parse_path.match(directoryRe)[0]; // default ParentFolder of parse_path
                 if (text) { // for Clipboad and FileDialog 
                     if (this.readLyric(text, true)) break L; // 第二引数は IsSpecifiedPath. 保存パスに影響
                     else return Messages.NotFound.trace();
@@ -3214,6 +3211,7 @@ Menu = new function () {
 
     this.show = function (x, y) {
         var ret = _menu.TrackPopupMenu(x, y);
+        //console(ret);
         if (ret != 0)
             if (item_list[ret]) {
                 item_list[ret].Func();
@@ -3228,12 +3226,20 @@ Menu = new function () {
 
     this.LastUsedPlugin = { Func: function () { } }; // Initial value is dummy plugin.
 
+    this.addToMenu_LyricShow = function (items) {
+        var temp = menu_LyricShow.splice(menu_LyricShow.length - 2, 2);
+        menu_LyricShow = menu_LyricShow.concat(items).concat(temp);
+        this.LyricShow.items = menu_LyricShow;
+    }
 };
 
 
 //========================================
 //== onLoad function ==========================
 //========================================
+
+for (var pname in plugins)
+    plugins[pname].onStartUp();
 
 function main(text) {
 
@@ -3295,6 +3301,8 @@ function on_focus(is_focused) {
 
 function on_playback_new_track(metadb) {
     main();
+    for (var pname in plugins)
+        plugins[pname].onPlay();
 }
 
 function on_playback_seek(time) {
