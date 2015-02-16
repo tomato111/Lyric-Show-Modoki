@@ -1599,7 +1599,10 @@ LyricShow = new function (Style) {
             {
                 var pathIsArray = path instanceof Array;
                 parse_path = pathIsArray ? path[0] : path; // set default parse_path for save
-                directory = parse_path.match(directoryRe)[0]; // default ParentFolder of parse_path
+                try { // default ParentFolder of parse_path // 条件を満たす曲をスキップするようなコンポを入れているとparse_pathがなぜか空になってエラーを起こすのでtryで回避
+                    directory = parse_path.match(directoryRe)[0];
+                } catch (e) { }
+
                 if (text) { // for Clipboad and FileDialog 
                     if (this.readLyric(text, true)) break L; // 第二引数は IsSpecifiedPath. 保存パスに影響
                     else return Messages.NotFound.trace();
