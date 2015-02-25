@@ -50,6 +50,7 @@
 	Contain = Contain Normal Lines [LRC]
 	ExpandR = Expand Repetition [TXT]
 	Highline = Use Highline Color [TXT]
+	ScrollToCenter = Scroll To Center [LRC]
 	Color = Color
 	DrawingMethod = Drawing
 	Rule = Show Ruled Line

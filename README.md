@@ -1,6 +1,16 @@
 ﻿##Installation
 <http://ashiato1.blog62.fc2.com/blog-entry-64.html>
 ##History
+--v1.3.4(2015/02/25)--------------------------------------------------
+
+* Panel.Interval および Panel.Interval2 を廃止  
+* スクロールに関する設定を追加  
+　Panel.LRC.ScrollStartTime（スクロール方法のタイプ2と3の動きに影響）  
+　Panel.LRC.ScrollToCenter（Modokiでのシーク時に歌詞を中央へスクロール）  
+* StyleTextRender(GDI+)での影サイズを指定できる設定を追加  
+　Style.Text-RoundSize  
+* 不具合修正  
+
 --v1.3.3(2015/02/15)--------------------------------------------------
 
 * インストール場所をプロファイルフォルダに変更（利便性の観点から）  
