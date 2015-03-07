@@ -340,6 +340,7 @@ function RGBAtoRGB(color) { // reference http://stackoverflow.com/questions/2049
 
     return RGB(TargetR, TargetG, TargetB);
 }
+function setAlpha(color, a) { return ((color & 0x00ffffff) | (a << 24)); }
 
 //-- Input Prompt --
 function prompt(text, title, defaultText) {

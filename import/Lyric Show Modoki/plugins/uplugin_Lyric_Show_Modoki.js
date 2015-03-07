@@ -4,17 +4,24 @@
     author: 'tomato111',
     onStartUp: function () { // 最初に一度だけ呼び出される関数
         var cu = window.GetProperty("Plugin.CheckUpdateOnStartUp", false);
-        if (cu && this.onCommand(true)) {
-            Menu.addToMenu_LyricShow(
-                [
-                    {
-                        Flag: 0x00000000,
-                        Caption: prop.Panel.Lang == 'ja' ? "## 新しいバージョンが利用可能です ##" : "## New version is available ##",
-                        Func: this.onCommand
-                    }
-                ]
-            );
-        };
+        if (cu) {
+            this.onCommand(true);
+            var f = this.onCommand;
+            (function () {
+                if (f.result) {
+                    Menu.addToMenu_LyricShow(
+                        [
+                            {
+                                Flag: 0x00000000,
+                                Caption: prop.Panel.Lang == 'ja' ? "## 新しいバージョンが利用可能です ##" : "## New version is available ##",
+                                Func: f
+                            }
+                        ]
+                    );
+                    Menu.build(prop.Edit.Start ? Menu.Edit : "");
+                }
+            }).timeout(1000);
+        }
     },
     onPlay: function () { }, // 新たに曲が再生される度に呼び出される関数
     onCommand: function (isStartUp) { // プラグインのメニューをクリックすると呼び出される関数
@@ -22,9 +29,9 @@
         var debug_html = false; // for debug
         var ws = new ActiveXObject("WScript.Shell");
         var sa = new ActiveXObject("Shell.Application");
-        var async = false;
+        var async = true;
         var depth = false;
-        var result_bool = false;
+        var onCommand = arguments.callee;
 
         StatusBar.setText(prop.Panel.Lang == 'ja' ? "更新チェック中......" : "checking update......");
         !isStartUp && StatusBar.show();
@@ -35,8 +42,6 @@
             StatusBar.setText(prop.Panel.Lang == 'ja' ? "更新チェックに失敗しました。" : "failed to check update.");
             !isStartUp && StatusBar.show();
         }
-
-        return result_bool;
 
         //------------------------------------
 
@@ -84,7 +89,7 @@
                     if (diff > 0) // there is a new version.
                         this.result = function () {
                             if (isStartUp) {
-                                result_bool = true;
+                                onCommand.result = true;
                             }
                             else {
                                 getHTML(null, "GET", "https://raw.githubusercontent.com/tomato111/Lyric-Show-Modoki/master/README.md", !async, depth,

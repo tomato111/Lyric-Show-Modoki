@@ -1,6 +1,14 @@
 ﻿##Installation
 <http://ashiato1.blog62.fc2.com/blog-entry-64.html>
 ##History
+--v1.4.0(2015/03/07)--------------------------------------------------
+
+* プラグインにファンクションキー（F1～F9）を順に割り当て  
+* Panel.Keybind.LastUsedPlugin を廃止  
+* 設定名変更 Panel.LRC.ScrollStartTime -> ScrollDurationTime  
+* Panel.LRC.ScrollType：4 と 5 を追加 （GDI+用）  
+* Style.User.LyricShow.TextRound を RGBA から RGB へ変更  
+
 --v1.3.4(2015/02/25)--------------------------------------------------
 
 * Panel.Interval および Panel.Interval2 を廃止  
