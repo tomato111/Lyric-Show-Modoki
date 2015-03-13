@@ -1,6 +1,14 @@
 ﻿##Installation
 <http://ashiato1.blog62.fc2.com/blog-entry-64.html>
 ##History
+--v1.4.1(2015/03/14)--------------------------------------------------
+
+* Style.DrawingMethod を廃止し代わりに  
+　Style.EnableStyleTextRender を追加  
+* ScrollType：4 でエラーを起こす場合がある不具合を修正  
+* Ctrl+ホイール回転 でフォントサイズを変更できるようにした  
+* スクロール方法とStyleTextRenderの切り替えに1～6キーを割り当て  
+
 --v1.4.0(2015/03/07)--------------------------------------------------
 
 * プラグインにファンクションキー（F1～F9）を順に割り当て  

@@ -3,7 +3,7 @@
 
 // ==PREPROCESSOR==
 // @name "Lyric Show Modoki"
-// @version "1.4.0"
+// @version "1.4.1"
 // @author "tomato111"
 // @import "%fb2k_profile_path%import\common\lib.js"
 // ==/PREPROCESSOR==
@@ -15,7 +15,7 @@
 //============================================
 // user reserved words
 var plugins, lyric, parse_path, path, directory, filename, basename, filetype, dateLastModified, dateCreated, dataSize, charset, offsetinfo, backalpha
-, offsetY, fixY, moveY, lineY, drag, drag_y, g_x, g_y, ww, wh, larea_seek, rarea_seek, seek_width, rarea_seek_x, arc_w, arc_h, ignore_remainder, Lock, movable, jumpY
+, offsetY, fixY, moveY, lineY, drag, drag_y, g_x, g_y, ww, wh, larea_seek, rarea_seek, seek_width, rarea_seek_x, arc_w, arc_h, ignore_remainder, Lock, Lock_MiddleButton, movable, jumpY
 , Left_Center, Center_Left, Center_Right, Right_Center, centerleftX, TextHeight, TextHeightWithoutLPadding, BackgroundImg, isM4A
 , prop, LyricShow, Edit, Buttons, StatusBar, Keybind, Menu, Messages, Label;
 
@@ -23,7 +23,7 @@ var fs = new ActiveXObject("Scripting.FileSystemObject"); // File System Object
 var ws = new ActiveXObject("WScript.Shell"); // WScript Shell Object
 var Trace = new TraceLog();
 var scriptName = "Lyric Show Modoki";
-var scriptVersion = "1.4.0";
+var scriptVersion = "1.4.1";
 var scriptdir = fb.ProfilePath + "import\\" + scriptName + "\\";
 var commondir = fb.ProfilePath + "import\\common\\";
 var down_pos = {};
@@ -47,6 +47,16 @@ var repeatRes = getRepeatRes(scriptdir + "repeat.txt", scriptdir + "repeat-defau
 // properties
 //========
 prop = new function () {
+    // ---- Removed Property
+    window.SetProperty("Panel.Interval", null);
+    window.SetProperty("Panel.Interval2", null);
+    window.SetProperty("Panel.Keybind.LastUsedPlugin", null);
+    window.SetProperty("Style.DrawingMethod", null);
+    window.SetProperty("Panel.Keybind.ScrollUp", null);
+    window.SetProperty("Panel.Keybind.ScrollDown", null);
+    // ----
+
+
     var defaultpath = ws.SpecialFolders.item("Desktop") + "\\$replace(%artist% - %title%,*,＊,?,？,/,／,:,：)";
 
     // ==Panel====
@@ -83,8 +93,6 @@ prop = new function () {
             SeekToPlayingLine: window.GetProperty("Panel.Keybind.SeekToPlayingLine", 83), // Default is 'S' Key
             SeekToTop: window.GetProperty("Panel.Keybind.SeekToTop", 69), // Default is 'E' Key
             SwitchAutoScroll: window.GetProperty("Panel.Keybind.SwitchAutoScroll", 90), // Default is 'Z' Key
-            ScrollUp: window.GetProperty("Panel.Keybind.ScrollUp", 38), // Default is 'Up' Key
-            ScrollDown: window.GetProperty("Panel.Keybind.ScrollDown", 40), // Default is 'Down' Key
             ScrollToPlayingLine: window.GetProperty("Panel.Keybind.ScrollToPlayingLine", 81), // Default is 'Q' Key
             Reload: window.GetProperty("Panel.Keybind.Reload", 82), // Default is 'R' Key
             Properties: window.GetProperty("Panel.Keybind.Properties", 80), // Default is 'P' Key
@@ -138,7 +146,8 @@ prop = new function () {
         LPadding: window.GetProperty("Style.Line-Padding", 1),
         Highline: window.GetProperty("Style.HighlineColor for unsynced lyrics", true),
         CenterPosition: window.GetProperty("Style.CenterPosition", -12),
-        DrawingMethod: window.GetProperty("Style.DrawingMethod", 0)
+        EnableStyleTextRender: window.GetProperty("Style.EnableStyleTextRender", false),
+        DrawingMethod: 0
     };
 
     this.Style.CLS = { // define color of LyricShow
@@ -210,9 +219,13 @@ prop = new function () {
     if (!(this.Style.CSE in this.Style.CE))
         window.SetProperty("Style.ColorStyle.Edit", this.Style.CSE = "white");
 
-    // check DrawingMethod
-    if (typeof this.Style.DrawingMethod != "number" || this.Style.DrawingMethod < 0 || this.Style.DrawingMethod > 2)
-        window.SetProperty("Style.DrawingMethod", this.Style.DrawingMethod = 0);
+    // set DrawingMethod
+    if (this.Style.EnableStyleTextRender)
+        this.Style.DrawingMethod = 2;
+    else if (this.Panel.ScrollType < 4)
+        this.Style.DrawingMethod = 0;
+    else
+        this.Style.DrawingMethod = 1;
 
     // check Align
     if (typeof this.Style.Align != "number" || this.Style.Align < 0x00000000 || this.Style.Align > 0x00000006)
@@ -499,9 +512,6 @@ function RefreshDrawStyle() {
         LyricShow.set_on_paintInfo_x_w();
         ignore_remainder = true;
     }
-
-    if (BackgroundImg)
-        LyricShow.setBackgroundImage();
 }
 
 function putTime(n, i) { // add timetag to i line
@@ -1218,7 +1228,7 @@ LyricShow = new function (Style) {
                         lyric.i++;
                         return true; // refresh flag
                     }
-                    else if (moveY > 1) {
+                    else if (moveY >= 1) {
                         moveY -= Math.floor(moveY);
                         return true; // refresh flag
                     }
@@ -1246,7 +1256,7 @@ LyricShow = new function (Style) {
                         lyric.i++;
                         return true; // refresh flag
                     }
-                    else if (moveY > 1) {
+                    else if (moveY >= 1) {
                         moveY -= Math.floor(moveY);
                         return true; // refresh flag
                     }
@@ -1266,7 +1276,7 @@ LyricShow = new function (Style) {
                     }
 
                 if (this.i + 1 !== lyric.text.length)
-                    if (LyricShow.on_paintInfo.l_alpha < 252 && time > this.p.lineList[this.i] + (this.p.lineList[this.i + 1] - this.p.lineList[this.i]) / 2) {
+                    if (LyricShow.on_paintInfo.l_alpha < 252 && time > this.p.lineList[this.i] + (this.p.lineList[this.i + 1] - this.p.lineList[this.i]) / 2.1) {
                         LyricShow.on_paintInfo.l_alpha += 28; // 252の約数
                         refresh = true;
                     }
@@ -1344,31 +1354,31 @@ LyricShow = new function (Style) {
             DrawString.prototype.draw = function (gr, text, color, x, w) {
                 switch (Style.DrawingMethod) {
                     case 0:
-                        gr.GdiDrawText(text, Style.Font, color, x, this.cy + offsetY, w, this.height, Style.Align);
+                        gr.GdiDrawText(text, Style.Font, color, x, this.cy + Math.ceil(offsetY), w, this.height, Style.Align);
                         break;
                     case 1:
-                        gr.DrawString(text, Style.Font, color, x, this.cy + offsetY, w, this.height, Style.Align);
+                        gr.DrawString(text, Style.Font, color, x, this.cy + Math.ceil(offsetY), w, this.height, Style.Align);
                         break;
                     case 2:
                         TextRender.OutLineText(color, Style.Color.TextRound, 0);
-                        TextRender.RenderStringRect(gr, text, Style.Font, x, this.cy + offsetY, w, this.height, Style.Align);
+                        TextRender.RenderStringRect(gr, text, Style.Font, x, this.cy + Math.ceil(offsetY), w, this.height, Style.Align);
                         break;
                 }
             };
             DrawString.prototype.draw_withShadow = function (gr, text, color, x, w) {
                 switch (Style.DrawingMethod) {
                     case 0:
-                        gr.GdiDrawText(text, Style.Font, Style.Color.TextShadow, x + Style.ShadowPosition[0], this.sy + offsetY, w, this.height, Style.Align);
-                        gr.GdiDrawText(text, Style.Font, color, x, this.cy + offsetY, w, this.height, Style.Align);
+                        gr.GdiDrawText(text, Style.Font, Style.Color.TextShadow, x + Style.ShadowPosition[0], this.sy + Math.ceil(offsetY), w, this.height, Style.Align);
+                        gr.GdiDrawText(text, Style.Font, color, x, this.cy + Math.ceil(offsetY), w, this.height, Style.Align);
                         break;
                     case 1:
-                        gr.DrawString(text, Style.Font, Style.Color.TextShadow, x + Style.ShadowPosition[0], this.sy + offsetY, w, this.height, Style.Align);
-                        gr.DrawString(text, Style.Font, color, x, this.cy + offsetY, w, this.height, Style.Align);
+                        gr.DrawString(text, Style.Font, Style.Color.TextShadow, x + Style.ShadowPosition[0], this.sy + Math.ceil(offsetY), w, this.height, Style.Align);
+                        gr.DrawString(text, Style.Font, color, x, this.cy + Math.ceil(offsetY), w, this.height, Style.Align);
                         break;
                     case 2:
                         //TextRender.DoubleOutLineText(color, Style.Color.TextShadow, RGBA(255, 255, 0, 30), 5, 5);
                         TextRender.OutLineText(color, Style.Color.TextRound, Style.TextRoundSize);
-                        TextRender.RenderStringRect(gr, text, Style.Font, x, this.cy + offsetY, w, this.height, Style.Align);
+                        TextRender.RenderStringRect(gr, text, Style.Font, x, this.cy + Math.ceil(offsetY), w, this.height, Style.Align);
                         break;
                 }
             };
@@ -1908,7 +1918,9 @@ LyricShow = new function (Style) {
     this.calcOddNumHeight = function (DrawStyle, i) {
 
         var h1, h2;
-        if (typeof DrawStyle[i - 1].isEvenNum === "undefined")
+        if (i - 1 === -1)
+            h1 = 0;
+        else if (typeof DrawStyle[i - 1].isEvenNum === "undefined" && i - 2 !== -1)
             h1 = DrawStyle[i - 2].height;
         else
             h1 = DrawStyle[i - 1].height;
@@ -1967,8 +1979,8 @@ LyricShow = new function (Style) {
         if (lyric) { // lyrics is found
             if (lyric.info.length && offsetY > 0 && prop.Panel.ScrollType !== 4 && prop.Panel.ScrollType !== 5)
                 for (var i = 1; i <= lyric.info.length; i++) {
-                    Style.Shadow && gr.GdiDrawText(lyric.info[lyric.info.length - i], Style.Font, Style.Color.TextShadow, this.on_paintInfo.x + Style.ShadowPosition[0], g_y + offsetY - TextHeight * i + Style.ShadowPosition[1], this.on_paintInfo.w, wh, Style.Align ^ DT_WORDBREAK);
-                    gr.GdiDrawText(lyric.info[lyric.info.length - i], Style.Font, Style.Color.Text, this.on_paintInfo.x, g_y + offsetY - TextHeight * i, this.on_paintInfo.w, wh, Style.Align ^ DT_WORDBREAK);
+                    Style.Shadow && gr.GdiDrawText(lyric.info[lyric.info.length - i], Style.Font, Style.Color.TextShadow, this.on_paintInfo.x + Style.ShadowPosition[0], g_y + offsetY - TextHeight * i + Style.ShadowPosition[1], this.on_paintInfo.w, wh, DT_CENTER | DT_NOPREFIX);
+                    gr.GdiDrawText(lyric.info[lyric.info.length - i], Style.Font, Style.Color.Text, this.on_paintInfo.x, g_y + offsetY - TextHeight * i, this.on_paintInfo.w, wh, DT_CENTER | DT_NOPREFIX);
                 }
 
             if (filetype === "lrc") // for文の中の演算量を増やすわけにはいかないのでfor文自体を分岐させる
@@ -2265,6 +2277,7 @@ Edit = new function (Style, p) {
 
     this.saveMenu = function (x, y) {
 
+        Lock_MiddleButton = true;
         var meta = fb.GetNowPlaying();
         var field = getFieldName(true);
         var file = parse_path + ".lrc";
@@ -2303,6 +2316,7 @@ Edit = new function (Style, p) {
                 break;
         }
         meta.Dispose();
+        Lock_MiddleButton = false;
     };
 
     this.deleteFile = function (file) {
@@ -2714,8 +2728,6 @@ Keybind = new function () {
                 Menu.build();
             }
         },
-        ScrollUp: function () { lyric && applyDelta(20); },
-        ScrollDown: function () { lyric && applyDelta(-20); },
         ScrollToPlayingLine: function () { lyric && LyricShow.searchLine(fb.PlaybackTime); },
         Reload: function () { main(); },
         Properties: function () { window.ShowProperties(); },
@@ -2731,6 +2743,8 @@ Keybind = new function () {
             this[keynum] = commands[name];
         }
 
+        this[38] =function () { lyric && applyDelta(20); }, // Up
+        this[40]= function () { lyric && applyDelta(-20); }, // Down
         this[67] = function () { // C
             if (on_key_down.Ctrl && lyric) copyLyric(true); // (+Ctrl)
         };
@@ -2747,7 +2761,49 @@ Keybind = new function () {
         };
     };
 
-    this.LyricShow_keyup = new function () { };
+    this.LyricShow_keyup = new function () {
+
+        this[49] = this[97] = function () { // 1
+            window.SetProperty("Panel.LRC.ScrollType", prop.Panel.ScrollType = 1);
+            main();
+        }
+        this[50] = this[98] = function () { // 2
+            window.SetProperty("Panel.LRC.ScrollType", prop.Panel.ScrollType = 2);
+            main();
+        }
+        this[51] = this[99] = function () { // 3
+            window.SetProperty("Panel.LRC.ScrollType", prop.Panel.ScrollType = 3);
+            main();
+        }
+        this[52] = this[100] = function () { // 4
+            window.SetProperty("Panel.LRC.ScrollType", prop.Panel.ScrollType = 4);
+            if (!prop.Style.EnableStyleTextRender) {
+                prop.Style.DrawingMethod = 1;
+                set_align();
+            }
+            main();
+        }
+        this[53] = this[101] = function () { // 5
+            window.SetProperty("Panel.LRC.ScrollType", prop.Panel.ScrollType = 5);
+            if (!prop.Style.EnableStyleTextRender) {
+                prop.Style.DrawingMethod = 1;
+                set_align();
+            }
+            main();
+        }
+        this[54] = this[102] = function () { // 6
+            window.SetProperty("Style.EnableStyleTextRender", prop.Style.EnableStyleTextRender = !prop.Style.EnableStyleTextRender);
+            if (prop.Style.EnableStyleTextRender)
+                prop.Style.DrawingMethod = 2;
+            else if (prop.Panel.ScrollType < 4)
+                prop.Style.DrawingMethod = 0;
+            else
+                prop.Style.DrawingMethod = 1;
+            set_align();
+            main();
+        }
+        this[93] = function () { Menu.show(0, 0); } // Menu key
+    };
 
     this.Edit_keydown = new function () {
 
@@ -2774,7 +2830,9 @@ Keybind = new function () {
         }
     };
 
-    this.Edit_keyup = new function () { };
+    this.Edit_keyup = new function () {
+        this[93] = function () { Menu.show(0, 0); } // Menu key
+    };
 };
 
 
@@ -2798,40 +2856,10 @@ Menu = new function () {
     //============
     //  sub menu items
     //============
-    var submenu_DrawingMethod = [
-        {
-            Flag: MF_STRING,
-            Caption: "GdiDrawText",
-            Func: function () {
-                window.SetProperty("Style.DrawingMethod", prop.Style.DrawingMethod = 0);
-                set_align();
-                main();
-            }
-        },
-        {
-            Flag: MF_STRING,
-            Caption: "DrawString(GDI+)",
-            Func: function () {
-                window.SetProperty("Style.DrawingMethod", prop.Style.DrawingMethod = 1);
-                set_align();
-                main();
-            }
-        },
-        {
-            Flag: MF_STRING,
-            Caption: "StyleTextRender(GDI+)",
-            Func: function () {
-                window.SetProperty("Style.DrawingMethod", prop.Style.DrawingMethod = 2);
-                set_align();
-                main();
-            }
-        }
-    ];
-
     var submenu_Copy = [
         {
             Flag: MF_STRING,
-            Caption: Label.CopyWith,
+            Caption: Label.CopyWith + "\tCtrl+C",
             Func: function () {
                 if (lyric)
                     copyLyric(true);
@@ -2922,6 +2950,20 @@ Menu = new function () {
 
     var submenu_Display = [
         {
+            Caption: Label.StyleTextRender + "\t6",
+            Func: function () {
+                window.SetProperty("Style.EnableStyleTextRender", prop.Style.EnableStyleTextRender = !prop.Style.EnableStyleTextRender);
+                if (prop.Style.EnableStyleTextRender)
+                    prop.Style.DrawingMethod = 2;
+                else if (prop.Panel.ScrollType < 4)
+                    prop.Style.DrawingMethod = 0;
+                else
+                    prop.Style.DrawingMethod = 1;
+                set_align();
+                main();
+            }
+        },
+        {
             Caption: Label.Bold,
             Func: function () {
                 window.SetProperty("Style.Font-Bold", prop.Style.Font_Bold = !prop.Style.Font_Bold);
@@ -3008,7 +3050,7 @@ Menu = new function () {
     var submenu_ScrollType = [
         {
             Flag: MF_STRING,
-            Caption: Label.ScrollType1,
+            Caption: Label.ScrollType1 + "\t1",
             Func: function () {
                 window.SetProperty("Panel.LRC.ScrollType", prop.Panel.ScrollType = 1);
                 main();
@@ -3016,7 +3058,7 @@ Menu = new function () {
         },
         {
             Flag: MF_STRING,
-            Caption: Label.ScrollType2,
+            Caption: Label.ScrollType2 + "\t2",
             Func: function () {
                 window.SetProperty("Panel.LRC.ScrollType", prop.Panel.ScrollType = 2);
                 main();
@@ -3024,7 +3066,7 @@ Menu = new function () {
         },
         {
             Flag: MF_STRING,
-            Caption: Label.ScrollType3,
+            Caption: Label.ScrollType3 + "\t3",
             Func: function () {
                 window.SetProperty("Panel.LRC.ScrollType", prop.Panel.ScrollType = 3);
                 main();
@@ -3032,11 +3074,11 @@ Menu = new function () {
         },
         {
             Flag: MF_STRING,
-            Caption: Label.ScrollType4,
+            Caption: Label.ScrollType4 + "\t4",
             Func: function () {
                 window.SetProperty("Panel.LRC.ScrollType", prop.Panel.ScrollType = 4);
-                if (prop.Style.DrawingMethod === 0) { // Type4ではGDI+での描画が必要
-                    window.SetProperty("Style.DrawingMethod", prop.Style.DrawingMethod = 1);
+                if (!prop.Style.EnableStyleTextRender) { // Type4ではGDI+での描画が必要
+                    prop.Style.DrawingMethod = 1;
                     set_align();
                 }
                 main();
@@ -3044,11 +3086,11 @@ Menu = new function () {
         },
         {
             Flag: MF_STRING,
-            Caption: Label.ScrollType5,
+            Caption: Label.ScrollType5 + "\t5",
             Func: function () {
                 window.SetProperty("Panel.LRC.ScrollType", prop.Panel.ScrollType = 5);
-                if (prop.Style.DrawingMethod === 0) { // Type5ではGDI+での描画が必要
-                    window.SetProperty("Style.DrawingMethod", prop.Style.DrawingMethod = 1);
+                if (!prop.Style.EnableStyleTextRender) { // Type5ではGDI+での描画が必要
+                    prop.Style.DrawingMethod = 1;
                     set_align();
                 }
                 main();
@@ -3154,12 +3196,6 @@ Menu = new function () {
             Radio: null
         },
         {
-            Flag: MF_POPUP,
-            Caption: Label.DrawingMethod,
-            Sub: submenu_DrawingMethod,
-            Radio: null
-        },
-        {
             Flag: MF_SEPARATOR
         },
         {
@@ -3205,7 +3241,7 @@ Menu = new function () {
             Flag: MF_SEPARATOR
         },
         {
-            Caption: Label.GetClipboard,
+            Caption: Label.GetClipboard + "\tCtrl+V",
             Func: function () {
                 getLyricFromClipboard();
                 if (prop.Save.ClipbordAutoSaveTo) {
@@ -3405,14 +3441,15 @@ Menu = new function () {
     this.LyricShow = {
         items: menu_LyricShow,
         refresh: function () {
-            submenu_Display[0].Flag = prop.Style.Font_Bold ? MF_CHECKED : MF_UNCHECKED;
-            submenu_Display[1].Flag = prop.Style.Shadow ? MF_CHECKED : MF_UNCHECKED;
-            submenu_Display[2].Flag = prop.Style.Font_Italic ? MF_CHECKED : MF_UNCHECKED;
-            submenu_Display[3].Flag = prop.Panel.BackgroundEnable ? MF_CHECKED : MF_UNCHECKED;
-            submenu_Display[5].Flag = prop.Style.Highline ? MF_CHECKED : MF_UNCHECKED;
-            submenu_Display[6].Flag = prop.Panel.ExpandRepetition ? MF_CHECKED : MF_UNCHECKED;
-            submenu_Display[8].Flag = prop.Panel.Contain ? MF_CHECKED : MF_UNCHECKED;
-            submenu_Display[9].Flag = prop.Panel.ScrollToCenter ? MF_CHECKED : MF_UNCHECKED;
+            submenu_Display[0].Flag = prop.Style.EnableStyleTextRender ? MF_CHECKED : MF_UNCHECKED;
+            submenu_Display[1].Flag = prop.Style.Font_Bold ? MF_CHECKED : MF_UNCHECKED;
+            submenu_Display[2].Flag = prop.Style.Shadow ? MF_CHECKED : MF_UNCHECKED;
+            submenu_Display[3].Flag = prop.Style.Font_Italic ? MF_CHECKED : MF_UNCHECKED;
+            submenu_Display[4].Flag = prop.Panel.BackgroundEnable ? MF_CHECKED : MF_UNCHECKED;
+            submenu_Display[6].Flag = prop.Style.Highline ? MF_CHECKED : MF_UNCHECKED;
+            submenu_Display[7].Flag = prop.Panel.ExpandRepetition ? MF_CHECKED : MF_UNCHECKED;
+            submenu_Display[9].Flag = prop.Panel.Contain ? MF_CHECKED : MF_UNCHECKED;
+            submenu_Display[10].Flag = prop.Panel.ScrollToCenter ? MF_CHECKED : MF_UNCHECKED;
 
             menu_LyricShow[5].Radio = prop.Panel.ScrollType - 1; // radio number begin with 0
             switch (Number(window.GetProperty("Style.Align"))) {
@@ -3447,30 +3484,30 @@ Menu = new function () {
                 case 2:
                     menu_LyricShow[10].Radio = 2; break;
             }
-            menu_LyricShow[20].Flag = path ? MF_STRING : MF_GRAYED;
+            menu_LyricShow[19].Flag = path ? MF_STRING : MF_GRAYED;
             menu_LyricShow[4].Caption = prop.Panel.AutoScroll ? Label.ForbidAutoScroll : Label.AllowAutoScroll;
 
             if (lyric) {
                 menu_LyricShow[2].Flag = MF_STRING;
                 menu_LyricShow[4].Flag = MF_STRING;
                 menu_LyricShow[5].Flag = filetype === "lrc" ? MF_POPUP : MF_GRAYED;
-                menu_LyricShow[12].Flag = MF_STRING;
-                menu_LyricShow[13].Flag = MF_POPUP;
+                menu_LyricShow[11].Flag = MF_STRING;
+                menu_LyricShow[12].Flag = MF_POPUP;
+                menu_LyricShow[13].Flag = MF_STRING;
                 menu_LyricShow[14].Flag = MF_STRING;
-                menu_LyricShow[15].Flag = MF_STRING;
             }
             else {
-                menu_LyricShow[2].Flag = menu_LyricShow[4].Flag = menu_LyricShow[5].Flag = menu_LyricShow[12].Flag = menu_LyricShow[13].Flag = menu_LyricShow[14].Flag = menu_LyricShow[15].Flag = MF_GRAYED;
+                menu_LyricShow[2].Flag = menu_LyricShow[4].Flag = menu_LyricShow[5].Flag = menu_LyricShow[11].Flag = menu_LyricShow[12].Flag = menu_LyricShow[13].Flag = menu_LyricShow[14].Flag = MF_GRAYED;
             }
 
             if (fb.IsPlaying) {
                 menu_LyricShow[0].Flag = MF_STRING;
+                menu_LyricShow[16].Flag = MF_STRING;
                 menu_LyricShow[17].Flag = MF_STRING;
-                menu_LyricShow[18].Flag = MF_STRING;
-                menu_LyricShow[21].Flag = MF_STRING;
+                menu_LyricShow[20].Flag = MF_STRING;
             }
             else
-                menu_LyricShow[0].Flag = menu_LyricShow[17].Flag = menu_LyricShow[18].Flag = menu_LyricShow[21].Flag = MF_GRAYED;
+                menu_LyricShow[0].Flag = menu_LyricShow[16].Flag = menu_LyricShow[17].Flag = menu_LyricShow[20].Flag = MF_GRAYED;
         }
     };
 
@@ -3517,6 +3554,7 @@ Menu = new function () {
     };
 
     this.show = function (x, y) {
+        Lock_MiddleButton = true;
         var ret = _menu.TrackPopupMenu(x, y);
         //console(ret);
         if (ret != 0)
@@ -3524,6 +3562,7 @@ Menu = new function () {
                 item_list[ret].Func();
             else
                 item_list._context.ExecuteByID(ret - item_list._contextIdx);
+        Lock_MiddleButton = false;
     };
 
     this.getMenu = function () {
@@ -3605,6 +3644,7 @@ function on_size() {
     }
 
     RefreshDrawStyle();
+    BackgroundImg && LyricShow.setBackgroundImage();
 }
 
 function on_focus(is_focused) {
@@ -3682,7 +3722,6 @@ function on_mouse_leave() {
 }
 
 function on_mouse_lbtn_down(x, y, mask) {
-    //StatusBar.setText("foo bar baz qux quux foobar"); StatusBar.show();
     if (!prop.Edit.Start) {
         if (lyric) {
             drag = true;
@@ -3740,7 +3779,8 @@ function on_mouse_lbtn_dblclk(x, y, mask) {
 }
 
 function on_mouse_mbtn_down(x, y, mask) {
-    if (prop.Edit.Start) Edit.switchView();
+    if (Lock_MiddleButton) return;
+    else if (prop.Edit.Start) Edit.switchView();
     else if (lyric) Edit.start();
 }
 
@@ -3750,13 +3790,24 @@ function on_mouse_mbtn_dblclk(x, y, mask) {
 
 function on_mouse_wheel(step) {
     if (!prop.Edit.Start) {
-        lyric && applyDelta(step * 20);
+        if (on_key_down.Ctrl) {
+            if (step === 1 && prop.Style.Font_Size >= 48 || step === -1 && prop.Style.Font_Size <= 10)
+                return;
+            window.SetProperty("Style.Font-Size", prop.Style.Font_Size += step);
+            prop.Style.Font = gdi.Font(prop.Style.Font_Family, prop.Style.Font_Size, (prop.Style.Font_Bold ? 1 : 0) + (prop.Style.Font_Italic ? 2 : 0));
+            RefreshDrawStyle();
+            lyric && LyricShow.searchLine(fb.PlaybackTime);
+            StatusBar.setText("Font Size : " + prop.Style.Font_Size);
+            StatusBar.show(3000);
+        }
+        else
+            lyric && applyDelta(step * 20);
     }
     else if (!Lock) {
         if (!prop.Edit.View) {
-            if (step == 1) // wheel up
+            if (step === 1) // wheel up
                 Edit.undo();
-            else if (step == -1) // wheel down
+            else if (step === -1) // wheel down
                 Edit.moveNextLine();
         }
         else {
@@ -3768,7 +3819,7 @@ function on_mouse_wheel(step) {
 }
 
 function on_mouse_rbtn_up(x, y, mask) {
-    if (mask == 4) // Shift key
+    if (mask === 4) // Shift key
         return;
     else {
         !Lock && Menu.show(x, y);
