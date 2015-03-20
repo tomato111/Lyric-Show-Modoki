@@ -3,7 +3,7 @@
 
 // ==PREPROCESSOR==
 // @name "Lyric Show Modoki"
-// @version "1.4.1"
+// @version "1.4.2"
 // @author "tomato111"
 // @import "%fb2k_profile_path%import\common\lib.js"
 // ==/PREPROCESSOR==
@@ -23,7 +23,7 @@ var fs = new ActiveXObject("Scripting.FileSystemObject"); // File System Object
 var ws = new ActiveXObject("WScript.Shell"); // WScript Shell Object
 var Trace = new TraceLog();
 var scriptName = "Lyric Show Modoki";
-var scriptVersion = "1.4.1";
+var scriptVersion = "1.4.2";
 var scriptdir = fb.ProfilePath + "import\\" + scriptName + "\\";
 var commondir = fb.ProfilePath + "import\\common\\";
 var down_pos = {};
@@ -38,6 +38,7 @@ var GDIPlus_LEFT = 0x00000000;
 var GDIPlus_CENTER = 0x10000000;
 var GDIPlus_RIGHT = 0x20000000;
 var tagRe = /\[\d\d:\d\d[.:]\d\d\]/;
+var alltagsRe = /\[\d\d:\d\d[.:]\d\d\]/g;
 var timeRe = /\[(\d\d):(\d\d)[.:](\d\d)\]/;
 var firstRe = /^\[00:00[.:]00\]/;
 var m4aRE = /^m4a$/i;
@@ -539,7 +540,7 @@ function copyLyric(withTag) { // copy lyric to clipboad
 
     if (filetype === "lrc" && !withTag)
         for (var i = 0; i < textArray.length; i++)
-            textArray[i] = textArray[i].replace(tagRe, "");
+            textArray[i] = textArray[i].replace(alltagsRe, "");
 
     text = textArray.join(LineFeedCode).trim();
     if (lyric.info.length)
@@ -1002,7 +1003,7 @@ LyricShow = new function (Style) {
 
                 if (View) {
                     for (var i = 0; i < lyric.text.length; i++) {
-                        wordbreakList[i] = Math.floor(temp_gr.CalcTextWidth(lyric.text[i].replace(tagRe, "") + "[00:00.00] ", Style.Font) / ww) + 1;
+                        wordbreakList[i] = Math.floor(temp_gr.CalcTextWidth(lyric.text[i].replace(alltagsRe, "") + "[00:00.00] ", Style.Font) / ww) + 1;
                         if (contain) {
                             wreres = lyric.text[i].match(wre);
                             if (wreres) wordbreakList[i] += wreres.length;
@@ -1013,7 +1014,7 @@ LyricShow = new function (Style) {
                 else {
                     for (i = 0; i < lyric.text.length; i++) {
                         str = "";
-                        line_arr = temp_gr.EstimateLineWrap(isLRC ? lyric.text[i].slice(10) : lyric.text[i], Style.Font, c_ww).toArray();
+                        line_arr = temp_gr.EstimateLineWrap(isLRC ? lyric.text[i].replace(alltagsRe, "") : lyric.text[i], Style.Font, c_ww).toArray();
                         wordbreakList[i] = line_arr.length / 2;
                         numOfWordbreak += wordbreakList[i] - 1;
 
@@ -1043,7 +1044,7 @@ LyricShow = new function (Style) {
                 for (i = 0; i < lyric.text.length; i++) {
                     str = "";
 
-                    temp_text = isLRC ? lyric.text[i].slice(10) : lyric.text[i];
+                    temp_text = isLRC ? lyric.text[i].replace(alltagsRe, "") : lyric.text[i];
 
                     if (temp_text)
                         gdi_diff = temp_gr.CalcTextWidth(temp_text, Style.Font) - Math.ceil(temp_gr.MeasureString(temp_text, Style.Font, 0, 0, ww * 10, wh, 0).Width); // gr.EstimateLineWrap() はGDI用なのでGDI+とのサイズ差を補正して利用する
@@ -1085,7 +1086,7 @@ LyricShow = new function (Style) {
 
             var scrollSpeedList = [], scrollSpeedType2List = [];
             var lineList = this.lineList;
-            var h, t, interval;
+            var h, t, n, interval;
 
             this.h = 0; // 1ファイルの高さ // ワードブレイク時の行間にLPaddingは入らないのでwordbreakListを参照して計算した後に足し込んでいく
             for (var i = 0; i < lyric.text.length - 1; i++) { // 条件の-1は最後の行の高さを無視するため
@@ -1099,6 +1100,8 @@ LyricShow = new function (Style) {
                 for (i = 0; i < lineList.length; i++) {
                     h = Math.ceil(this.wordbreakList[i] * TextHeightWithoutLPadding + Style.LPadding); // 行の高さ
                     t = (lineList[i + 1] - lineList[i]) * 10 || 1; // 次の行までの時間[ms] // Infinity 対策で最小値を1にする
+                    n = Math.floor(t / interval); // 更新可能回数
+                    t = n * interval || 1; // 次の行までの時間を更新可能回数を考慮した時間に変換する // 変換した時間を基準に移動量を計算
                     scrollSpeedList[i] = h / t * interval; // 1回の更新での移動量(行ごとに変化する)
                     scrollSpeedType2List[i] = t >= prop.Panel.ScrollDurationTime * 10 ? h / (prop.Panel.ScrollDurationTime * 10) * interval : null; // Panel.ScrollType == 2 での1回の更新の移動量. スクロール開始は(prop.Panel.ScrollDurationTime*10)ミリ秒前.
                     if (scrollSpeedList[i] > h) // 1回の更新で行の高さを超える移動量となった場合はスキップ
@@ -1830,12 +1833,8 @@ LyricShow = new function (Style) {
 
         this.searchLine(fb.PlaybackTime);
         filetype === "txt" && (function () { offsetY = Math.ceil(offsetY) - (moveY - Math.floor(moveY)); }).timeout(1000) // 再生始めは不安定であるが、非同期歌詞ではlineYでの修正が出来ないのでディレイで一度だけ小数点以下を揃えて安定化させる
-        isM4A = m4aRE.test(fs.GetExtensionName(fb.GetNowPlaying().Path));
-
-        if (filetype === "lrc" && prop.Style.DrawingMethod === 0 && (prop.Panel.ScrollType === 4 || prop.Panel.ScrollType === 5)) { // Type4,5ではGDI+での描画が必要
-            StatusBar.setText("Only GDI+");
-            StatusBar.show();
-        }
+        if (fb.IsPlaying) // この行を実行する前に再生が停止される可能性があるので条件分岐でエラー回避
+            isM4A = m4aRE.test(fs.GetExtensionName(fb.GetNowPlaying().Path));
     };
 
     this.end = function () {
@@ -2111,7 +2110,7 @@ Edit = new function (Style, p) {
 
     var edit_fixY, di = [];
     var larrowX, arrowY, rarrowX, Arrow_img, DrawStyle;
-    var tagBottomRe = /([.:]\d\d\])/;
+    var tagTopRe = /(^\[\d\d:\d\d[.:]\d\d\])/;
 
     this.init = function () {
 
@@ -2163,7 +2162,7 @@ Edit = new function (Style, p) {
 
         Lock = true;
 
-        var pl = lyric.i - 1
+        var pl = lyric.i - 1;
         lyric.text[pl].match(timeRe);
         var pt = (RegExp.$1 * 60 + Number(RegExp.$2)) * 100 + Number(RegExp.$3);
 
@@ -2366,8 +2365,6 @@ Edit = new function (Style, p) {
 
     this.View = new function () {
 
-        var TimeRe = /^\d+?\.\d\d$/;
-
         this.setProperties = function () {
             p.setLineList(true);
             p.setWordbreakList(true);
@@ -2379,11 +2376,7 @@ Edit = new function (Style, p) {
             this.pauseTimer(true);
             disp.top = 0;
 
-            if (TimeRe.test(time)) { // time *= 100 この計算になぜか微量の誤差が生じてapplyTimeDiffに影響が出るので対策する
-                time = Math.round(time * 100);
-            }
-            else
-                time *= 100;
+            time = Math.round(time * 100); // time *= 100 この計算になぜか微量の誤差が生じてapplyTimeDiffに影響が出るので対策する
 
             for (var i = 0; i < p.lineList.length; i++)
                 if (p.lineList[i] > time) break;
@@ -2479,7 +2472,10 @@ Edit = new function (Style, p) {
             if (n < 0) continue;
             else if (n >= lyric.text.length || offsetY + DrawStyle[n].nextY > wh) { disp.bottom = n - 1; break; }
             else {
-                str = lyric.text[n].replace(tagBottomRe, "$1 ");
+                if (tagTopRe.test(lyric.text[n]))
+                    str = RegExp.$1 + " " + lyric.text[n].replace(alltagsRe, "");
+                else
+                    str = lyric.text[n].replace(alltagsRe, "");
                 ci = (i < prop.Edit.Step) ? (i < 0) ? (i >= -prop.Edit.Step) ? -i : null : i : null;
                 c = ci === null ? di[3] : setRGBdiff(Style.Color.Text, di[0] * ci, di[1] * ci, di[2] * ci);
                 // fb.trace(str + "::" + Style.Font + "::" + Style.Color.Text + "::" + g_x + "::" + g_y + "::" + offsetY + "::" + DrawStyle[n].y + "::" + ww + "::" + wh + "::" + Style.Align);
@@ -2743,8 +2739,8 @@ Keybind = new function () {
             this[keynum] = commands[name];
         }
 
-        this[38] =function () { lyric && applyDelta(20); }, // Up
-        this[40]= function () { lyric && applyDelta(-20); }, // Down
+        this[38] = function () { lyric && applyDelta(20); }, // Up
+        this[40] = function () { lyric && applyDelta(-20); }, // Down
         this[67] = function () { // C
             if (on_key_down.Ctrl && lyric) copyLyric(true); // (+Ctrl)
         };

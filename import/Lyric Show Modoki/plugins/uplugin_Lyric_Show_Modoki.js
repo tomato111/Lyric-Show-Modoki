@@ -20,7 +20,7 @@
                     );
                     Menu.build(prop.Edit.Start ? Menu.Edit : "");
                 }
-            }).timeout(1000);
+            }).timeout(1500);
         }
     },
     onPlay: function () { }, // 新たに曲が再生される度に呼び出される関数
