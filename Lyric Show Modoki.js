@@ -3,7 +3,7 @@
 
 // ==PREPROCESSOR==
 // @name "Lyric Show Modoki"
-// @version "1.4.2"
+// @version "1.4.3"
 // @author "tomato111"
 // @import "%fb2k_profile_path%import\common\lib.js"
 // ==/PREPROCESSOR==
@@ -23,7 +23,7 @@ var fs = new ActiveXObject("Scripting.FileSystemObject"); // File System Object
 var ws = new ActiveXObject("WScript.Shell"); // WScript Shell Object
 var Trace = new TraceLog();
 var scriptName = "Lyric Show Modoki";
-var scriptVersion = "1.4.2";
+var scriptVersion = "1.4.3";
 var scriptdir = fb.ProfilePath + "import\\" + scriptName + "\\";
 var commondir = fb.ProfilePath + "import\\common\\";
 var down_pos = {};
@@ -55,6 +55,7 @@ prop = new function () {
     window.SetProperty("Style.DrawingMethod", null);
     window.SetProperty("Panel.Keybind.ScrollUp", null);
     window.SetProperty("Panel.Keybind.ScrollDown", null);
+    window.SetProperty("Panel.LRC.ScrollStartTime", null);
     // ----
 
 
@@ -146,7 +147,7 @@ prop = new function () {
         VPadding: window.GetProperty("Style.Vartical-Padding", 4),
         LPadding: window.GetProperty("Style.Line-Padding", 1),
         Highline: window.GetProperty("Style.HighlineColor for unsynced lyrics", true),
-        CenterPosition: window.GetProperty("Style.CenterPosition", -12),
+        CenterPosition: window.GetProperty("Style.CenterPosition", 46),
         EnableStyleTextRender: window.GetProperty("Style.EnableStyleTextRender", false),
         DrawingMethod: 0
     };
@@ -2049,8 +2050,8 @@ LyricShow = new function (Style) {
                     }
         }
         else if (!main.IsVisible) {
-            Style.Shadow && gr.GdiDrawText("Click here to enable this panel.", Style.Font, Style.Color.TextShadow, g_x + Style.ShadowPosition[0], g_y + offsetY - 6 + Style.ShadowPosition[1], ww, wh, DT_CENTER | DT_WORDBREAK | DT_NOPREFIX);
-            gr.GdiDrawText("Click here to enable this panel.", Style.Font, Style.Color.Text, g_x, g_y + offsetY - 6, ww, wh, DT_CENTER | DT_WORDBREAK | DT_NOPREFIX);
+            Style.Shadow && gr.GdiDrawText("Click here to enable this panel.", Style.Font, Style.Color.TextShadow, g_x + Style.ShadowPosition[0], g_y + (wh * (46 / 100)) - 6 + Style.ShadowPosition[1], ww, wh, DT_CENTER | DT_WORDBREAK | DT_NOPREFIX);
+            gr.GdiDrawText("Click here to enable this panel.", Style.Font, Style.Color.Text, g_x, g_y + (wh * (46 / 100)) - 6, ww, wh, DT_CENTER | DT_WORDBREAK | DT_NOPREFIX);
         }
         else if (fb.IsPlaying) { // lyrics is not found
             var wordbreak = 0;
@@ -3625,8 +3626,8 @@ function on_paint(gr) {
 function on_size() {
     g_x = prop.Style.HPadding;
     g_y = prop.Style.VPadding;
-    ww = window.Width - g_x * 2;
-    wh = window.Height - g_y * 2;
+    ww = Math.max(window.Width - g_x * 2, 0); // window.Width と window.Height を 0 に設定してくるコンポ（foo_uie_tabs等）があるので、Math.maxメソッドで負数を回避
+    wh = Math.max(window.Height - g_y * 2, 0);
     centerleftX = Math.round(ww / 5 + g_x);
     fixY = Math.round(wh * (prop.Style.CenterPosition / 100));
 
@@ -3639,7 +3640,7 @@ function on_size() {
         Buttons.buildButton();
     }
 
-    RefreshDrawStyle();
+    ww && wh && RefreshDrawStyle();
     BackgroundImg && LyricShow.setBackgroundImage();
 }
 
