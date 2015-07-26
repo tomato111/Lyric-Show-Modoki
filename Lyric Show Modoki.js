@@ -3,7 +3,7 @@
 
 // ==PREPROCESSOR==
 // @name "Lyric Show Modoki"
-// @version "1.4.3"
+// @version "1.4.4"
 // @author "tomato111"
 // @import "%fb2k_profile_path%import\common\lib.js"
 // ==/PREPROCESSOR==
@@ -15,7 +15,7 @@
 //============================================
 // user reserved words
 var plugins, lyric, parse_path, path, directory, filename, basename, filetype, dateLastModified, dateCreated, dataSize, charset, offsetinfo, backalpha
-, offsetY, fixY, moveY, lineY, drag, drag_y, g_x, g_y, ww, wh, larea_seek, rarea_seek, seek_width, rarea_seek_x, arc_w, arc_h, ignore_remainder, Lock, Lock_MiddleButton, movable, jumpY
+, offsetY, fixY, moveY, lineY, drag, drag_y, g_x, g_y, ww, wh, larea_seek, rarea_seek, seek_width, rarea_seek_x, arc_w, arc_h, on_size_research, ignore_remainder, Lock, Lock_MiddleButton, movable, jumpY
 , Left_Center, Center_Left, Center_Right, Right_Center, centerleftX, TextHeight, TextHeightWithoutLPadding, BackgroundImg, isM4A
 , prop, LyricShow, Edit, Buttons, StatusBar, Keybind, Menu, Messages, Label;
 
@@ -23,7 +23,7 @@ var fs = new ActiveXObject("Scripting.FileSystemObject"); // File System Object
 var ws = new ActiveXObject("WScript.Shell"); // WScript Shell Object
 var Trace = new TraceLog();
 var scriptName = "Lyric Show Modoki";
-var scriptVersion = "1.4.3";
+var scriptVersion = "1.4.4";
 var scriptdir = fb.ProfilePath + "import\\" + scriptName + "\\";
 var commondir = fb.ProfilePath + "import\\common\\";
 var down_pos = {};
@@ -88,6 +88,8 @@ prop = new function () {
         SingleClickSeek: window.GetProperty("Panel.SingleClickSeek", false),
         AutoScroll: window.GetProperty("Panel.AutoScroll", true),
         RunInTheBackground: window.GetProperty("Panel.RunInTheBackground", false),
+        MouseWheelDelta: window.GetProperty("Panel.MouseWheelDelta", 30),
+        MouseWheelSmoothing: window.GetProperty("Panel.MouseWheelSmoothing", true),
         Keybind:
         {
             SeekToNextLine: window.GetProperty("Panel.Keybind.SeekToNextLine", 88), // Default is 'X' Key
@@ -126,6 +128,8 @@ prop = new function () {
     if (typeof this.Panel.ScrollDurationTime !== "number" || this.Panel.ScrollDurationTime < 3 || this.Panel.ScrollDurationTime > 300)
         window.SetProperty("Panel.LRC.ScrollDurationTime", this.Panel.ScrollDurationTime = 141);
 
+    if (typeof this.Panel.MouseWheelDelta !== "number" || this.Panel.MouseWheelDelta < 0)
+        window.SetProperty("Panel.MouseWheelDelta", this.Panel.MouseWheelDelta = 30);
 
     // ==Style====
     this.Style = {
@@ -149,6 +153,7 @@ prop = new function () {
         Highline: window.GetProperty("Style.HighlineColor for unsynced lyrics", true),
         CenterPosition: window.GetProperty("Style.CenterPosition", 46),
         EnableStyleTextRender: window.GetProperty("Style.EnableStyleTextRender", false),
+        FadeInPlayingColor: window.GetProperty("Style.FadeInPlayingColor", false),
         DrawingMethod: 0
     };
 
@@ -348,7 +353,7 @@ LanguageLoader = {
         if (!prop.Panel.Lang || !checkLang(prop.Panel.Lang)) { // get lang from environment variable. show propmt if it cannot get a available language,  
             var EnvLang = ws.Environment("USER").Item("LANG").substring(0, 2);
             if (!checkLang(EnvLang)) {
-                EnvLang = prompt("Please input menu language.\n\"" + definedLanguage.join('", "') + "\" is available.", scriptName, "en");
+                EnvLang = prompt('Please input menu language.\n"' + definedLanguage.join('", "') + '" is available.', scriptName, "en");
                 if (!checkLang(EnvLang))
                     EnvLang = "en";
             }
@@ -618,28 +623,59 @@ function saveToFile(file) {
     }
 }
 
-function applyDelta(delta) {
+function applyDelta(delta, isMouseMove) {
 
     if (delta === 0 || (filetype === "lrc" && (prop.Panel.ScrollType === 4 || prop.Panel.ScrollType === 5)))
         return;
 
-    var temp = offsetY + delta;
-
-    if (temp >= fixY) {
-        offsetY = fixY;
-    }
-    else if (temp <= LyricShow.setProperties.minOffsetY) {
-        offsetY = LyricShow.setProperties.minOffsetY;
-        movable && (movable = false);
-        !ignore_remainder && (ignore_remainder = true);
+    if (isMouseMove || !prop.Panel.MouseWheelSmoothing) {
+        applyDelta.applySimple(offsetY + delta);
     }
     else {
-        offsetY = temp;
-        prop.Panel.AutoScroll && !movable && (movable = true);
+        if (Lock) {
+            applyDelta.applyAnimation.clearInterval();
+            applyDelta.AnmTarget -= applyDelta.AnmAppliedDelta;
+            applyDelta.AnmTarget += delta;
+        }
+        else
+            applyDelta.AnmTarget = delta;
+
+        Lock = true;
+        applyDelta.AnmAppliedDelta = 0;
+        applyDelta.AnmDelta = applyDelta.AnmTarget / 7;
+        applyDelta.applyAnimation.interval(15);
     }
 
-    window.Repaint();
 }
+applyDelta.applySimple = function (n) {
+    if (n >= fixY) {
+        if (offsetY == !fixY) {
+            offsetY = fixY;
+            window.Repaint();
+        }
+    }
+    else if (n <= LyricShow.setProperties.minOffsetY) {
+        if (offsetY == !LyricShow.setProperties.minOffsetY) {
+            offsetY = LyricShow.setProperties.minOffsetY;
+            window.Repaint();
+        }
+        movable = false;
+        ignore_remainder = true;
+    }
+    else {
+        offsetY = n;
+        prop.Panel.AutoScroll && (movable = true);
+        window.Repaint();
+    }
+};
+applyDelta.applyAnimation = function () {
+    applyDelta.applySimple(offsetY + applyDelta.AnmDelta);
+    applyDelta.AnmAppliedDelta += applyDelta.AnmDelta;
+    if (Math.abs(applyDelta.AnmAppliedDelta) >= Math.abs(applyDelta.AnmTarget)) {
+        applyDelta.applyAnimation.clearInterval();
+        Lock = false;
+    }
+};
 
 function seekLineTo(i) {
 
@@ -1027,7 +1063,7 @@ LyricShow = new function (Style) {
                                     leftcenterX = space / 2;
 
                             if (str) str += prop.Save.LineFeedCode;
-                            str += line_arr[j].trim();
+                            str += line_arr[j];
                         }
 
                         wordbreakText[i] = str;
@@ -1064,7 +1100,7 @@ LyricShow = new function (Style) {
                                 leftcenterX = space / 2;
 
                         if (str) str += prop.Save.LineFeedCode;
-                        str += line_arr[j].trim();
+                        str += line_arr[j];
                     }
 
                     wordbreakText[i] = str;
@@ -1182,6 +1218,14 @@ LyricShow = new function (Style) {
                 // fb.trace(this.i + " :: " + this.height + " :: " + this.speed + " :: " + offsetY + " :: " + lyric.text.length + " :: " + time + " > " + LyricShow.setProperties.DrawStyle[this.i + 1].time * 100)
             };
             DrawString.prototype.scroll_1 = function (time) { // for synced lyrics
+                //--color--
+                if (Style.FadeInPlayingColor && (LyricShow.on_paintInfo.dpi < LyricShow.on_paintInfo.dpi_max)) {
+                    LyricShow.on_paintInfo.dpi++;
+                    LyricShow.on_paintInfo.dpc = setRGBdiff(prop.Style.Color.Text, LyricShow.on_paintInfo.di[0] * LyricShow.on_paintInfo.dpi, LyricShow.on_paintInfo.di[1] * LyricShow.on_paintInfo.dpi, LyricShow.on_paintInfo.di[2] * LyricShow.on_paintInfo.dpi);
+                    var refresh = true;
+                }
+                //----
+
                 if (movable) {
                     if (lineY < this.height) { // 移動許可範囲の設定
                         offsetY -= this.speed;
@@ -1193,6 +1237,8 @@ LyricShow = new function (Style) {
                         !ignore_remainder && this.fix_offset(this.height, lineY);
                         ignore_remainder && (ignore_remainder = false); // 誤差補正の無効は一度だけ
                         moveY = lineY = 0;
+                        LyricShow.on_paintInfo.dpi = 0;
+                        LyricShow.on_paintInfo.dpc = prop.Style.Color.Text;
                         lyric.i++;
                         return true; // refresh flag
                     }
@@ -1203,12 +1249,26 @@ LyricShow = new function (Style) {
                 }
                 else if (time >= this.p.lineList[this.i + 1]) {
                     moveY = lineY = 0;
+                    LyricShow.on_paintInfo.dpi = 0;
+                    LyricShow.on_paintInfo.dpc = prop.Style.Color.Text;
                     lyric.i++;
                     return true; // refresh flag
                 }
                 // fb.trace(this.i + " :: " + this.height + " :: " + this.speed + " :: " + offsetY + " :: " + lyric.text.length + " :: " + time + " > " + LyricShow.setProperties.DrawStyle[this.i + 1].time * 100)
+
+                if (refresh) {
+                    return true; // refresh flag
+                }
             };
             DrawString.prototype.scroll_2 = function (time) { // for synced lyrics
+                //--color--
+                if (Style.FadeInPlayingColor && (LyricShow.on_paintInfo.dpi < LyricShow.on_paintInfo.dpi_max)) {
+                    LyricShow.on_paintInfo.dpi++;
+                    LyricShow.on_paintInfo.dpc = setRGBdiff(prop.Style.Color.Text, LyricShow.on_paintInfo.di[0] * LyricShow.on_paintInfo.dpi, LyricShow.on_paintInfo.di[1] * LyricShow.on_paintInfo.dpi, LyricShow.on_paintInfo.di[2] * LyricShow.on_paintInfo.dpi);
+                    var refresh = true;
+                }
+                //----
+
                 if (movable) {
                     if (lineY < this.height) { // 移動許可範囲の設定
                         if (this.speedType2) {
@@ -1229,6 +1289,8 @@ LyricShow = new function (Style) {
                         !ignore_remainder && this.fix_offset(this.height, lineY);
                         ignore_remainder && (ignore_remainder = false);
                         moveY = lineY = 0;
+                        LyricShow.on_paintInfo.dpi = 0;
+                        LyricShow.on_paintInfo.dpc = prop.Style.Color.Text;
                         lyric.i++;
                         return true; // refresh flag
                     }
@@ -1239,12 +1301,26 @@ LyricShow = new function (Style) {
                 }
                 else if (time >= this.p.lineList[this.i + 1]) {
                     moveY = lineY = 0;
+                    LyricShow.on_paintInfo.dpi = 0;
+                    LyricShow.on_paintInfo.dpc = prop.Style.Color.Text;
                     lyric.i++;
                     return true; // refresh flag
                 }
                 // fb.trace(this.i + " :: " + this.height + " :: " + this.speed + " :: " + offsetY + " :: " + lyric.text.length + " :: " + time + " > " + LyricShow.setProperties.DrawStyle[this.i + 1].time * 100)
+
+                if (refresh) {
+                    return true; // refresh flag
+                }
             };
             DrawString.prototype.scroll_3 = function (time) { // for synced lyrics
+                //--color--
+                if (Style.FadeInPlayingColor && (LyricShow.on_paintInfo.dpi < LyricShow.on_paintInfo.dpi_max)) {
+                    LyricShow.on_paintInfo.dpi++;
+                    LyricShow.on_paintInfo.dpc = setRGBdiff(prop.Style.Color.Text, LyricShow.on_paintInfo.di[0] * LyricShow.on_paintInfo.dpi, LyricShow.on_paintInfo.di[1] * LyricShow.on_paintInfo.dpi, LyricShow.on_paintInfo.di[2] * LyricShow.on_paintInfo.dpi);
+                    var refresh = true;
+                }
+                //----
+
                 if (movable) {
                     if (lineY < this.p.DrawStyle[this.i - 1].height) { // 移動許可範囲の設定
                         offsetY -= this.speedType3;
@@ -1257,6 +1333,8 @@ LyricShow = new function (Style) {
                         !ignore_remainder && this.fix_offset(this.p.DrawStyle[this.i - 1].height, lineY);
                         ignore_remainder && (ignore_remainder = false);
                         moveY = lineY = 0;
+                        LyricShow.on_paintInfo.dpi = 0;
+                        LyricShow.on_paintInfo.dpc = prop.Style.Color.Text;
                         lyric.i++;
                         return true; // refresh flag
                     }
@@ -1267,7 +1345,13 @@ LyricShow = new function (Style) {
                 }
                 else if (time >= this.p.lineList[this.i + 1]) {
                     moveY = lineY = 0;
+                    LyricShow.on_paintInfo.dpi = 0;
+                    LyricShow.on_paintInfo.dpc = prop.Style.Color.Text;
                     lyric.i++;
+                    return true; // refresh flag
+                }
+
+                if (refresh) {
                     return true; // refresh flag
                 }
             };
@@ -1280,7 +1364,7 @@ LyricShow = new function (Style) {
                     }
 
                 if (this.i + 1 !== lyric.text.length)
-                    if (LyricShow.on_paintInfo.l_alpha < 252 && time > this.p.lineList[this.i] + (this.p.lineList[this.i + 1] - this.p.lineList[this.i]) / 2.1) {
+                    if (LyricShow.on_paintInfo.l_alpha < 252 && time > this.p.lineList[this.i] + (this.p.lineList[this.i + 1] - this.p.lineList[this.i]) / 2.2) {
                         LyricShow.on_paintInfo.l_alpha += 28; // 252の約数
                         refresh = true;
                     }
@@ -1356,6 +1440,12 @@ LyricShow = new function (Style) {
                 } catch (e) { }
             };
             DrawString.prototype.draw = function (gr, text, color, x, w) {
+                if (color === null)
+                    if (Style.FadeInPlayingColor)
+                        var color = this.i === lyric.i - 1 ? LyricShow.on_paintInfo.dpc : Style.Color.Text;
+                    else
+                        color = this.i === lyric.i - 1 ? Style.Color.PlayingText : Style.Color.Text;
+
                 switch (Style.DrawingMethod) {
                     case 0:
                         gr.GdiDrawText(text, Style.Font, color, x, this.cy + Math.ceil(offsetY), w, this.height, Style.Align);
@@ -1370,6 +1460,12 @@ LyricShow = new function (Style) {
                 }
             };
             DrawString.prototype.draw_withShadow = function (gr, text, color, x, w) {
+                if (color === null)
+                    if (Style.FadeInPlayingColor)
+                        var color = this.i === lyric.i - 1 ? LyricShow.on_paintInfo.dpc : Style.Color.Text;
+                    else
+                        color = this.i === lyric.i - 1 ? Style.Color.PlayingText : Style.Color.Text;
+
                 switch (Style.DrawingMethod) {
                     case 0:
                         gr.GdiDrawText(text, Style.Font, Style.Color.TextShadow, x + Style.ShadowPosition[0], this.sy + Math.ceil(offsetY), w, this.height, Style.Align);
@@ -1444,6 +1540,8 @@ LyricShow = new function (Style) {
                 if (lineList[i] > Math.round(time)) break;
             lyric.i = i; // 対象行
 
+            LyricShow.on_paintInfo.dpi = 0;
+            LyricShow.on_paintInfo.dpc = prop.Style.Color.Text;
             switch (prop.Panel.ScrollType) {
                 case 1:
                     lineY = (time - lineList[i - 1]) * 10 / interval * DrawStyle[i - 1].speed; // (i-1行になってから現在の再生時間になるまでに行われた更新回数) * 1回の更新での移動量
@@ -1487,16 +1585,12 @@ LyricShow = new function (Style) {
                     offsetY = fixY;
                     LyricShow.on_paintInfo.pl_alpha = 252;
                     LyricShow.on_paintInfo.l_alpha = 252;
-                    LyricShow.on_paintInfo.dpi = 0;
-                    LyricShow.on_paintInfo.dpc = prop.Style.Color.Text;
                     jumpY = null;
                     break;
                 case 5:
                     offsetY = fixY;
                     LyricShow.on_paintInfo.pl_alpha = 252;
                     LyricShow.on_paintInfo.l_alpha = 0;
-                    LyricShow.on_paintInfo.dpi = 0;
-                    LyricShow.on_paintInfo.dpc = prop.Style.Color.Text;
                     jumpY = null;
                     break;
             } // end switch
@@ -2024,14 +2118,14 @@ LyricShow = new function (Style) {
                             var c = offsetY + DrawStyle[i].y;
                             if (c > wh) { disp.bottom = i - 1; break; } // do not draw text outside the screen. CPU utilization rises
                             else if (c < -DrawStyle[i].height) { disp.top = i + 1; continue; } // ditto
-                            else DrawStyle[i].draw_withShadow(gr, DrawStyle[i].text, lyric.i - 1 === i ? Style.Color.PlayingText : Style.Color.Text, this.on_paintInfo.x, this.on_paintInfo.w);
+                            else DrawStyle[i].draw_withShadow(gr, DrawStyle[i].text, null, this.on_paintInfo.x, this.on_paintInfo.w);
                         }
                     else
                         for (i = 0; i < lyric.text.length; i++) {
                             c = offsetY + DrawStyle[i].y;
                             if (c > wh) { disp.bottom = i - 1; break; } // do not draw text outside the screen. CPU utilization rises
                             else if (c < -DrawStyle[i].height) { disp.top = i + 1; continue; } // ditto
-                            else DrawStyle[i].draw(gr, DrawStyle[i].text, lyric.i - 1 === i ? Style.Color.PlayingText : Style.Color.Text, this.on_paintInfo.x, this.on_paintInfo.w);
+                            else DrawStyle[i].draw(gr, DrawStyle[i].text, null, this.on_paintInfo.x, this.on_paintInfo.w);
                         }
             else
                 if (Style.Shadow)
@@ -2740,8 +2834,8 @@ Keybind = new function () {
             this[keynum] = commands[name];
         }
 
-        this[38] = function () { lyric && applyDelta(20); }, // Up
-        this[40] = function () { lyric && applyDelta(-20); }, // Down
+        this[38] = function () { lyric && applyDelta(prop.Panel.MouseWheelDelta); }, // Up
+        this[40] = function () { lyric && applyDelta(-prop.Panel.MouseWheelDelta); }, // Down
         this[67] = function () { // C
             if (on_key_down.Ctrl && lyric) copyLyric(true); // (+Ctrl)
         };
@@ -3008,6 +3102,13 @@ Menu = new function () {
             }
         },
         {
+            Caption: Label.WheelSmoothing,
+            Func: function () {
+                window.SetProperty("Panel.MouseWheelSmoothing", prop.Panel.MouseWheelSmoothing = !prop.Panel.MouseWheelSmoothing);
+                Menu.build();
+            }
+        },
+        {
             Flag: MF_SEPARATOR
         },
         {
@@ -3039,6 +3140,14 @@ Menu = new function () {
             Caption: Label.ScrollToCenter,
             Func: function () {
                 window.SetProperty("Panel.LRC.ScrollToCenter", prop.Panel.ScrollToCenter = !prop.Panel.ScrollToCenter);
+                Menu.build();
+            }
+        },
+        {
+            Caption: Label.FadeInPlayingColor,
+            Func: function () {
+                window.SetProperty("Style.FadeInPlayingColor", prop.Style.FadeInPlayingColor = !prop.Style.FadeInPlayingColor);
+                window.Repaint();
                 Menu.build();
             }
         }
@@ -3208,11 +3317,13 @@ Menu = new function () {
                     var str = path + "\nType: " + filetype.toUpperCase() + "\n"
                             + "Lyrics: " + lineNum + " lines, " + strCount + " length, " + dataSize / 1000 + " KB, read as " + charset + "\n"
                             + (offsetinfo ? "Applied offset: " + offsetinfo + " ms\n" : filetype === "lrc" ? "Applied offset: 0 ms\n" : "")
+                            + "------------------------------\n"
                             + lyrics;
                 else
                     str = "Field: " + basename + "\nType: " + filetype.toUpperCase() + "\n"
                         + "Lyrics: " + lineNum + " lines, " + strCount + " length\n"
                         + (offsetinfo ? "Applied offset: " + offsetinfo + " ms\n" : filetype === "lrc" ? "Applied offset: 0 ms\n" : "")
+                        + "------------------------------\n"
                         + lyrics;
 
                 fb.ShowPopupMessage(str, scriptName);
@@ -3443,10 +3554,12 @@ Menu = new function () {
             submenu_Display[2].Flag = prop.Style.Shadow ? MF_CHECKED : MF_UNCHECKED;
             submenu_Display[3].Flag = prop.Style.Font_Italic ? MF_CHECKED : MF_UNCHECKED;
             submenu_Display[4].Flag = prop.Panel.BackgroundEnable ? MF_CHECKED : MF_UNCHECKED;
-            submenu_Display[6].Flag = prop.Style.Highline ? MF_CHECKED : MF_UNCHECKED;
-            submenu_Display[7].Flag = prop.Panel.ExpandRepetition ? MF_CHECKED : MF_UNCHECKED;
-            submenu_Display[9].Flag = prop.Panel.Contain ? MF_CHECKED : MF_UNCHECKED;
-            submenu_Display[10].Flag = prop.Panel.ScrollToCenter ? MF_CHECKED : MF_UNCHECKED;
+            submenu_Display[5].Flag = prop.Panel.MouseWheelSmoothing ? MF_CHECKED : MF_UNCHECKED;
+            submenu_Display[7].Flag = prop.Style.Highline ? MF_CHECKED : MF_UNCHECKED;
+            submenu_Display[8].Flag = prop.Panel.ExpandRepetition ? MF_CHECKED : MF_UNCHECKED;
+            submenu_Display[10].Flag = prop.Panel.Contain ? MF_CHECKED : MF_UNCHECKED;
+            submenu_Display[11].Flag = prop.Panel.ScrollToCenter ? MF_CHECKED : MF_UNCHECKED;
+            submenu_Display[12].Flag = prop.Style.FadeInPlayingColor ? MF_CHECKED : MF_UNCHECKED;
 
             menu_LyricShow[5].Radio = prop.Panel.ScrollType - 1; // radio number begin with 0
             switch (Number(window.GetProperty("Style.Align"))) {
@@ -3581,7 +3694,8 @@ Menu = new function () {
 set_align();
 on_size();
 for (var pname in plugins)
-    plugins[pname].onStartUp();
+    if (plugins[pname].onStartUp instanceof Function)
+        plugins[pname].onStartUp();
 
 function main(text) {
 
@@ -3626,6 +3740,7 @@ function on_paint(gr) {
 function on_size() {
     g_x = prop.Style.HPadding;
     g_y = prop.Style.VPadding;
+    on_size_research = Boolean(ww == 0 || wh == 0);
     ww = Math.max(window.Width - g_x * 2, 0); // window.Width と window.Height を 0 に設定してくるコンポ（foo_uie_tabs等）があるので、Math.maxメソッドで負数を回避
     wh = Math.max(window.Height - g_y * 2, 0);
     centerleftX = Math.round(ww / 5 + g_x);
@@ -3641,6 +3756,7 @@ function on_size() {
     }
 
     ww && wh && RefreshDrawStyle();
+    on_size_research && lyric && LyricShow.searchLine(fb.PlaybackTime);
     BackgroundImg && LyricShow.setBackgroundImage();
 }
 
@@ -3651,7 +3767,8 @@ function on_focus(is_focused) {
 function on_playback_new_track(metadb) {
     main();
     for (var pname in plugins)
-        plugins[pname].onPlay();
+        if (plugins[pname].onPlay instanceof Function)
+            plugins[pname].onPlay();
 }
 
 function on_playback_seek(time) {
@@ -3676,7 +3793,7 @@ function on_playback_pause(state) {
 
 function on_mouse_move(x, y) {
     if (drag) {
-        applyDelta(y - drag_y);
+        applyDelta(y - drag_y, true);
         drag_y = y;
     }
     else if (prop.Edit.Start) {
@@ -3798,7 +3915,7 @@ function on_mouse_wheel(step) {
             StatusBar.show(3000);
         }
         else
-            lyric && applyDelta(step * 20);
+            lyric && applyDelta(step * prop.Panel.MouseWheelDelta);
     }
     else if (!Lock) {
         if (!prop.Edit.View) {

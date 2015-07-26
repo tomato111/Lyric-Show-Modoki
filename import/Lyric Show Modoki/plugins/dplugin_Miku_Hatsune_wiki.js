@@ -40,7 +40,7 @@
             if (!artist) return;
         }
 
-        StatusBar.setText("検索中......");
+        StatusBar.setText("検索中......Miku Hatsune wiki");
         StatusBar.show();
         getHTML(null, "GET", createQuery(title), async, first, onLoaded);
 
@@ -51,10 +51,11 @@
         }
 
         function onLoaded(request, depth) {
-            StatusBar.setText("検索中......");
+            StatusBar.setText("検索中......Miku Hatsune wiki");
             StatusBar.show();
             debug_html && fb.trace("\nOpen#" + getHTML.PRESENT.depth + ": " + getHTML.PRESENT.file + "\n");
             var res = request.responseText;
+            debug_html && fb.trace(res);
             var resArray = res.split('\n');
             var Page = new AnalyzePage(resArray, depth);
 

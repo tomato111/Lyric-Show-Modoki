@@ -49,9 +49,10 @@
             !isStartUp && StatusBar.show();
             debug_html && fb.trace("\nOpen#" + ": " + getHTML.PRESENT.file + "\n");
 
-            var res = request.responseBody; // binary for without character corruption
-            res = responseBodyToCharset(res, "UTF-8");
+            var res = request.responseBody;
+            res = responseBodyToCharset(res, "UTF-8"); // fix character corruption
 
+            debug_html && fb.trace(res);
             var resArray = res.split('\n');
             var Version = new AnalyzePage(resArray);
 

@@ -28,8 +28,6 @@
         var txt = true;
         var LineFeedCode = prop.Save.LineFeedCode;
         var AutoSaveTo = window.GetProperty("Plugin.Search.AutoSaveTo");
-        var searchRe = new RegExp('<TD class=(ct\\d{3})>(?:<A href="(.+?=(.+?))">)?(.*?)(?:</A>)?</td>', "i");
-        var infoRe = new RegExp('<td class="pad5x10x0x10">(.*?)</td>', "i");
 
         // title, artist for search
         var title = fb.TitleFormat("%title%").Eval();
@@ -42,7 +40,7 @@
             if (!artist) return;
         }
 
-        StatusBar.setText("検索中......");
+        StatusBar.setText("検索中......Utamap");
         StatusBar.show();
         getHTML(null, "GET", createQuery(title), async, depth, onLoaded);
 
@@ -52,20 +50,21 @@
             if (id)
                 return "http://www.utamap.com/phpflash/flashfalsephp.php?unum=" + id;
             else
-                return "http://www.utamap.com/searchkasi.php?searchname=title&word=" + encodeURIComponent(word) + (page ? ("&page=" + page) : "") + "&act=search&sortname=1&pattern=1";
+                return "http://www.utamap.com/searchkasi.php?searchname=title&word=" + EscapeSJIS(word).replace(/%20/g, '+') + (page ? ("&page=" + page) : "") + "&act=search&sortname=1&pattern=1";
         }
 
         function onLoaded(request, depth) {
-            StatusBar.setText("検索中......");
+            StatusBar.setText("検索中......Utamap");
             StatusBar.show();
             debug_html && fb.trace("\nOpen#" + getHTML.PRESENT.depth + ": " + getHTML.PRESENT.file + "\n");
             if (depth === true) {
-                var res = request.responseBody; // binary for without character corruption
-                res = responseBodyToCharset(res, "UTF-8");
+                var res = request.responseBody;
+                res = responseBodyToCharset(res, "UTF-8"); // fix character corruption
             }
             else
                 res = request.responseText;
 
+            debug_html && fb.trace(res);
             var resArray = res.split('\n');
             var Page = new AnalyzePage(resArray, depth);
 
@@ -102,6 +101,8 @@
 
         function AnalyzePage(resArray, depth) {
             var id, url, tmpti, tmpar;
+            var searchRe = new RegExp('<TD class=(ct\\d{3})>(?:<A href="(.+?=(.+?))">)?(.*?)(?:</A>)?</td>', "i");
+            var infoRe = new RegExp('<td class="pad5x10x0x10">(.*?)</td>', "i");
             this.searchResult = false;
 
             if (depth === false) { // info

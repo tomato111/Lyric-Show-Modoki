@@ -1,6 +1,16 @@
 ﻿##Installation
 <http://ashiato1.blog62.fc2.com/blog-entry-64.html>
 ##History
+--v1.4.4(2015/07/26)--------------------------------------------------
+
+* 行頭の空白を表示するように修正  
+* foo_uie_tabs のタブ切り替えで表示位置がズレる問題を修正  
+* ホイールスクロールに関する設定を追加  
+  Panel.MouseWheelDelta (移動量) と Panel.MouseWheelSmoothing  
+* 再生行の着色に関する設定を追加  
+  Style.FadeInPlayingColor  
+* 1つのプラグイン追加とサイトの仕様変更に対応  
+
 --v1.4.3(2015/03/29)--------------------------------------------------
 
 * en.ini 内の誤字修正  
