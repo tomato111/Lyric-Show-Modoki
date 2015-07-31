@@ -3,7 +3,7 @@
 
 // ==PREPROCESSOR==
 // @name "Lyric Show Modoki"
-// @version "1.4.4"
+// @version "1.4.5"
 // @author "tomato111"
 // @import "%fb2k_profile_path%import\common\lib.js"
 // ==/PREPROCESSOR==
@@ -23,7 +23,7 @@ var fs = new ActiveXObject("Scripting.FileSystemObject"); // File System Object
 var ws = new ActiveXObject("WScript.Shell"); // WScript Shell Object
 var Trace = new TraceLog();
 var scriptName = "Lyric Show Modoki";
-var scriptVersion = "1.4.4";
+var scriptVersion = "1.4.5";
 var scriptdir = fb.ProfilePath + "import\\" + scriptName + "\\";
 var commondir = fb.ProfilePath + "import\\common\\";
 var down_pos = {};
@@ -154,6 +154,8 @@ prop = new function () {
         CenterPosition: window.GetProperty("Style.CenterPosition", 46),
         EnableStyleTextRender: window.GetProperty("Style.EnableStyleTextRender", false),
         FadeInPlayingColor: window.GetProperty("Style.FadeInPlayingColor", false),
+        Fading: window.GetProperty("Style.Fading", false),
+        FadingHeight: window.GetProperty("Style.FadingHeight", 40),
         DrawingMethod: 0
     };
 
@@ -226,14 +228,6 @@ prop = new function () {
     if (!(this.Style.CSE in this.Style.CE))
         window.SetProperty("Style.ColorStyle.Edit", this.Style.CSE = "white");
 
-    // set DrawingMethod
-    if (this.Style.EnableStyleTextRender)
-        this.Style.DrawingMethod = 2;
-    else if (this.Panel.ScrollType < 4)
-        this.Style.DrawingMethod = 0;
-    else
-        this.Style.DrawingMethod = 1;
-
     // check Align
     if (typeof this.Style.Align != "number" || this.Style.Align < 0x00000000 || this.Style.Align > 0x00000006)
         window.SetProperty("Style.Align", this.Style.Align = DT_CENTER);
@@ -267,6 +261,10 @@ prop = new function () {
     // check CenterPosition
     if (typeof this.Style.CenterPosition != "number" || this.Style.CenterPosition < 0 || this.Style.CenterPosition > 100)
         window.SetProperty("Style.CenterPosition", this.Style.CenterPosition = 46);
+
+    // check FadingHeight
+    if (typeof this.Style.FadingHeight != "number" || this.Style.FadingHeight < 0)
+        window.SetProperty("Style.FadingHeight", this.Style.FadingHeight = 40);
 
     // check Padding
     if (typeof this.Style.HPadding != "number")
@@ -468,7 +466,19 @@ function setRGBdiff(color, dr, dg, db) {
     return RGB(getRed(color) + dr, getGreen(color) + dg, getBlue(color) + db);
 }
 
-function set_align() {
+function setDrawingMethod() {
+
+    if (prop.Style.EnableStyleTextRender)
+        prop.Style.DrawingMethod = 2;
+    else if (prop.Panel.ScrollType > 3 || prop.Style.Fading)
+        prop.Style.DrawingMethod = 1;
+    else
+        prop.Style.DrawingMethod = 0;
+
+    setAlign();
+}
+
+function setAlign() {
 
     Left_Center = Center_Left = Center_Right = Right_Center = false;
 
@@ -507,10 +517,10 @@ function set_align() {
             break;
     }
 
-    RefreshDrawStyle();
+    refreshDrawStyle();
 }
 
-function RefreshDrawStyle() {
+function refreshDrawStyle() {
 
     if (lyric) {
         LyricShow.setProperties.setWordbreakList();
@@ -1140,7 +1150,7 @@ LyricShow = new function (Style) {
                     n = Math.floor(t / interval); // 更新可能回数
                     t = n * interval || 1; // 次の行までの時間を更新可能回数を考慮した時間に変換する // 変換した時間を基準に移動量を計算
                     scrollSpeedList[i] = h / t * interval; // 1回の更新での移動量(行ごとに変化する)
-                    scrollSpeedType2List[i] = t >= prop.Panel.ScrollDurationTime * 10 ? h / (prop.Panel.ScrollDurationTime * 10) * interval : null; // Panel.ScrollType == 2 での1回の更新の移動量. スクロール開始は(prop.Panel.ScrollDurationTime*10)ミリ秒前.
+                    scrollSpeedType2List[i] = t >= prop.Panel.ScrollDurationTime * 10 ? h / (prop.Panel.ScrollDurationTime * 9.8) * interval : null; // Panel.ScrollType == 2 での1回の更新の移動量. スクロール開始は(prop.Panel.ScrollDurationTime*10)ミリ秒前.
                     if (scrollSpeedList[i] > h) // 1回の更新で行の高さを超える移動量となった場合はスキップ
                         scrollSpeedList[i] = h;
                 }
@@ -1235,7 +1245,7 @@ LyricShow = new function (Style) {
 
                     if (time >= this.p.lineList[this.i + 1]) {
                         !ignore_remainder && this.fix_offset(this.height, lineY);
-                        ignore_remainder && (ignore_remainder = false); // 誤差補正の無効は一度だけ
+                        ignore_remainder = false; // 誤差補正の無効は一度だけ
                         moveY = lineY = 0;
                         LyricShow.on_paintInfo.dpi = 0;
                         LyricShow.on_paintInfo.dpc = prop.Style.Color.Text;
@@ -1284,10 +1294,15 @@ LyricShow = new function (Style) {
                             lineY += this.speed;
                         }
                     }
+                    else {
+                        !ignore_remainder && this.fix_offset(this.height, lineY);
+                        !ignore_remainder && (refresh = true);
+                        ignore_remainder = true;
+                    }
 
                     if (time >= this.p.lineList[this.i + 1]) {
                         !ignore_remainder && this.fix_offset(this.height, lineY);
-                        ignore_remainder && (ignore_remainder = false);
+                        ignore_remainder = false;
                         moveY = lineY = 0;
                         LyricShow.on_paintInfo.dpi = 0;
                         LyricShow.on_paintInfo.dpc = prop.Style.Color.Text;
@@ -1331,7 +1346,7 @@ LyricShow = new function (Style) {
                     if (time >= this.p.lineList[this.i + 1]) {
                         //console(this.p.DrawStyle[this.i - 1].height + " h::i " + this.i + " :: " + this.text + " ::移動量 " + lineY + " ::補正値 " + (this.p.DrawStyle[this.i - 1].height - lineY).toFixed(15));
                         !ignore_remainder && this.fix_offset(this.p.DrawStyle[this.i - 1].height, lineY);
-                        ignore_remainder && (ignore_remainder = false);
+                        ignore_remainder = false;
                         moveY = lineY = 0;
                         LyricShow.on_paintInfo.dpi = 0;
                         LyricShow.on_paintInfo.dpc = prop.Style.Color.Text;
@@ -1446,16 +1461,24 @@ LyricShow = new function (Style) {
                     else
                         color = this.i === lyric.i - 1 ? Style.Color.PlayingText : Style.Color.Text;
 
+                var y = this.cy + Math.ceil(offsetY);
+                var alpha = 255;
+                if (Style.Fading)
+                    if (y + this.height - g_y <= Style.FadingHeight)
+                        alpha = (y + this.height - g_y) * 255 / Style.FadingHeight;
+                    else if (y >= g_y + wh - Style.FadingHeight)
+                        alpha = (g_y + wh - y) * 255 / Style.FadingHeight;
+
                 switch (Style.DrawingMethod) {
                     case 0:
-                        gr.GdiDrawText(text, Style.Font, color, x, this.cy + Math.ceil(offsetY), w, this.height, Style.Align);
+                        gr.GdiDrawText(text, Style.Font, color, x, y, w, this.height, Style.Align);
                         break;
                     case 1:
-                        gr.DrawString(text, Style.Font, color, x, this.cy + Math.ceil(offsetY), w, this.height, Style.Align);
+                        gr.DrawString(text, Style.Font, setAlpha(color, alpha), x, y, w, this.height, Style.Align);
                         break;
                     case 2:
-                        TextRender.OutLineText(color, Style.Color.TextRound, 0);
-                        TextRender.RenderStringRect(gr, text, Style.Font, x, this.cy + Math.ceil(offsetY), w, this.height, Style.Align);
+                        TextRender.OutLineText(setAlpha(color, alpha), setAlpha(Style.Color.TextRound, alpha), 0);
+                        TextRender.RenderStringRect(gr, text, Style.Font, x, y, w, this.height, Style.Align);
                         break;
                 }
             };
@@ -1466,19 +1489,27 @@ LyricShow = new function (Style) {
                     else
                         color = this.i === lyric.i - 1 ? Style.Color.PlayingText : Style.Color.Text;
 
+                var y = this.cy + Math.ceil(offsetY);
+                var alpha = 255;
+                if (Style.Fading)
+                    if (y + this.height - g_y <= Style.FadingHeight)
+                        alpha = (y + this.height - g_y) * 255 / Style.FadingHeight;
+                    else if (y >= g_y + wh - Style.FadingHeight)
+                        alpha = (g_y + wh - y) * 255 / Style.FadingHeight;
+
                 switch (Style.DrawingMethod) {
                     case 0:
                         gr.GdiDrawText(text, Style.Font, Style.Color.TextShadow, x + Style.ShadowPosition[0], this.sy + Math.ceil(offsetY), w, this.height, Style.Align);
-                        gr.GdiDrawText(text, Style.Font, color, x, this.cy + Math.ceil(offsetY), w, this.height, Style.Align);
+                        gr.GdiDrawText(text, Style.Font, color, x, y, w, this.height, Style.Align);
                         break;
                     case 1:
-                        gr.DrawString(text, Style.Font, Style.Color.TextShadow, x + Style.ShadowPosition[0], this.sy + Math.ceil(offsetY), w, this.height, Style.Align);
-                        gr.DrawString(text, Style.Font, color, x, this.cy + Math.ceil(offsetY), w, this.height, Style.Align);
+                        gr.DrawString(text, Style.Font, setAlpha(Style.Color.TextShadow, alpha), x + Style.ShadowPosition[0], this.sy + Math.ceil(offsetY), w, this.height, Style.Align);
+                        gr.DrawString(text, Style.Font, setAlpha(color, alpha), x, y, w, this.height, Style.Align);
                         break;
                     case 2:
                         //TextRender.DoubleOutLineText(color, Style.Color.TextShadow, RGBA(255, 255, 0, 30), 5, 5);
-                        TextRender.OutLineText(color, Style.Color.TextRound, Style.TextRoundSize);
-                        TextRender.RenderStringRect(gr, text, Style.Font, x, this.cy + Math.ceil(offsetY), w, this.height, Style.Align);
+                        TextRender.OutLineText(setAlpha(color, alpha), setAlpha(Style.Color.TextRound, alpha), Style.TextRoundSize);
+                        TextRender.RenderStringRect(gr, text, Style.Font, x, y, w, this.height, Style.Align);
                         break;
                 }
             };
@@ -2856,41 +2887,32 @@ Keybind = new function () {
 
         this[49] = this[97] = function () { // 1
             window.SetProperty("Panel.LRC.ScrollType", prop.Panel.ScrollType = 1);
+            setDrawingMethod();
             main();
         }
         this[50] = this[98] = function () { // 2
             window.SetProperty("Panel.LRC.ScrollType", prop.Panel.ScrollType = 2);
+            setDrawingMethod();
             main();
         }
         this[51] = this[99] = function () { // 3
             window.SetProperty("Panel.LRC.ScrollType", prop.Panel.ScrollType = 3);
+            setDrawingMethod();
             main();
         }
         this[52] = this[100] = function () { // 4
             window.SetProperty("Panel.LRC.ScrollType", prop.Panel.ScrollType = 4);
-            if (!prop.Style.EnableStyleTextRender) {
-                prop.Style.DrawingMethod = 1;
-                set_align();
-            }
+            setDrawingMethod();
             main();
         }
         this[53] = this[101] = function () { // 5
             window.SetProperty("Panel.LRC.ScrollType", prop.Panel.ScrollType = 5);
-            if (!prop.Style.EnableStyleTextRender) {
-                prop.Style.DrawingMethod = 1;
-                set_align();
-            }
+            setDrawingMethod();
             main();
         }
         this[54] = this[102] = function () { // 6
             window.SetProperty("Style.EnableStyleTextRender", prop.Style.EnableStyleTextRender = !prop.Style.EnableStyleTextRender);
-            if (prop.Style.EnableStyleTextRender)
-                prop.Style.DrawingMethod = 2;
-            else if (prop.Panel.ScrollType < 4)
-                prop.Style.DrawingMethod = 0;
-            else
-                prop.Style.DrawingMethod = 1;
-            set_align();
+            setDrawingMethod();
             main();
         }
         this[93] = function () { Menu.show(0, 0); } // Menu key
@@ -2972,7 +2994,7 @@ Menu = new function () {
             Caption: Label.Align_Left,
             Func: function () {
                 window.SetProperty("Style.Align", DT_LEFT);
-                set_align();
+                setAlign();
                 window.Repaint();
                 Menu.build();
             }
@@ -2982,7 +3004,7 @@ Menu = new function () {
             Caption: Label.Align_Left_Center,
             Func: function () {
                 window.SetProperty("Style.Align", 0x00000003);
-                set_align();
+                setAlign();
                 window.Repaint();
                 Menu.build();
             }
@@ -2992,7 +3014,7 @@ Menu = new function () {
             Caption: Label.Align_Center_Left,
             Func: function () {
                 window.SetProperty("Style.Align", 0x00000004);
-                set_align();
+                setAlign();
                 window.Repaint();
                 Menu.build();
             }
@@ -3002,7 +3024,7 @@ Menu = new function () {
             Caption: Label.Align_Center,
             Func: function () {
                 window.SetProperty("Style.Align", DT_CENTER);
-                set_align();
+                setAlign();
                 window.Repaint();
                 Menu.build();
             }
@@ -3012,7 +3034,7 @@ Menu = new function () {
             Caption: Label.Align_Center_Right,
             Func: function () {
                 window.SetProperty("Style.Align", 0x00000005);
-                set_align();
+                setAlign();
                 window.Repaint();
                 Menu.build();
             }
@@ -3022,7 +3044,7 @@ Menu = new function () {
             Caption: Label.Align_Right_Center,
             Func: function () {
                 window.SetProperty("Style.Align", 0x00000006);
-                set_align();
+                setAlign();
                 window.Repaint();
                 Menu.build();
             }
@@ -3032,7 +3054,7 @@ Menu = new function () {
             Caption: Label.Align_Right,
             Func: function () {
                 window.SetProperty("Style.Align", DT_RIGHT);
-                set_align();
+                setAlign();
                 window.Repaint();
                 Menu.build();
             }
@@ -3044,13 +3066,7 @@ Menu = new function () {
             Caption: Label.StyleTextRender + "\t6",
             Func: function () {
                 window.SetProperty("Style.EnableStyleTextRender", prop.Style.EnableStyleTextRender = !prop.Style.EnableStyleTextRender);
-                if (prop.Style.EnableStyleTextRender)
-                    prop.Style.DrawingMethod = 2;
-                else if (prop.Panel.ScrollType < 4)
-                    prop.Style.DrawingMethod = 0;
-                else
-                    prop.Style.DrawingMethod = 1;
-                set_align();
+                setDrawingMethod();
                 main();
             }
         },
@@ -3109,6 +3125,14 @@ Menu = new function () {
             }
         },
         {
+            Caption: Label.Fading,
+            Func: function () {
+                window.SetProperty("Style.Fading", prop.Style.Fading = !prop.Style.Fading);
+                setDrawingMethod();
+                main();
+            }
+        },
+        {
             Flag: MF_SEPARATOR
         },
         {
@@ -3159,6 +3183,7 @@ Menu = new function () {
             Caption: Label.ScrollType1 + "\t1",
             Func: function () {
                 window.SetProperty("Panel.LRC.ScrollType", prop.Panel.ScrollType = 1);
+                setDrawingMethod();
                 main();
             }
         },
@@ -3167,6 +3192,7 @@ Menu = new function () {
             Caption: Label.ScrollType2 + "\t2",
             Func: function () {
                 window.SetProperty("Panel.LRC.ScrollType", prop.Panel.ScrollType = 2);
+                setDrawingMethod();
                 main();
             }
         },
@@ -3175,6 +3201,7 @@ Menu = new function () {
             Caption: Label.ScrollType3 + "\t3",
             Func: function () {
                 window.SetProperty("Panel.LRC.ScrollType", prop.Panel.ScrollType = 3);
+                setDrawingMethod();
                 main();
             }
         },
@@ -3183,10 +3210,7 @@ Menu = new function () {
             Caption: Label.ScrollType4 + "\t4",
             Func: function () {
                 window.SetProperty("Panel.LRC.ScrollType", prop.Panel.ScrollType = 4);
-                if (!prop.Style.EnableStyleTextRender) { // Type4ではGDI+での描画が必要
-                    prop.Style.DrawingMethod = 1;
-                    set_align();
-                }
+                setDrawingMethod();
                 main();
             }
         },
@@ -3195,10 +3219,7 @@ Menu = new function () {
             Caption: Label.ScrollType5 + "\t5",
             Func: function () {
                 window.SetProperty("Panel.LRC.ScrollType", prop.Panel.ScrollType = 5);
-                if (!prop.Style.EnableStyleTextRender) { // Type5ではGDI+での描画が必要
-                    prop.Style.DrawingMethod = 1;
-                    set_align();
-                }
+                setDrawingMethod();
                 main();
             }
         }
@@ -3555,11 +3576,12 @@ Menu = new function () {
             submenu_Display[3].Flag = prop.Style.Font_Italic ? MF_CHECKED : MF_UNCHECKED;
             submenu_Display[4].Flag = prop.Panel.BackgroundEnable ? MF_CHECKED : MF_UNCHECKED;
             submenu_Display[5].Flag = prop.Panel.MouseWheelSmoothing ? MF_CHECKED : MF_UNCHECKED;
-            submenu_Display[7].Flag = prop.Style.Highline ? MF_CHECKED : MF_UNCHECKED;
-            submenu_Display[8].Flag = prop.Panel.ExpandRepetition ? MF_CHECKED : MF_UNCHECKED;
-            submenu_Display[10].Flag = prop.Panel.Contain ? MF_CHECKED : MF_UNCHECKED;
-            submenu_Display[11].Flag = prop.Panel.ScrollToCenter ? MF_CHECKED : MF_UNCHECKED;
-            submenu_Display[12].Flag = prop.Style.FadeInPlayingColor ? MF_CHECKED : MF_UNCHECKED;
+            submenu_Display[6].Flag = prop.Style.Fading ? MF_CHECKED : MF_UNCHECKED;
+            submenu_Display[8].Flag = prop.Style.Highline ? MF_CHECKED : MF_UNCHECKED;
+            submenu_Display[9].Flag = prop.Panel.ExpandRepetition ? MF_CHECKED : MF_UNCHECKED;
+            submenu_Display[11].Flag = prop.Panel.Contain ? MF_CHECKED : MF_UNCHECKED;
+            submenu_Display[12].Flag = prop.Panel.ScrollToCenter ? MF_CHECKED : MF_UNCHECKED;
+            submenu_Display[13].Flag = prop.Style.FadeInPlayingColor ? MF_CHECKED : MF_UNCHECKED;
 
             menu_LyricShow[5].Radio = prop.Panel.ScrollType - 1; // radio number begin with 0
             switch (Number(window.GetProperty("Style.Align"))) {
@@ -3691,7 +3713,7 @@ Menu = new function () {
 //== onLoad function ==========================
 //========================================
 
-set_align();
+setDrawingMethod();
 on_size();
 for (var pname in plugins)
     if (plugins[pname].onStartUp instanceof Function)
@@ -3755,7 +3777,7 @@ function on_size() {
         Buttons.buildButton();
     }
 
-    ww && wh && RefreshDrawStyle();
+    ww && wh && refreshDrawStyle();
     on_size_research && lyric && LyricShow.searchLine(fb.PlaybackTime);
     BackgroundImg && LyricShow.setBackgroundImage();
 }
@@ -3909,7 +3931,7 @@ function on_mouse_wheel(step) {
                 return;
             window.SetProperty("Style.Font-Size", prop.Style.Font_Size += step);
             prop.Style.Font = gdi.Font(prop.Style.Font_Family, prop.Style.Font_Size, (prop.Style.Font_Bold ? 1 : 0) + (prop.Style.Font_Italic ? 2 : 0));
-            RefreshDrawStyle();
+            refreshDrawStyle();
             lyric && LyricShow.searchLine(fb.PlaybackTime);
             StatusBar.setText("Font Size : " + prop.Style.Font_Size);
             StatusBar.show(3000);

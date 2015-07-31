@@ -51,6 +51,7 @@
 	Italic = Font-Italic
 	BEnable = Background Image
 	WheelSmoothing = Mouse Wheel Smoothing
+	Fading = Fading
 	Contain = Contain Normal Lines [LRC]
 	ExpandR = Expand Repetition [TXT]
 	Highline = Use Highline Color [TXT]
