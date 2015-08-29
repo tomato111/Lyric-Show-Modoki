@@ -27,8 +27,6 @@
     onCommand: function (isStartUp) { // プラグインのメニューをクリックすると呼び出される関数
 
         var debug_html = false; // for debug
-        var ws = new ActiveXObject("WScript.Shell");
-        var sa = new ActiveXObject("Shell.Application");
         var async = true;
         var depth = false;
         var onCommand = arguments.callee;

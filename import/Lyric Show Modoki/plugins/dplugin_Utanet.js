@@ -10,9 +10,9 @@
     onPlay: function () { }, // 新たに曲が再生される度に呼び出される関数
     onCommand: function () { // プラグインのメニューをクリックすると呼び出される関数
 
-        ws = new ActiveXObject("WScript.Shell");
         if (!fb.IsPlaying) {
-            ws.popup("Not Playing.");
+            StatusBar.setText(prop.Panel.Lang == 'ja' ? '再生していません。' : 'Not Playing');
+            StatusBar.show();
             return;
         }
 
@@ -21,7 +21,6 @@
         //##########################
 
         var debug_html = false; // for debug
-        var sa = new ActiveXObject("Shell.Application");
         var async = true;
         var depth = 0;
         var LineFeedCode = prop.Save.LineFeedCode;
@@ -55,7 +54,7 @@
             StatusBar.hide();
             var intButton = ws.Popup("ページが見つかりませんでした。\nブラウザで開きますか？", 0, "確認", 36);
             if (intButton == 6)
-                sa.ShellExecute('"' + getHTML.PRESENT.file + '"', "", "", "open", 1);
+                FuncCommand('"' + getHTML.PRESENT.file + '"', "", "", "open", 1);
         }
 
         function onLoaded(request, depth) {
@@ -96,7 +95,7 @@
                 StatusBar.hide();
                 var intButton = ws.Popup("ページが見つかりませんでした。\nブラウザで開きますか？", 0, "確認", 36);
                 if (intButton == 6)
-                    sa.ShellExecute('"' + getHTML.PRESENT.file + '"', "", "", "open", 1);
+                    FuncCommand('"' + getHTML.PRESENT.file + '"', "", "", "open", 1);
             }
 
         }

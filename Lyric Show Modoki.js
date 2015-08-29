@@ -3,7 +3,7 @@
 
 // ==PREPROCESSOR==
 // @name "Lyric Show Modoki"
-// @version "1.4.5"
+// @version "1.4.6"
 // @author "tomato111"
 // @import "%fb2k_profile_path%import\common\lib.js"
 // ==/PREPROCESSOR==
@@ -23,7 +23,7 @@ var fs = new ActiveXObject("Scripting.FileSystemObject"); // File System Object
 var ws = new ActiveXObject("WScript.Shell"); // WScript Shell Object
 var Trace = new TraceLog();
 var scriptName = "Lyric Show Modoki";
-var scriptVersion = "1.4.5";
+var scriptVersion = "1.4.6";
 var scriptdir = fb.ProfilePath + "import\\" + scriptName + "\\";
 var commondir = fb.ProfilePath + "import\\common\\";
 var down_pos = {};
@@ -443,7 +443,6 @@ plugins = PluginLoader.Plugins;
 
 LanguageLoader.Dispose();
 PluginLoader.Dispose();
-ws = null;
 
 //=======
 //  function
@@ -1150,7 +1149,7 @@ LyricShow = new function (Style) {
                     n = Math.floor(t / interval); // 更新可能回数
                     t = n * interval || 1; // 次の行までの時間を更新可能回数を考慮した時間に変換する // 変換した時間を基準に移動量を計算
                     scrollSpeedList[i] = h / t * interval; // 1回の更新での移動量(行ごとに変化する)
-                    scrollSpeedType2List[i] = t >= prop.Panel.ScrollDurationTime * 10 ? h / (prop.Panel.ScrollDurationTime * 9.8) * interval : null; // Panel.ScrollType == 2 での1回の更新の移動量. スクロール開始は(prop.Panel.ScrollDurationTime*10)ミリ秒前.
+                    scrollSpeedType2List[i] = t >= prop.Panel.ScrollDurationTime * 10 ? h / (prop.Panel.ScrollDurationTime * 9.9) * interval : null; // Panel.ScrollType == 2 での1回の更新の移動量. スクロール開始は(prop.Panel.ScrollDurationTime*10)ミリ秒前.
                     if (scrollSpeedList[i] > h) // 1回の更新で行の高さを超える移動量となった場合はスキップ
                         scrollSpeedList[i] = h;
                 }
@@ -2969,7 +2968,7 @@ Menu = new function () {
     //============
     //  sub menu items
     //============
-    var submenu_Copy = [
+    var submenu_Copy = [ // normal item
         {
             Flag: MF_STRING,
             Caption: Label.CopyWith + "\tCtrl+C",
@@ -2988,9 +2987,8 @@ Menu = new function () {
         }
     ];
 
-    var submenu_Align = [
+    var submenu_Align = [ // radio item
         {
-            Flag: MF_STRING,
             Caption: Label.Align_Left,
             Func: function () {
                 window.SetProperty("Style.Align", DT_LEFT);
@@ -3000,7 +2998,6 @@ Menu = new function () {
             }
         },
         {
-            Flag: MF_STRING,
             Caption: Label.Align_Left_Center,
             Func: function () {
                 window.SetProperty("Style.Align", 0x00000003);
@@ -3010,7 +3007,6 @@ Menu = new function () {
             }
         },
         {
-            Flag: MF_STRING,
             Caption: Label.Align_Center_Left,
             Func: function () {
                 window.SetProperty("Style.Align", 0x00000004);
@@ -3020,7 +3016,6 @@ Menu = new function () {
             }
         },
         {
-            Flag: MF_STRING,
             Caption: Label.Align_Center,
             Func: function () {
                 window.SetProperty("Style.Align", DT_CENTER);
@@ -3030,7 +3025,6 @@ Menu = new function () {
             }
         },
         {
-            Flag: MF_STRING,
             Caption: Label.Align_Center_Right,
             Func: function () {
                 window.SetProperty("Style.Align", 0x00000005);
@@ -3040,7 +3034,6 @@ Menu = new function () {
             }
         },
         {
-            Flag: MF_STRING,
             Caption: Label.Align_Right_Center,
             Func: function () {
                 window.SetProperty("Style.Align", 0x00000006);
@@ -3050,7 +3043,6 @@ Menu = new function () {
             }
         },
         {
-            Flag: MF_STRING,
             Caption: Label.Align_Right,
             Func: function () {
                 window.SetProperty("Style.Align", DT_RIGHT);
@@ -3061,7 +3053,7 @@ Menu = new function () {
         }
     ];
 
-    var submenu_Display = [
+    var submenu_Display = [ // check/uncheck item
         {
             Caption: Label.StyleTextRender + "\t6",
             Func: function () {
@@ -3177,9 +3169,8 @@ Menu = new function () {
         }
     ];
 
-    var submenu_ScrollType = [
+    var submenu_ScrollType = [ // radio item
         {
-            Flag: MF_STRING,
             Caption: Label.ScrollType1 + "\t1",
             Func: function () {
                 window.SetProperty("Panel.LRC.ScrollType", prop.Panel.ScrollType = 1);
@@ -3188,7 +3179,6 @@ Menu = new function () {
             }
         },
         {
-            Flag: MF_STRING,
             Caption: Label.ScrollType2 + "\t2",
             Func: function () {
                 window.SetProperty("Panel.LRC.ScrollType", prop.Panel.ScrollType = 2);
@@ -3197,7 +3187,6 @@ Menu = new function () {
             }
         },
         {
-            Flag: MF_STRING,
             Caption: Label.ScrollType3 + "\t3",
             Func: function () {
                 window.SetProperty("Panel.LRC.ScrollType", prop.Panel.ScrollType = 3);
@@ -3206,7 +3195,6 @@ Menu = new function () {
             }
         },
         {
-            Flag: MF_STRING,
             Caption: Label.ScrollType4 + "\t4",
             Func: function () {
                 window.SetProperty("Panel.LRC.ScrollType", prop.Panel.ScrollType = 4);
@@ -3215,7 +3203,6 @@ Menu = new function () {
             }
         },
         {
-            Flag: MF_STRING,
             Caption: Label.ScrollType5 + "\t5",
             Func: function () {
                 window.SetProperty("Panel.LRC.ScrollType", prop.Panel.ScrollType = 5);
@@ -3225,14 +3212,13 @@ Menu = new function () {
         }
     ];
 
-    var submenu_Color_LyricShow = createColorMenuItems(prop.Style.CLS, "Style.ColorStyle.LyricShow", "CSLS");
-    var submenu_Color_Edit = createColorMenuItems(prop.Style.CE, "Style.ColorStyle.Edit", "CSE");
+    var submenu_Color_LyricShow = createColorMenuItems(prop.Style.CLS, "Style.ColorStyle.LyricShow", "CSLS"); // radio item
+    var submenu_Color_Edit = createColorMenuItems(prop.Style.CE, "Style.ColorStyle.Edit", "CSE"); // radio item
 
     function createColorMenuItems(Color, PropName, Place) {
         var items = [], item;
         for (var name in Color) {
             item = {};
-            item["Flag"] = MF_STRING;
             item["Caption"] = name;
             item["Func"] = function () {
                 window.SetProperty(PropName, prop.Style[Place] = this.Caption);
@@ -3249,7 +3235,7 @@ Menu = new function () {
     }
 
     if (plugins) {
-        var submenu_Plugins = createPluginMenuItems(plugins);
+        var submenu_Plugins = createPluginMenuItems(plugins); // normal item
     }
 
     function createPluginMenuItems(plugins) {
@@ -3289,6 +3275,7 @@ Menu = new function () {
             Flag: MF_SEPARATOR
         },
         {
+            Caption: null,
             Func: function () {
                 window.SetProperty("Panel.AutoScroll", prop.Panel.AutoScroll = !prop.Panel.AutoScroll)
                 movable = prop.Panel.AutoScroll;
@@ -3568,6 +3555,7 @@ Menu = new function () {
     //  menu_obj
     //========
     this.LyricShow = {
+        id: "LyricShow",
         items: menu_LyricShow,
         refresh: function () {
             submenu_Display[0].Flag = prop.Style.EnableStyleTextRender ? MF_CHECKED : MF_UNCHECKED;
@@ -3644,6 +3632,7 @@ Menu = new function () {
     };
 
     this.Edit = {
+        id: "Edit",
         items: menu_Edit,
         refresh: function () {
             menu_Edit[0].Flag = prop.Edit.View ? MF_CHECKED : MF_UNCHECKED;
@@ -3665,22 +3654,30 @@ Menu = new function () {
     };
 
     this.Save = {
+        id: "Save",
         items: menu_Save,
         refresh: function () { }
-    }
+    };
+
+    this.Plugins = {
+        id: "Plugins",
+        items: submenu_Plugins,
+        refresh: function () { }
+    };
 
     //=====
     //  build
     //=====
     this.build = function (mobj) {
-        _menu && _menu.Dispose();
         this.init();
         mobj = mobj || this.LyricShow;
         mobj.refresh();
         _menu = buildMenu(mobj.items);
+        this.id = mobj.id;
     };
 
     this.init = function () {
+        _menu && _menu.Dispose();
         item_list = {};
         idx = 1;
     };
@@ -3787,6 +3784,8 @@ function on_focus(is_focused) {
 }
 
 function on_playback_new_track(metadb) {
+    if (Lock_MiddleButton && Menu.id !== "Save")
+        ws.SendKeys("%"); // close context menu
     main();
     for (var pname in plugins)
         if (plugins[pname].onPlay instanceof Function)
@@ -3802,6 +3801,8 @@ function on_playback_seek(time) {
 }
 
 function on_playback_stop(reason) {
+    if (Lock_MiddleButton && Menu.id !== "Save")
+        ws.SendKeys("%"); // close context menu
     if (reason == 0 || reason == 1)
         main();
 }
@@ -3915,9 +3916,14 @@ function on_mouse_lbtn_dblclk(x, y, mask) {
 }
 
 function on_mouse_mbtn_down(x, y, mask) {
-    if (Lock_MiddleButton) return;
+    if (Lock_MiddleButton) ws.SendKeys("%"); // close context menu
     else if (prop.Edit.Start) Edit.switchView();
     else if (lyric) Edit.start();
+    else {
+        Menu.build(Menu.Plugins);
+        Menu.show(x, y);
+        Menu.build();
+    }
 }
 
 function on_mouse_mbtn_dblclk(x, y, mask) {
