@@ -101,9 +101,9 @@
         }
 
         function AnalyzePage(resArray, depth) {
-            var id, url, tmpti, tmpar, res;
+            var id, url, res;
 
-            var searchRe = new RegExp('<tr><td class="side td1"><a href="/song/(\\d+)/">(.+?)</a>(?:<a.+?</a>)?</td>' // $1:id, $2曲名
+            var searchRe = new RegExp('<tr><td class="side td1"><a href="/song/(\\d+)/">(.+?)</a>.*?</td>' // $1:id, $2曲名
                 + '<td class="td2"><a href=".*?">(.*?)</a></td>' // $3歌手名
                 + '<td class="td3">(.*?)</td>' // $4作詞者
                 + '<td class="td4">(.*?)</td>', "i"); // $5作曲者
@@ -119,25 +119,20 @@
                 this.lyrics = res.trim();
             }
             else { // search
-                tmpti = title;
-                tmpar = artist;
-                title = title.replace(/&/g, "&amp;");
-                artist = artist.replace(/&/g, "&amp;");
                 for (i = 0; i < resArray.length; i++)
-                    if (searchRe.test(resArray[i]))
+                    if (searchRe.test(resArray[i])) {
                         if (RegExp.$2 == title && RegExp.$3 == artist) {
                             debug_html && fb.trace("id: " + RegExp.$1 + ", title: " + RegExp.$2 + ", artist: " + RegExp.$3);
                             this.id = RegExp.$1;
 
-                            onLoaded.info = tmpti + LineFeedCode + LineFeedCode
+                            onLoaded.info = title + LineFeedCode + LineFeedCode
                                 + "作詞  " + RegExp.$4 + LineFeedCode
                                 + "作曲  " + RegExp.$5 + LineFeedCode
-                                + "唄  " + tmpar + LineFeedCode + LineFeedCode;
+                                + "唄  " + artist + LineFeedCode + LineFeedCode;
 
                         }
+                    }
             }
-            title = tmpti;
-            artist = tmpar;
         }
 
     }

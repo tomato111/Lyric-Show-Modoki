@@ -108,7 +108,7 @@
                 onLoaded.Info = title + LineFeedCode + LineFeedCode;
                 for (var i = 0, j = 0; i < resArray.length; i++)
                     if (infoRe.test(resArray[i])) {
-                        onLoaded.Info += RegExp.$1.replace(/&nbsp;/g, " ").replace(/<strong>|<\/strong>/gi, "") + (j++ % 2 ? LineFeedCode : "  ");
+                        onLoaded.Info += RegExp.$1.replace(/&nbsp;/g, " ").replace(/<strong>|<\/strong>/gi, "").replace(/&amp;/g, "&") + (j++ % 2 ? LineFeedCode : "  ");
                     }
                 onLoaded.Info += LineFeedCode;
             }
@@ -122,19 +122,17 @@
                 this.Lyrics = this.Lyrics.trim();
             }
             else { // search
-                tmpti = title;
-                tmpar = artist;
-                title = title.replace(/&/g, "&amp;");
-                artist = artist.replace(/&/g, "&amp;");
+                tmpti = title.replace(/&/g, "&amp;");
+                tmpar = artist.replace(/&/g, "&amp;");
                 for (i = 0; i < resArray.length; i++)
                     if (searchRe.test(resArray[i])) {
                         debug_html && fb.trace("class: " + RegExp.$1 + ", id: " + RegExp.$3 + ", value: " + RegExp.$4);
-                        if (RegExp.$1 == "ct160" && RegExp.$4 == title) {
+                        if (RegExp.$1 == "ct160" && RegExp.$4 == tmpti) {
                             id = RegExp.$3;
                             url = "http://www.utamap.com" + RegExp.$2.slice(1);
                             !this.searchResult && (this.searchResult = true);
                         }
-                        else if (id && RegExp.$1 == "ct120" && RegExp.$4 == artist) {
+                        else if (id && RegExp.$1 == "ct120" && RegExp.$4 == tmpar) {
                             this.id = id;
                             this.url = url;
                             break;
@@ -143,8 +141,6 @@
                             id = null;
                         }
                     }
-                title = tmpti;
-                artist = tmpar;
             }
 
         }
