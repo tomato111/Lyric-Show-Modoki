@@ -3,7 +3,7 @@
 
 // ==PREPROCESSOR==
 // @name "Lyric Show Modoki"
-// @version "1.4.7"
+// @version "1.4.8"
 // @author "tomato111"
 // @import "%fb2k_profile_path%import\common\lib.js"
 // ==/PREPROCESSOR==
@@ -23,7 +23,7 @@ var fs = new ActiveXObject("Scripting.FileSystemObject"); // File System Object
 var ws = new ActiveXObject("WScript.Shell"); // WScript Shell Object
 var Trace = new TraceLog();
 var scriptName = "Lyric Show Modoki";
-var scriptVersion = "1.4.7";
+var scriptVersion = "1.4.8";
 var scriptdir = fb.ProfilePath + "import\\" + scriptName + "\\";
 var commondir = fb.ProfilePath + "import\\common\\";
 var down_pos = {};
@@ -148,15 +148,16 @@ prop = new function () {
         Align: window.GetProperty("Style.Align", DT_CENTER),
         // Padding
         HPadding: window.GetProperty("Style.Horizontal-Padding", 5),
-        VPadding: window.GetProperty("Style.Vartical-Padding", 4),
+        VPadding: window.GetProperty("Style.Vartical-Padding", "4,4").toString().split(/[ 　]*,[ 　]*/),
         LPadding: window.GetProperty("Style.Line-Padding", 1),
         Highline: window.GetProperty("Style.HighlineColor for unsynced lyrics", true),
         CenterPosition: window.GetProperty("Style.CenterPosition", 46),
         EnableStyleTextRender: window.GetProperty("Style.EnableStyleTextRender", false),
         FadeInPlayingColor: window.GetProperty("Style.FadeInPlayingColor", false),
         Fading: window.GetProperty("Style.Fading", false),
-        FadingHeight: window.GetProperty("Style.FadingHeight", 40),
-        DrawingMethod: 0
+        FadingHeight: window.GetProperty("Style.FadingHeight", "40,40").toString().split(/[ 　]*,[ 　]*/),
+        DrawingMethod: 0,
+        KeepPlayingColor: window.GetProperty("Style.KeepPlayingColor", false),
     };
 
     this.Style.CLS = { // define color of LyricShow
@@ -263,15 +264,27 @@ prop = new function () {
         window.SetProperty("Style.CenterPosition", this.Style.CenterPosition = 46);
 
     // check FadingHeight
-    if (typeof this.Style.FadingHeight != "number" || this.Style.FadingHeight < 0)
-        window.SetProperty("Style.FadingHeight", this.Style.FadingHeight = 40);
+    if (!this.Style.FadingHeight || !(this.Style.FadingHeight instanceof Array) || this.Style.FadingHeight.length < 2
+        || !/^\d+$/.test(this.Style.FadingHeight[0]) || !/^\d+$/.test(this.Style.FadingHeight[1])) {
+
+        window.SetProperty("Style.FadingHeight", this.Style.FadingHeight = "40,40");
+        this.Style.FadingHeight = this.Style.FadingHeight.split(/[ 　]*,[ 　]*/);
+    }
+    this.Style.FadingHeight[0] = Number(this.Style.FadingHeight[0]);
+    this.Style.FadingHeight[1] = Number(this.Style.FadingHeight[1]);
 
     // check Padding
     if (typeof this.Style.HPadding != "number")
         window.SetProperty("Style.Horizontal-Padding", this.Style.HPadding = 5);
 
-    if (typeof this.Style.VPadding != "number")
-        window.SetProperty("Style.Vartical-Padding", this.Style.VPadding = 4);
+    if (!this.Style.VPadding || !(this.Style.VPadding instanceof Array) || this.Style.VPadding.length < 2
+        || !/^\d+$/.test(this.Style.VPadding[0]) || !/^\d+$/.test(this.Style.VPadding[1])) {
+
+        window.SetProperty("Style.Vartical-Padding", this.Style.VPadding = "4,4");
+        this.Style.VPadding = this.Style.VPadding.split(/[ 　]*,[ 　]*/);
+    }
+    this.Style.VPadding[0] = Number(this.Style.VPadding[0]);
+    this.Style.VPadding[1] = Number(this.Style.VPadding[1]);
 
     if (typeof this.Style.LPadding != "number")
         window.SetProperty("Style.Line-Padding", this.Style.LPadding = 1);
@@ -1454,19 +1467,23 @@ LyricShow = new function (Style) {
                 } catch (e) { }
             };
             DrawString.prototype.draw = function (gr, text, color, x, w) {
-                if (color === null)
+                if (color === null) {
                     if (Style.FadeInPlayingColor)
                         var color = this.i === lyric.i - 1 ? LyricShow.on_paintInfo.dpc : Style.Color.Text;
                     else
                         color = this.i === lyric.i - 1 ? Style.Color.PlayingText : Style.Color.Text;
 
+                    if (Style.KeepPlayingColor && this.i < lyric.i - 1)
+                        color = Style.Color.PlayingText;
+                }
+
                 var y = this.cy + Math.ceil(offsetY);
                 var alpha = 255;
                 if (Style.Fading)
-                    if (y + this.height - g_y <= Style.FadingHeight)
-                        alpha = (y + this.height - g_y) * 255 / Style.FadingHeight;
-                    else if (y >= g_y + wh - Style.FadingHeight)
-                        alpha = (g_y + wh - y) * 255 / Style.FadingHeight;
+                    if (y + this.height - g_y <= Style.FadingHeight[0])
+                        alpha = (y + this.height - g_y) * 255 / Style.FadingHeight[0];
+                    else if (y >= g_y + wh - Style.FadingHeight[1])
+                        alpha = (g_y + wh - y) * 255 / Style.FadingHeight[1];
 
                 switch (Style.DrawingMethod) {
                     case 0:
@@ -1482,19 +1499,23 @@ LyricShow = new function (Style) {
                 }
             };
             DrawString.prototype.draw_withShadow = function (gr, text, color, x, w) {
-                if (color === null)
+                if (color === null) {
                     if (Style.FadeInPlayingColor)
                         var color = this.i === lyric.i - 1 ? LyricShow.on_paintInfo.dpc : Style.Color.Text;
                     else
                         color = this.i === lyric.i - 1 ? Style.Color.PlayingText : Style.Color.Text;
 
+                    if (Style.KeepPlayingColor && this.i < lyric.i - 1)
+                        color = Style.Color.PlayingText;
+                }
+
                 var y = this.cy + Math.ceil(offsetY);
                 var alpha = 255;
                 if (Style.Fading)
-                    if (y + this.height - g_y <= Style.FadingHeight)
-                        alpha = (y + this.height - g_y) * 255 / Style.FadingHeight;
-                    else if (y >= g_y + wh - Style.FadingHeight)
-                        alpha = (g_y + wh - y) * 255 / Style.FadingHeight;
+                    if (y + this.height - g_y <= Style.FadingHeight[0])
+                        alpha = (y + this.height - g_y) * 255 / Style.FadingHeight[0];
+                    else if (y >= g_y + wh - Style.FadingHeight[1])
+                        alpha = (g_y + wh - y) * 255 / Style.FadingHeight[1];
 
                 switch (Style.DrawingMethod) {
                     case 0:
@@ -3166,6 +3187,14 @@ Menu = new function () {
                 window.Repaint();
                 Menu.build();
             }
+        },
+        {
+            Caption: Label.KeepPlayingColor,
+            Func: function () {
+                window.SetProperty("Style.KeepPlayingColor", prop.Style.KeepPlayingColor = !prop.Style.KeepPlayingColor);
+                window.Repaint();
+                Menu.build();
+            }
         }
     ];
 
@@ -3570,6 +3599,7 @@ Menu = new function () {
             submenu_Display[11].Flag = prop.Panel.Contain ? MF_CHECKED : MF_UNCHECKED;
             submenu_Display[12].Flag = prop.Panel.ScrollToCenter ? MF_CHECKED : MF_UNCHECKED;
             submenu_Display[13].Flag = prop.Style.FadeInPlayingColor ? MF_CHECKED : MF_UNCHECKED;
+            submenu_Display[14].Flag = prop.Style.KeepPlayingColor ? MF_CHECKED : MF_UNCHECKED;
 
             menu_LyricShow[5].Radio = prop.Panel.ScrollType - 1; // radio number begin with 0
             switch (Number(window.GetProperty("Style.Align"))) {
@@ -3758,10 +3788,10 @@ function on_paint(gr) {
 
 function on_size() {
     g_x = prop.Style.HPadding;
-    g_y = prop.Style.VPadding;
-    on_size_research = Boolean(ww == 0 || wh == 0);
+    g_y = prop.Style.VPadding[0];
+    on_size_research = Boolean(ww == 0 || wh == 0); // 真なら行検索をやり直す
     ww = Math.max(window.Width - g_x * 2, 0); // window.Width と window.Height を 0 に設定してくるコンポ（foo_uie_tabs等）があるので、Math.maxメソッドで負数を回避
-    wh = Math.max(window.Height - g_y * 2, 0);
+    wh = Math.max(window.Height - (g_y + prop.Style.VPadding[1]), 0);
     centerleftX = Math.round(ww / 5 + g_x);
     fixY = Math.round(wh * (prop.Style.CenterPosition / 100));
 

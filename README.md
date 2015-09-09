@@ -1,6 +1,12 @@
 ﻿##Installation
 <http://ashiato1.blog62.fc2.com/blog-entry-64.html>
 ##History
+--v1.4.8(2015/09/09)--------------------------------------------------
+
+* 再生行の色を通過後も保つようにする設定を追加 Style.KeepPlayingColor  
+* 設定の Style.Vartical-Padding と Style.FadingHeight において  
+　上部と下部で別々の値を設定できるようにした  
+
 --v1.4.7(2015/08/30)--------------------------------------------------
 
 * プラグインの修正  
