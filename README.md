@@ -1,6 +1,10 @@
 ﻿##Installation
 <http://ashiato1.blog62.fc2.com/blog-entry-64.html>
 ##History
+--v1.4.9(2015/09/13)--------------------------------------------------
+
+* no lyrics 時の列揃えを変更する設定を追加 Style.AlignNoLyric  
+
 --v1.4.8(2015/09/09)--------------------------------------------------
 
 * 再生行の色を通過後も保つようにする設定を追加 Style.KeepPlayingColor  

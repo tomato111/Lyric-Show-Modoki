@@ -3,7 +3,7 @@
 
 // ==PREPROCESSOR==
 // @name "Lyric Show Modoki"
-// @version "1.4.8"
+// @version "1.4.9"
 // @author "tomato111"
 // @import "%fb2k_profile_path%import\common\lib.js"
 // ==/PREPROCESSOR==
@@ -23,7 +23,7 @@ var fs = new ActiveXObject("Scripting.FileSystemObject"); // File System Object
 var ws = new ActiveXObject("WScript.Shell"); // WScript Shell Object
 var Trace = new TraceLog();
 var scriptName = "Lyric Show Modoki";
-var scriptVersion = "1.4.8";
+var scriptVersion = "1.4.9";
 var scriptdir = fb.ProfilePath + "import\\" + scriptName + "\\";
 var commondir = fb.ProfilePath + "import\\common\\";
 var down_pos = {};
@@ -133,10 +133,8 @@ prop = new function () {
 
     // ==Style====
     this.Style = {
-        // Color Style. white, black, user is available
         CSLS: window.GetProperty("Style.ColorStyle.LyricShow", "black"),
         CSE: window.GetProperty("Style.ColorStyle.Edit", "white"),
-        // Font Style
         Font_Family: window.GetProperty("Style.Font-Family", ""),
         Font_Size: window.GetProperty("Style.Font-Size", 13),
         Font_Bold: window.GetProperty("Style.Font-Bold", true),
@@ -144,9 +142,8 @@ prop = new function () {
         Shadow: window.GetProperty("Style.Text-Shadow", true),
         ShadowPosition: window.GetProperty("Style.Text-ShadowPosition", "1,2"),
         TextRoundSize: window.GetProperty("Style.Text-RoundSize", 5),
-        // Text Alignment
         Align: window.GetProperty("Style.Align", DT_CENTER),
-        // Padding
+        AlignNoLyric: window.GetProperty("Style.AlignNoLyric", DT_CENTER),
         HPadding: window.GetProperty("Style.Horizontal-Padding", 5),
         VPadding: window.GetProperty("Style.Vartical-Padding", "4,4").toString().split(/[ 　]*,[ 　]*/),
         LPadding: window.GetProperty("Style.Line-Padding", 1),
@@ -232,6 +229,9 @@ prop = new function () {
     // check Align
     if (typeof this.Style.Align != "number" || this.Style.Align < 0x00000000 || this.Style.Align > 0x00000006)
         window.SetProperty("Style.Align", this.Style.Align = DT_CENTER);
+
+    if (typeof this.Style.AlignNoLyric != "number" || this.Style.AlignNoLyric < 0x00000000 || this.Style.AlignNoLyric > 0x00000006)
+        window.SetProperty("Style.AlignNoLyric", this.Style.AlignNoLyric = DT_CENTER);
 
     // check Font and Set Style.Font
     var fontfamily = ["Meiryo", "Tahoma", "Arial", "Segoe UI", "MS Gothic"];
@@ -494,7 +494,7 @@ function setAlign() {
 
     Left_Center = Center_Left = Center_Right = Right_Center = false;
 
-    switch (window.GetProperty("Style.Align", DT_CENTER)) {
+    switch (window.GetProperty("Style.Align")) {
         case 0x00000000:
             prop.Style.Align = prop.Style.DrawingMethod === 0 ? DT_LEFT | DT_NOPREFIX : GDIPlus_LEFT;
             prop.Edit.Align = DT_LEFT | DT_NOPREFIX | DT_WORDBREAK;
@@ -526,6 +526,30 @@ function setAlign() {
             prop.Style.Align = prop.Style.DrawingMethod === 0 ? DT_RIGHT | DT_NOPREFIX : GDIPlus_RIGHT;
             Right_Center = true;
             prop.Edit.Align = DT_RIGHT | DT_NOPREFIX | DT_WORDBREAK;
+            break;
+    }
+
+    switch (window.GetProperty("Style.AlignNoLyric")) {
+        case 0x00000000:
+            prop.Style.AlignNoLyric = prop.Style.DrawingMethod === 0 ? DT_LEFT | DT_NOPREFIX | DT_WORDBREAK : GDIPlus_LEFT;
+            break;
+        case 0x00000001:
+            prop.Style.AlignNoLyric = prop.Style.DrawingMethod === 0 ? DT_CENTER | DT_NOPREFIX | DT_WORDBREAK : GDIPlus_CENTER;
+            break;
+        case 0x00000002:
+            prop.Style.AlignNoLyric = prop.Style.DrawingMethod === 0 ? DT_RIGHT | DT_NOPREFIX | DT_WORDBREAK : GDIPlus_RIGHT;
+            break;
+        case 0x00000003: // Left_Center
+            prop.Style.AlignNoLyric = prop.Style.DrawingMethod === 0 ? DT_LEFT | DT_NOPREFIX | DT_WORDBREAK : GDIPlus_LEFT;
+            break;
+        case 0x00000004: // Center_Left
+            prop.Style.AlignNoLyric = prop.Style.DrawingMethod === 0 ? DT_LEFT | DT_NOPREFIX | DT_WORDBREAK : GDIPlus_LEFT;
+            break;
+        case 0x00000005: // Center_Right
+            prop.Style.AlignNoLyric = prop.Style.DrawingMethod === 0 ? DT_RIGHT | DT_NOPREFIX | DT_WORDBREAK : GDIPlus_RIGHT;
+            break;
+        case 0x00000006: // Right_Center
+            prop.Style.AlignNoLyric = prop.Style.DrawingMethod === 0 ? DT_RIGHT | DT_NOPREFIX | DT_WORDBREAK : GDIPlus_RIGHT;
             break;
     }
 
@@ -2199,42 +2223,63 @@ LyricShow = new function (Style) {
             gr.GdiDrawText("Click here to enable this panel.", Style.Font, Style.Color.Text, g_x, g_y + (wh * (46 / 100)) - 6, ww, wh, DT_CENTER | DT_WORDBREAK | DT_NOPREFIX);
         }
         else if (fb.IsPlaying) { // lyrics is not found
+            var nlw, offset;
+            var align = window.GetProperty("Style.AlignNoLyric");
+            var noLyricX = (align == 0x00000003 || align == 0x00000006) ? ww : (align == 0x00000004) ? centerleftX : g_x;
+            var c_ww = (align == 0x00000004 || align == 0x00000005) ? ww - centerleftX + g_x : ww;
+
             var wordbreak = 0;
             var s = fb.TitleFormat(prop.Panel.NoLyric).Eval().split("\\n");
+
+            if (Style.DrawingMethod === 0) {
+                TextHeightWithoutLPadding = gr.CalcTextHeight("Test", Style.Font);
+                TextHeight = TextHeightWithoutLPadding + Style.LPadding;
+                offset = g_y + (wh / 2) - s.length / 2 * TextHeight;
+            }
+            else {
+                TextHeightWithoutLPadding = Math.ceil(gr.MeasureString("Test", Style.Font, 0, 0, ww * 10, wh, 0).Height);
+                TextHeight = TextHeightWithoutLPadding + Style.LPadding;
+                offset = g_y + (wh / 2) - s.length / 2 * TextHeight;
+            }
+
+            if (align == 0x00000003 || align == 0x00000006) {
+                if (Style.DrawingMethod === 0)
+                    for (i = 0; i < s.length; i++) {
+                        nlw = gr.CalcTextWidth(s[i], Style.Font);
+                        noLyricX = Math.min((ww - nlw) / 2, noLyricX);
+                    }
+                else
+                    for (i = 0; i < s.length; i++) {
+                        nlw = gr.MeasureString(s[i], Style.Font, 0, 0, ww * 10, wh, 0).Width;
+                        noLyricX = Math.min((ww - nlw) / 2, noLyricX);
+                    }
+                noLyricX = Math.max(noLyricX, 0);
+                c_ww = ww - noLyricX * 2;
+                noLyricX += g_x;
+            }
+
 
             try {
                 switch (Style.DrawingMethod) {
                     case 0:
-                        TextHeightWithoutLPadding = gr.CalcTextHeight("Test", Style.Font);
-                        TextHeight = TextHeightWithoutLPadding + Style.LPadding;
-                        var offset = g_y + (wh / 2) - s.length / 2 * TextHeight;
-
                         for (i = 0; i < s.length; i++) {
-                            Style.Shadow && gr.GdiDrawText(s[i], Style.Font, Style.Color.TextShadow, g_x + Style.ShadowPosition[0], offset + TextHeight * (i + wordbreak) + Style.ShadowPosition[1], ww, wh, DT_CENTER | DT_WORDBREAK | DT_NOPREFIX);
-                            gr.GdiDrawText(s[i], Style.Font, Style.Color.Text, g_x, offset + TextHeight * (i + wordbreak), ww, wh, DT_CENTER | DT_WORDBREAK | DT_NOPREFIX);
+                            Style.Shadow && gr.GdiDrawText(s[i], Style.Font, Style.Color.TextShadow, noLyricX + Style.ShadowPosition[0], offset + TextHeight * (i + wordbreak) + Style.ShadowPosition[1], c_ww, wh, Style.AlignNoLyric);
+                            gr.GdiDrawText(s[i], Style.Font, Style.Color.Text, noLyricX, offset + TextHeight * (i + wordbreak), c_ww, wh, Style.AlignNoLyric);
                             wordbreak += Math.floor(gr.CalcTextWidth(s[i], Style.Font) / ww);
                         }
                         break;
                     case 1:
-                        TextHeightWithoutLPadding = Math.ceil(gr.MeasureString("Test", Style.Font, 0, 0, ww * 10, wh, 0).Height);
-                        TextHeight = TextHeightWithoutLPadding + Style.LPadding;
-                        offset = g_y + (wh / 2) - s.length / 2 * TextHeight;
-
                         for (i = 0; i < s.length; i++) {
-                            Style.Shadow && gr.DrawString(s[i], Style.Font, Style.Color.TextShadow, g_x + Style.ShadowPosition[0], offset + TextHeight * (i + wordbreak) + Style.ShadowPosition[1], ww, wh, GDIPlus_CENTER);
-                            gr.DrawString(s[i], Style.Font, Style.Color.Text, g_x, offset + TextHeight * (i + wordbreak), ww, wh, GDIPlus_CENTER);
+                            Style.Shadow && gr.DrawString(s[i], Style.Font, Style.Color.TextShadow, noLyricX + Style.ShadowPosition[0], offset + TextHeight * (i + wordbreak) + Style.ShadowPosition[1], c_ww, wh, Style.AlignNoLyric);
+                            gr.DrawString(s[i], Style.Font, Style.Color.Text, noLyricX, offset + TextHeight * (i + wordbreak), c_ww, wh, Style.AlignNoLyric);
                             wordbreak += Math.floor(gr.MeasureString(s[i], Style.Font, 0, 0, ww * 10, wh, 0).Width / ww);
 
                         }
                         break;
                     case 2:
-                        TextHeightWithoutLPadding = Math.ceil(gr.MeasureString("Test", Style.Font, 0, 0, ww * 10, wh, 0).Height);
-                        TextHeight = TextHeightWithoutLPadding + Style.LPadding;
-                        offset = g_y + (wh / 2) - s.length / 2 * TextHeight;
-
                         TextRender.OutLineText(Style.Color.Text, Style.Color.TextRound, Style.Shadow ? Style.TextRoundSize : 0);
                         for (i = 0; i < s.length; i++) {
-                            TextRender.RenderStringRect(gr, s[i], Style.Font, g_x, offset + TextHeight * (i + wordbreak), ww, wh, GDIPlus_CENTER);
+                            TextRender.RenderStringRect(gr, s[i], Style.Font, noLyricX, offset + TextHeight * (i + wordbreak), c_ww, wh, Style.AlignNoLyric);
                             wordbreak += Math.floor(gr.MeasureString(s[i], Style.Font, 0, 0, ww * 10, wh, 0).Width / ww);
                         }
                         break;
