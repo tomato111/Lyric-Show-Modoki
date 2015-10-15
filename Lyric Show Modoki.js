@@ -3,7 +3,7 @@
 
 // ==PREPROCESSOR==
 // @name "Lyric Show Modoki"
-// @version "1.4.9"
+// @version "1.4.10"
 // @author "tomato111"
 // @import "%fb2k_profile_path%import\common\lib.js"
 // ==/PREPROCESSOR==
@@ -23,7 +23,7 @@ var fs = new ActiveXObject("Scripting.FileSystemObject"); // File System Object
 var ws = new ActiveXObject("WScript.Shell"); // WScript Shell Object
 var Trace = new TraceLog();
 var scriptName = "Lyric Show Modoki";
-var scriptVersion = "1.4.9";
+var scriptVersion = "1.4.10";
 var scriptdir = fb.ProfilePath + "import\\" + scriptName + "\\";
 var commondir = fb.ProfilePath + "import\\common\\";
 var down_pos = {};
@@ -74,6 +74,7 @@ prop = new function () {
         Priority: window.GetProperty("Panel.Priority", "Sync_Tag,Sync_File,Unsync_Tag,Unsync_File"),
         Contain: window.GetProperty("Panel.LRC.ContainNormalLines", false),
         ScrollType: window.getProperty("Panel.LRC.ScrollType", 1),
+        SkipEmptyLine: window.GetProperty("Panel.LRC.SkipEmptyLine", true),
         AlphaDurationTime: 30,
         ScrollDurationTime: window.getProperty("Panel.LRC.ScrollDurationTime", 141), // value*10 [ms]前からスクロール開始 // 3の倍数を推奨
         ScrollToCenter: window.getProperty("Panel.LRC.ScrollToCenter", false),
@@ -1225,7 +1226,7 @@ LyricShow = new function (Style) {
                 this.time = p.lineList ? p.lineList[i] / 100 : null;
 
                 if (isLRC) {
-                    if (this.text != "")
+                    if (!prop.Panel.SkipEmptyLine || this.text != "")
                         this.isEvenNum = Count_ContainString++ % 2 === 0;
 
                     this.speed = p.scrollSpeedList[i];

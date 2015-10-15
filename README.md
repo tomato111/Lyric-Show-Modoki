@@ -1,6 +1,12 @@
 ﻿##Installation
 <http://ashiato1.blog62.fc2.com/blog-entry-64.html>
 ##History
+--v1.4.10(2015/10/15)-------------------------------------------------
+
+* 1行/2行表示で空行をスキップして先の歌詞を表示する機能を無効にできるようにした  
+　Panel.LRC.SkipEmptyLine  
+* 言語追加 cn.ini (translated by elia-is-me)  
+
 --v1.4.9(2015/09/13)--------------------------------------------------
 
 * no lyrics 時の列揃えを変更する設定を追加 Style.AlignNoLyric  
