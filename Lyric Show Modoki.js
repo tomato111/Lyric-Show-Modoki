@@ -3,7 +3,7 @@
 
 // ==PREPROCESSOR==
 // @name "Lyric Show Modoki"
-// @version "1.4.10"
+// @version "1.4.11"
 // @author "tomato111"
 // @import "%fb2k_profile_path%import\common\lib.js"
 // ==/PREPROCESSOR==
@@ -23,7 +23,7 @@ var fs = new ActiveXObject("Scripting.FileSystemObject"); // File System Object
 var ws = new ActiveXObject("WScript.Shell"); // WScript Shell Object
 var Trace = new TraceLog();
 var scriptName = "Lyric Show Modoki";
-var scriptVersion = "1.4.10";
+var scriptVersion = "1.4.11";
 var scriptdir = fb.ProfilePath + "import\\" + scriptName + "\\";
 var commondir = fb.ProfilePath + "import\\common\\";
 var down_pos = {};
@@ -338,7 +338,7 @@ prop = new function () {
 };
 
 //========
-//  load language
+// load language
 //========
 
 LanguageLoader = {
@@ -459,7 +459,7 @@ LanguageLoader.Dispose();
 PluginLoader.Dispose();
 
 //=======
-//  function
+// function
 //=======
 
 function getRepeatRes(userfile, defaultfile) {
@@ -2935,6 +2935,7 @@ Keybind = new function () {
         this[40] = function () { lyric && applyDelta(-prop.Panel.MouseWheelDelta); }, // Down
         this[67] = function () { // C
             if (on_key_down.Ctrl && lyric) copyLyric(true); // (+Ctrl)
+            else if (!on_key_down.Ctrl) return false; // Ctrlが押されていない状態でこのメソッドが呼ばれたことを呼び出し元に明示する
         };
         this[86] = function () { // V
             if (on_key_down.Ctrl && fb.IsPlaying) { // (+Ctrl)
@@ -2946,6 +2947,7 @@ Keybind = new function () {
                         saveToFile(parse_path + (filetype === "lrc" ? ".lrc" : ".txt"));
                 }
             }
+            else if (!on_key_down.Ctrl) return false; // Ctrlが押されていない状態でこのメソッドが呼ばれたことを呼び出し元に明示する
         };
     };
 
@@ -4047,14 +4049,22 @@ function on_mouse_rbtn_up(x, y, mask) {
 
 function on_key_down(vkey) {
     //console(vkey);
+    var prevent_shortcuts;
     if (vkey === 16)
         !on_key_down.Shift && (on_key_down.Shift = true);
     else if (vkey === 17)
         !on_key_down.Ctrl && (on_key_down.Ctrl = true);
-    else if (!prop.Edit.Start)
-        Keybind.LyricShow_keydown[vkey] && Keybind.LyricShow_keydown[vkey]();
-    else if (!Lock)
+    else if (!prop.Edit.Start) {
+        prevent_shortcuts = Keybind.LyricShow_keydown[vkey] && Keybind.LyricShow_keydown[vkey]();
+        if (prevent_shortcuts === undefined)
+            prevent_shortcuts = Boolean(Keybind.LyricShow_keydown[vkey] || Keybind.LyricShow_keyup[vkey]);
+    }
+    else if (!Lock) {
         Keybind.Edit_keydown[vkey] && Keybind.Edit_keydown[vkey]();
+        prevent_shortcuts = Boolean(Keybind.Edit_keydown[vkey] || Keybind.Edit_keyup[vkey]);
+    }
+
+    return prevent_shortcuts; // prevent keyboard shortcuts
 }
 
 function on_key_up(vkey) {
