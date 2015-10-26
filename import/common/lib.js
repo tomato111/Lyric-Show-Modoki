@@ -376,7 +376,7 @@ function FuncCommand(path) {
             ar = RegExp.$2.charAt(0);
             arg = (ar != '"' && ar != "/") ? '"' + RegExp.$2 + '"' : RegExp.$2;
         }
-        sa.ShellExecute(path, arg, "", "open", 1);
+        sa.ShellExecute(path, arg, "", "", 1);
     }
 }
 
