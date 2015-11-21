@@ -3321,11 +3321,11 @@ Menu = new function () {
             item = {};
             item["Flag"] = MF_STRING;
             item["Caption"] = plugins[name].label + (i < 10 ? ("\tF" + i) : "");
-            item["Func"] = plugins[name].onCommand;
-            item["isPlugin"] = true;
+            item["Func"] = function () { plugins[arguments.callee.name].onCommand(); };
+            item.Func.name = name;
             items.push(item);
             if (i < 10) // Set Keybind_up (F1～F9) 
-                Keybind.LyricShow_keyup[FunctionKey + i++] = plugins[name].onCommand;
+                Keybind.LyricShow_keyup[FunctionKey + i++] = item.Func;
         }
 
         return items;
