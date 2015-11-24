@@ -371,7 +371,7 @@ function FuncCommand(path) {
         fb.RunMainMenuCommand(path);
     else {
         var ar, arg = null;
-        if (path.match(/(.*?\.\w{2,4}) (.*)/)) {
+        if (/(.*?\.\w{2,4}) (.*)/.test(path)) {
             path = RegExp.$1;
             ar = RegExp.$2.charAt(0);
             arg = (ar != '"' && ar != "/") ? '"' + RegExp.$2 + '"' : RegExp.$2;

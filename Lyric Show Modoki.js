@@ -3,7 +3,7 @@
 
 // ==PREPROCESSOR==
 // @name "Lyric Show Modoki"
-// @version "1.4.11"
+// @version "1.5.0"
 // @author "tomato111"
 // @import "%fb2k_profile_path%import\common\lib.js"
 // ==/PREPROCESSOR==
@@ -23,7 +23,7 @@ var fs = new ActiveXObject("Scripting.FileSystemObject"); // File System Object
 var ws = new ActiveXObject("WScript.Shell"); // WScript Shell Object
 var Trace = new TraceLog();
 var scriptName = "Lyric Show Modoki";
-var scriptVersion = "1.4.11";
+var scriptVersion = "1.5.0";
 var scriptdir = fb.ProfilePath + "import\\" + scriptName + "\\";
 var commondir = fb.ProfilePath + "import\\common\\";
 var down_pos = {};
@@ -37,6 +37,14 @@ var DT_NOPREFIX = 0x00000800;
 var GDIPlus_LEFT = 0x00000000;
 var GDIPlus_CENTER = 0x10000000;
 var GDIPlus_RIGHT = 0x20000000;
+var MF_SEPARATOR = 0x00000800;
+var MF_ENABLED = 0x00000000;
+var MF_GRAYED = 0x00000001;
+var MF_DISABLED = 0x00000002;
+var MF_UNCHECKED = 0x00000000;
+var MF_CHECKED = 0x00000008;
+var MF_STRING = 0x00000000;
+var MF_POPUP = 0x00000010;
 var tagRe = /\[\d\d:\d\d[.:]\d\d\]/;
 var alltagsRe = /\[\d\d:\d\d[.:]\d\d\]/g;
 var timeRe = /\[(\d\d):(\d\d)[.:](\d\d)\]/;
@@ -335,6 +343,12 @@ prop = new function () {
 
     if (!this.Save.ClipbordAutoSaveTo || !/^(?:File|Tag)$/i.test(this.Save.ClipbordAutoSaveTo))
         window.SetProperty("Save.GetClipbord.AutoSaveTo", this.Save.ClipbordAutoSaveTo = "");
+
+
+    // ==Plugin====
+    this.Plugin = {
+        Disable: window.GetProperty("Plugin.Disable", "").replace(/[ 　]*,[ 　]*/g, "|") // set plugin names. (e.g. dplugin_Utamap, oplugin_NewFile_TXT
+    };
 };
 
 //========
@@ -424,6 +438,7 @@ PluginLoader = {
     Load: function (objFSO, path) {
         var f, fc, item, stm, str, i = 0;
         var jsRE = /\.js$/i;
+        var disableRE = new RegExp("^(?:" + prop.Plugin.Disable.trim() + ")$");
 
         try {
             f = objFSO.GetFolder(path);
@@ -442,7 +457,8 @@ PluginLoader = {
                 fb.trace(fc.item().Name + " is SyntaxError. (" + scriptName + ")");
                 continue;
             }
-            this.Plugins[item.name] = item;
+            if (!disableRE.test(item.name))
+                this.Plugins[item.name] = item;
         }
     },
     Dispose: function () { delete PluginLoader; }
@@ -624,7 +640,7 @@ function getFieldName(isEdit) {
     return field;
 }
 
-function saveToTag(fieldname) {
+function saveToTag(fieldname, status, silent) {
 
     if (lyric && fieldname) {
         Lock = true;
@@ -633,9 +649,9 @@ function saveToTag(fieldname) {
         var text = (lyric.info.length ? lyric.info.join(LineFeedCode) + LineFeedCode : "") + lyric.text.join(LineFeedCode).trim();
         try {
             writeTagField(text, fieldname, meta);
-            StatusBar.setText(Messages.SavedToTag.ret('"' + fieldname + '"'));
+            StatusBar.setText((status ? status : "") + Messages.SavedToTag.ret('"' + fieldname + '"'));
             StatusBar.show();
-            playSoundSimple(commondir + "finished.wav");
+            !silent && playSoundSimple(commondir + "finished.wav");
         } catch (e) {
             Messages.FailedToSaveLyricsToTag.popup("\n" + e.message);
         }
@@ -645,7 +661,7 @@ function saveToTag(fieldname) {
     }
 }
 
-function saveToFile(file) {
+function saveToFile(file, status, silent) {
 
     if (lyric && file) {
         Lock = true;
@@ -657,9 +673,9 @@ function saveToFile(file) {
             if (!fs.FolderExists(folder))
                 createFolder(fs, folder);
             writeTextFile(text, file, prop.Save.CharacterCode);
-            StatusBar.setText(Messages.Saved.ret(file));
+            StatusBar.setText((status ? status : "") + Messages.Saved.ret(file));
             StatusBar.show();
-            playSoundSimple(commondir + "finished.wav");
+            !silent && playSoundSimple(commondir + "finished.wav");
             FuncCommands(prop.Save.RunAfterSave, meta);
         } catch (e) {
             Messages.FailedToSaveLyricsToFile.popup("\n" + e.message);
@@ -696,13 +712,13 @@ function applyDelta(delta, isMouseMove) {
 }
 applyDelta.applySimple = function (n) {
     if (n >= fixY) {
-        if (offsetY == !fixY) {
+        if (offsetY !== fixY) {
             offsetY = fixY;
             window.Repaint();
         }
     }
     else if (n <= LyricShow.setProperties.minOffsetY) {
-        if (offsetY == !LyricShow.setProperties.minOffsetY) {
+        if (offsetY !== LyricShow.setProperties.minOffsetY) {
             offsetY = LyricShow.setProperties.minOffsetY;
             window.Repaint();
         }
@@ -2858,11 +2874,18 @@ StatusBar = new function (Style) {
     this.setText = function (Text) {
         this.Text = Text;
 
+        var width, wordbreak;
         var temp_bmp = gdi.CreateImage(1, 1);
         var temp_gr = temp_bmp.GetGraphics();
-        var width = temp_gr.CalcTextWidth(Text, Style.StatusBarFont);
 
-        this.Height = temp_gr.CalcTextHeight(Text, Style.StatusBarFont) * Math.ceil(width / (ww - 3));
+        Text = Text.split("\n");
+        wordbreak = Text.length - 1;
+        for (var i = 0; i < Text.length; i++) {
+            width = temp_gr.CalcTextWidth(Text[i], Style.StatusBarFont);
+            wordbreak += Math.floor(width / (ww - 3));
+        }
+
+        this.Height = temp_gr.CalcTextHeight(Text, Style.StatusBarFont) * (wordbreak + 1);
         this.Y = g_y + wh - this.Height;
 
         temp_bmp.ReleaseGraphics(temp_gr);
@@ -3022,15 +3045,6 @@ Keybind = new function () {
 //===========================================
 
 Menu = new function () {
-    var MF_SEPARATOR = 0x00000800;
-    var MF_ENABLED = 0x00000000;
-    var MF_GRAYED = 0x00000001;
-    var MF_DISABLED = 0x00000002;
-    var MF_UNCHECKED = 0x00000000;
-    var MF_CHECKED = 0x00000008;
-    var MF_STRING = 0x00000000;
-    var MF_POPUP = 0x00000010;
-    var MF_RIGHTJUSTIFY = 0x00004000;
 
     var _menu;
 
@@ -3319,10 +3333,15 @@ Menu = new function () {
         var items = [], item, i = 1, FunctionKey = 111;
         for (var name in plugins) {
             item = {};
-            item["Flag"] = MF_STRING;
+            item["Flag"] = plugins[name].flag || MF_STRING;
             item["Caption"] = plugins[name].label + (i < 10 ? ("\tF" + i) : "");
-            item["Func"] = function () { plugins[arguments.callee.name].onCommand(); };
+            item["Func"] = function () {
+                plugins[arguments.callee.name].onCommand();
+                arguments.callee.item.Flag = plugins[arguments.callee.name].flag || MF_STRING;
+                Menu.build();
+            };
             item.Func.name = name;
+            item.Func.item = item;
             items.push(item);
             if (i < 10) // Set Keybind_up (F1～F9) 
                 Keybind.LyricShow_keyup[FunctionKey + i++] = item.Func;
