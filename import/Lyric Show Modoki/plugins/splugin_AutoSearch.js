@@ -7,7 +7,7 @@
         window.GetProperty('Plugin.Search.AutoSearch', 'dplugin_Miku_Hatsune_wiki, dplugin_Utamap, dplugin_Utanet');
         var AutoSaveTo = window.GetProperty('Plugin.Search.AutoSaveTo');
 
-        Keybind.LyricShow_keyup[57] = function () {
+        Keybind.LyricShow_keyup[13] = function () {
             var tmp, status;
             var results = plugins['splugin_AutoSearch'].results;
             if (!results || !results.length)
@@ -16,7 +16,7 @@
             main(results[0].lyric);
             status = 'source: ' + results[0].name;
             if (results.length !== 1) {
-                status += " (Press '9' key to switch)";
+                status += " (Press 'Enter' to switch)";
                 tmp = results.shift();
                 results.push(tmp);
             }
@@ -55,7 +55,7 @@
                 StatusBar.hide();
                 arguments.callee.clearInterval();
                 trim_res();
-                Keybind.LyricShow_keyup[57]();
+                Keybind.LyricShow_keyup[13]();
             }
         }).interval(1000);
 
