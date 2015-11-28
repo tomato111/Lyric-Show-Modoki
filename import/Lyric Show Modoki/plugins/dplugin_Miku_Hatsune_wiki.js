@@ -91,7 +91,7 @@
         }
 
         function AnalyzePage(resArray, found) {
-            var re = new RegExp(found !== true ? '<a href="(.*?)" +?title="(' + title.replaceEach('\\*', '\\*', '\\?', '\\?', 'g') + '.*?)"(?: style=".+?")?>' : 'id_[a-z0-9]{8}|^作詞|^作曲|^編曲|^唄');
+            var re = new RegExp(found !== true ? '<a href="(.*?)" +?title="(' + title.replaceEach('\\*', '\\*', '\\?', '\\?', '\\(', '\\(', '\\)', '\\)', 'g') + '.*?)"(?: style=".+?")?>' : 'id_[a-z0-9]{8}|^作詞|^作曲|^編曲|^唄');
             var lyricsFlag = false, id = null, intButton = null, foundPage = null;
             var aimai = false, mat = false, isCD = false;
             if (found !== true) {
