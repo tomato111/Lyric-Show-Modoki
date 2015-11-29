@@ -4,14 +4,27 @@
     author: 'tomato111',
     flag: MF_STRING,
     onStartUp: function () { // 最初に一度だけ呼び出される関数
-        window.GetProperty('Plugin.Search.AutoSearch', 'dplugin_Miku_Hatsune_wiki, dplugin_Utamap, dplugin_Utanet');
-        var AutoSaveTo = window.GetProperty('Plugin.Search.AutoSaveTo');
+        var _this = this;
+        var timeout_millisecond = 8000;
+
+        this.AvailablePluginNames = window.GetProperty('Plugin.Search.AutoSearch', 'dplugin_Miku_Hatsune_wiki, dplugin_Utamap, dplugin_Utanet').split(/[ 　]*,[ 　]*/);
+        this.results = []; // 各検索プラグインが結果をオブジェクトで格納する。{ name : plugin_name, lyric : plugin_result }  // プラグインが処理を中止した場合にも plugin_result = null で格納すべき（処理が終わったことを明示しないとtimeout_millisecondの待機時間が生じる）
+        this.timer = function () { // 進捗チェック
+            var diff = new Date() - _this.date_start;
+            if (_this.results.length === _this.AvailablePluginNames.length || diff >= timeout_millisecond) {
+                StatusBar.hide();
+                arguments.callee.clearInterval();
+                trim_res();
+                Keybind.LyricShow_keyup[13]();
+            }
+        };
 
         Keybind.LyricShow_keyup[13] = function () {
             var tmp, status;
-            var results = plugins['splugin_AutoSearch'].results;
-            if (!results || !results.length)
+            var results = _this.results;
+            if (!results.length)
                 return;
+            var AutoSaveTo = window.GetProperty('Plugin.Search.AutoSaveTo');
 
             main(results[0].lyric);
             status = 'source: ' + results[0].name;
@@ -29,39 +42,9 @@
                     saveToFile(parse_path + (filetype === 'lrc' ? '.lrc' : '.txt'), status + '\n');
         };
 
-    },
-    onPlay: function () { // 新たに曲が再生される度に呼び出される関数
-        if (!this.onCommand.AutoSearch || lyric) {
-            plugins['splugin_AutoSearch'].results = null;
-            return;
-        }
-
-        var isAutoSearch = true,
-            timeout_millisecond = 8000,
-            date_start = new Date(),
-            AvailablePluginNames = window.GetProperty('Plugin.Search.AutoSearch').split(/[ 　]*,[ 　]*/),
-            results = [];
-
-        plugins['splugin_AutoSearch'].results = results; // 各検索プラグインが結果をオブジェクトで格納する。{ name : plugin_name, lyric : plugin_result }
-
-
-        for (var i = 0; i < AvailablePluginNames.length; i++) {
-            plugins[AvailablePluginNames[i]] && plugins[AvailablePluginNames[i]].onCommand(isAutoSearch);
-        }
-
-        (function () { // 1秒ごとに進捗チェック
-            var diff = new Date() - date_start;
-            if (results.length === AvailablePluginNames.length || diff >= timeout_millisecond) {
-                StatusBar.hide();
-                arguments.callee.clearInterval();
-                trim_res();
-                Keybind.LyricShow_keyup[13]();
-            }
-        }).interval(1000);
-
-
         function trim_res() {
             var res = [];
+            var results = _this.results;
             for (var i = 0; i < results.length; i++) {
                 if (results[i].lyric)
                     res.push(results[i]);
@@ -69,6 +52,23 @@
             results.length = 0;
             results.push.apply(results, res);
         }
+
+    },
+    onPlay: function () { // 新たに曲が再生される度に呼び出される関数
+        this.timer.clearInterval();
+        this.results.length = 0;
+        if (!this.onCommand.AutoSearch || lyric) {
+            return;
+        }
+
+        var isAutoSearch = true;
+        this.date_start = new Date();
+
+        for (var i = 0; i < this.AvailablePluginNames.length; i++) {
+            plugins[this.AvailablePluginNames[i]] && plugins[this.AvailablePluginNames[i]].onCommand(isAutoSearch);
+        }
+
+        this.timer.interval(1000);
 
     },
     onCommand: function () { // プラグインのメニューをクリックすると呼び出される関数
