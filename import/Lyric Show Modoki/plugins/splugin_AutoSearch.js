@@ -61,21 +61,21 @@
             return;
         }
 
-        var isAutoSearch = true;
         this.date_start = new Date();
 
         for (var i = 0; i < this.AvailablePluginNames.length; i++) {
-            plugins[this.AvailablePluginNames[i]] && plugins[this.AvailablePluginNames[i]].onCommand(isAutoSearch);
+            plugins[this.AvailablePluginNames[i]] && plugins[this.AvailablePluginNames[i]].onCommand(true);
         }
 
         this.timer.interval(1000);
 
     },
     onCommand: function () { // プラグインのメニューをクリックすると呼び出される関数
-        arguments.callee.AutoSearch = !Boolean(arguments.callee.AutoSearch)
+        arguments.callee.AutoSearch = !arguments.callee.AutoSearch;
         StatusBar.setText(arguments.callee.AutoSearch ? 'AutoSearch: ON' : 'AutoSearch: OFF');
         StatusBar.show();
         this.flag = arguments.callee.AutoSearch ? MF_CHECKED : MF_UNCHECKED;
         Menu.build();
+        arguments.callee.AutoSearch && fb.IsPlaying && this.onPlay();
     }
 };
