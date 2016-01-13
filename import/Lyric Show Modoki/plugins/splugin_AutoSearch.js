@@ -8,8 +8,12 @@
         var timeout_millisecond = 8000;
 
         this.AvailablePluginNames = window.GetProperty('Plugin.Search.AutoSearch', 'dplugin_Miku_Hatsune_wiki, dplugin_Utamap, dplugin_Utanet').split(/[ 　]*,[ 　]*/);
+        for (var i = 0; i < this.AvailablePluginNames.length; i++) {
+            !plugins[this.AvailablePluginNames[i]] && this.AvailablePluginNames.splice(i, 1);
+        }
         this.results = []; // 各検索プラグインが結果をオブジェクトで格納する。{ name : plugin_name, lyric : plugin_result }  // プラグインが処理を中止した場合にも plugin_result = null で格納すべき（処理が終わったことを明示しないとtimeout_millisecondの待機時間が生じる）
         this.timer = function () { // 進捗チェック
+            //debug var a = ''; for (var i = 0; i < _this.results.length; i++) { a += _this.results[i].name + ", "; } console(a);
             var diff = new Date() - _this.date_start;
             if (_this.results.length === _this.AvailablePluginNames.length || diff >= timeout_millisecond) {
                 StatusBar.hide();
@@ -64,7 +68,7 @@
         this.date_start = new Date();
 
         for (var i = 0; i < this.AvailablePluginNames.length; i++) {
-            plugins[this.AvailablePluginNames[i]] && plugins[this.AvailablePluginNames[i]].onCommand(true);
+            plugins[this.AvailablePluginNames[i]].onCommand(true);
         }
 
         this.timer.interval(1000);

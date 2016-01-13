@@ -516,20 +516,16 @@ function responseBodyToFile(bin, file) {
     return file;
 }
 
-function getHTML(data, method, file, async, depth, onLoaded, notFound) {
+function getHTML(data, method, file, async, depth, onLoaded) {
     var request = new ActiveXObject("Msxml2.XMLHTTP");
     getHTML.PRESENT = { file: file, depth: depth };
 
     request.open(method, file, async);
 
     request.onreadystatechange = function () {
-        if (request.readyState == 4 && request.status == 200) {
+        if (request.readyState == 4) {
             onLoaded(request, depth, file);
         }
-        else if (request.readyState == 4 && request.status == 404) {
-            notFound && notFound(request, depth, file);
-        }
-
     }
 
     request.setRequestHeader("Cache-Control", "max-age=0");

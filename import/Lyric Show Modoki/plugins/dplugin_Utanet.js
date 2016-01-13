@@ -41,7 +41,7 @@
 
         StatusBar.setText('検索中......Uta-net');
         StatusBar.show();
-        getHTML(null, 'GET', createQuery(title), async, depth, onLoaded, notFound);
+        getHTML(null, 'GET', createQuery(title), async, depth, onLoaded);
 
         //------------------------------------
 
@@ -50,17 +50,6 @@
                 return 'http://www.uta-net.com/user/phplib/svg/showkasi.php?ID=' + id + '&WIDTH=560&HEIGHT=1092&FONTSIZE=15&t=1437802371';
             else
                 return 'http://www.uta-net.com/search/?Keyword=' + EscapeSJIS(word).replace(/%20/g, '+') + '&x=' + Math.floor((Math.random() * 45 + 1)) + '&y=' + Math.floor((Math.random() * 23 + 1)) + '&Aselect=2&Bselect=4';
-        }
-
-        function notFound(request) { // Uta-netは検索結果が0だと404を返す
-            if (isAutoSearch) {
-                plugins['splugin_AutoSearch'].results.push({ name: label, lyric: null });
-                return;
-            }
-            StatusBar.hide();
-            var intButton = ws.Popup('ページが見つかりませんでした。\nブラウザで開きますか？', 0, '確認', 36);
-            if (intButton == 6)
-                FuncCommand('"' + getHTML.PRESENT.file + '"');
         }
 
         function onLoaded(request, depth) {
