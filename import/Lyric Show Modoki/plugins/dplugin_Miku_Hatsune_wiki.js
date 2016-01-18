@@ -2,7 +2,6 @@
     name: 'dplugin_Miku_Hatsune_wiki',
     label: prop.Panel.Lang == 'ja' ? '歌詞検索: 初音ミクWiki' : 'Download Lyrics: Miku Hatsune wiki',
     author: 'tomato111',
-    flag: MF_STRING,
     onStartUp: function () { // 最初に一度だけ呼び出される関数
         var temp = window.GetProperty('Plugin.Search.AutoSaveTo', ''); // 空欄 or Tag or File
         if (!/^(?:File|Tag)$/i.test(temp))

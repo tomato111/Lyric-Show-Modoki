@@ -2,7 +2,6 @@
     name: 'dplugin_Vovovov26',
     label: prop.Panel.Lang == 'ja' ? '歌詞検索: 個人用東方歌詞置き場' : 'Download Lyrics: Touhou Kashi Okiba',
     author: 'tomato111',
-    flag: MF_STRING,
     onStartUp: function () { // 最初に一度だけ呼び出される関数
         var temp = window.GetProperty('Plugin.Search.AutoSaveTo', ''); // 空欄 or Tag or File
         if (!/^(?:File|Tag)$/i.test(temp))

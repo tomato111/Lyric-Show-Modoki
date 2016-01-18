@@ -2,7 +2,6 @@
     name: 'dplugin_Utanet',
     label: prop.Panel.Lang == 'ja' ? '歌詞検索: 歌ネット' : 'Download Lyrics: Uta-net',
     author: 'tomato111',
-    flag: MF_STRING,
     onStartUp: function () { // 最初に一度だけ呼び出される関数
         var temp = window.GetProperty('Plugin.Search.AutoSaveTo', ''); // 空欄 or Tag or File
         if (!/^(?:File|Tag)$/i.test(temp))

@@ -3,7 +3,7 @@
 
 // ==PREPROCESSOR==
 // @name "Lyric Show Modoki"
-// @version "1.5.3"
+// @version "1.5.4"
 // @author "tomato111"
 // @import "%fb2k_profile_path%import\common\lib.js"
 // ==/PREPROCESSOR==
@@ -23,7 +23,7 @@ var fs = new ActiveXObject("Scripting.FileSystemObject"); // File System Object
 var ws = new ActiveXObject("WScript.Shell"); // WScript Shell Object
 var Trace = new TraceLog();
 var scriptName = "Lyric Show Modoki";
-var scriptVersion = "1.5.3";
+var scriptVersion = "1.5.4";
 var scriptdir = fb.ProfilePath + "import\\" + scriptName + "\\";
 var commondir = fb.ProfilePath + "import\\common\\";
 var down_pos = {};
@@ -1275,7 +1275,7 @@ LyricShow = new function (Style) {
                 moveY += this.speed;
 
                 if (moveY >= 1) {
-                    moveY -= Math.floor(moveY);
+                    moveY = 1 - Math.abs(offsetY - Math.floor(offsetY));
                     return true; // refresh flag
                 }
                 // fb.trace(this.i + " :: " + this.height + " :: " + this.speed + " :: " + offsetY + " :: " + lyric.text.length + " :: " + time + " > " + LyricShow.setProperties.DrawStyle[this.i + 1].time * 100)
@@ -3335,13 +3335,9 @@ Menu = new function () {
             item = {};
             item["Flag"] = plugins[name].flag || MF_STRING;
             item["Caption"] = plugins[name].label + (i < 10 ? ("\tF" + i) : "");
-            item["Func"] = function () {
-                plugins[arguments.callee.name].onCommand();
-                arguments.callee.item.Flag = plugins[arguments.callee.name].flag || MF_STRING;
-                Menu.build();
-            };
+            item["Func"] = function () { plugins[arguments.callee.name].onCommand(); };
             item.Func.name = name;
-            item.Func.item = item;
+            plugins[name].menuitem = item;
             items.push(item);
             if (i < 10) // Set Keybind_up (F1～F9) 
                 Keybind.LyricShow_keyup[FunctionKey + i++] = item.Func;

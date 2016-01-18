@@ -2,7 +2,6 @@
     name: 'uplugin_Lyric_Show_Modoki',
     label: prop.Panel.Lang == 'ja' ? '更新チェック: Lyric Show Modoki' : 'Check Update: Lyric Show Modoki',
     author: 'tomato111',
-    flag: MF_STRING,
     onStartUp: function () { // 最初に一度だけ呼び出される関数
         var cu = window.GetProperty('Plugin.CheckUpdateOnStartUp', false);
         if (cu) {

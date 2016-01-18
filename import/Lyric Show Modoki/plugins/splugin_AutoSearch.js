@@ -2,29 +2,32 @@
     name: 'splugin_AutoSearch',
     label: prop.Panel.Lang == 'ja' ? '設定: 再生時に検索' : 'Setting: Auto Search',
     author: 'tomato111',
-    flag: MF_STRING,
     onStartUp: function () { // 最初に一度だけ呼び出される関数
         var _this = this;
         var timeout_millisecond = 8000;
 
         this.AvailablePluginNames = window.GetProperty('Plugin.Search.AutoSearch', 'dplugin_Miku_Hatsune_wiki, dplugin_Utamap, dplugin_Utanet').split(/[ 　]*,[ 　]*/);
-        for (var i = 0; i < this.AvailablePluginNames.length; i++) {
-            !plugins[this.AvailablePluginNames[i]] && this.AvailablePluginNames.splice(i, 1);
+        for (var i = 0; i < this.AvailablePluginNames.length;) {
+            if (plugins[this.AvailablePluginNames[i]]) i++;
+            else this.AvailablePluginNames.splice(i, 1);
         }
         this.results = []; // 各検索プラグインが結果をオブジェクトで格納する。{ name : plugin_name, lyric : plugin_result }  // プラグインが処理を中止した場合にも plugin_result = null で格納すべき（処理が終わったことを明示しないとtimeout_millisecondの待機時間が生じる）
         this.timer = function () { // 進捗チェック
-            //debug var a = ''; for (var i = 0; i < _this.results.length; i++) { a += _this.results[i].name + ", "; } console(a);
+            //debug var a = ''; for (var i = 0; i < _this.results.length; i++) { a += _this.results[i].name + ", "; } console(a + ' (' + _this.results.length + '/' + _this.AvailablePluginNames.length + ')');
             var diff = new Date() - _this.date_start;
             if (_this.results.length === _this.AvailablePluginNames.length || diff >= timeout_millisecond) {
                 StatusBar.hide();
                 arguments.callee.clearInterval();
-                trim_res();
+                for (var i = 0; i < _this.results.length;) {
+                    if (_this.results[i].lyric) i++;
+                    else _this.results.splice(i, 1);
+                }
                 Keybind.LyricShow_keyup[13]();
             }
         };
 
         Keybind.LyricShow_keyup[13] = function () {
-            var tmp, status;
+            var status;
             var results = _this.results;
             if (!results.length)
                 return;
@@ -34,8 +37,7 @@
             status = 'source: ' + results[0].name;
             if (results.length !== 1) {
                 status += " (Press 'Enter' to switch)";
-                tmp = results.shift();
-                results.push(tmp);
+                results.push(results.shift());
             }
             StatusBar.setText(status);
             StatusBar.show();
@@ -45,17 +47,6 @@
                 else if (/^File$/i.test(AutoSaveTo))
                     saveToFile(parse_path + (filetype === 'lrc' ? '.lrc' : '.txt'), status + '\n');
         };
-
-        function trim_res() {
-            var res = [];
-            var results = _this.results;
-            for (var i = 0; i < results.length; i++) {
-                if (results[i].lyric)
-                    res.push(results[i]);
-            }
-            results.length = 0;
-            results.push.apply(results, res);
-        }
 
     },
     onPlay: function () { // 新たに曲が再生される度に呼び出される関数
@@ -78,7 +69,11 @@
         arguments.callee.AutoSearch = !arguments.callee.AutoSearch;
         StatusBar.setText(arguments.callee.AutoSearch ? 'AutoSearch: ON' : 'AutoSearch: OFF');
         StatusBar.show();
-        this.flag = arguments.callee.AutoSearch ? MF_CHECKED : MF_UNCHECKED;
+        var flag = arguments.callee.AutoSearch ? MF_CHECKED : MF_UNCHECKED;
+        this.menuitem.Flag = flag;
+        for (var i = 0; i < this.AvailablePluginNames.length; i++) {
+            plugins[this.AvailablePluginNames[i]].menuitem.Flag = flag;
+        }
         Menu.build();
         arguments.callee.AutoSearch && fb.IsPlaying && this.onPlay();
     }

@@ -2,7 +2,6 @@
     name: 'dplugin_Utamap',
     label: prop.Panel.Lang == 'ja' ? '歌詞検索: うたまっぷ' : 'Download Lyrics: Utamap',
     author: 'tomato111',
-    flag: MF_STRING,
     onStartUp: function () { // 最初に一度だけ呼び出される関数
         var temp = window.GetProperty('Plugin.Search.AutoSaveTo', ''); // 空欄 or Tag or File
         if (!/^(?:File|Tag)$/i.test(temp))
@@ -73,39 +72,37 @@
                 getHTML(null, 'GET', Page.url, !async, info, onLoaded);
                 getHTML(null, 'GET', createQuery(false, true, Page.id), async, txt, onLoaded);
             }
-            else if (!Page.searchResult) {
-                if (Page.Lyrics) {
-                    var text = onLoaded.Info + Page.Lyrics;
+            else if (Page.searchResult) {
+                getHTML(null, 'GET', createQuery(title, ++depth), async, depth, onLoaded);
+            }
+            else if (Page.Lyrics) {
+                var text = onLoaded.Info + Page.Lyrics;
 
-                    debug_html && fb.trace('\n' + text + '\n===End debug=============');
-                    if (isAutoSearch) {
-                        plugins['splugin_AutoSearch'].results.push({ name: label, lyric: text });
-                    }
-                    else {
-                        main(text);
-                        StatusBar.setText('検索終了。歌詞を取得しました。');
-                        StatusBar.show();
-                        if (AutoSaveTo)
-                            if (/^Tag$/i.test(AutoSaveTo))
-                                saveToTag(getFieldName());
-                            else if (/^File$/i.test(AutoSaveTo))
-                                saveToFile(parse_path + (filetype === 'lrc' ? '.lrc' : '.txt'));
-                    }
+                debug_html && fb.trace('\n' + text + '\n===End debug=============');
+                if (isAutoSearch) {
+                    plugins['splugin_AutoSearch'].results.push({ name: label, lyric: text });
                 }
-                else if (onLoaded.Info) { return; }
-                else{
-                    if (isAutoSearch) {
-                        plugins['splugin_AutoSearch'].results.push({ name: label, lyric: null });
-                        return;
-                    }
-                    StatusBar.hide();
-                    var intButton = ws.Popup('ページが見つかりませんでした。\nブラウザで開きますか？', 0, '確認', 36);
-                    if (intButton == 6)
-                        FuncCommand('"' + getHTML.PRESENT.file.replace(/&page=\d+/, '') + '"');
+                else {
+                    main(text);
+                    StatusBar.setText('検索終了。歌詞を取得しました。');
+                    StatusBar.show();
+                    if (AutoSaveTo)
+                        if (/^Tag$/i.test(AutoSaveTo))
+                            saveToTag(getFieldName());
+                        else if (/^File$/i.test(AutoSaveTo))
+                            saveToFile(parse_path + (filetype === 'lrc' ? '.lrc' : '.txt'));
                 }
             }
+            else if (onLoaded.Info) { return; }
             else {
-                getHTML(null, 'GET', createQuery(title, ++depth), async, depth, onLoaded);
+                if (isAutoSearch) {
+                    plugins['splugin_AutoSearch'].results.push({ name: label, lyric: null });
+                    return;
+                }
+                StatusBar.hide();
+                var intButton = ws.Popup('ページが見つかりませんでした。\nブラウザで開きますか？', 0, '確認', 36);
+                if (intButton == 6)
+                    FuncCommand('"' + getHTML.PRESENT.file.replace(/&page=\d+/, '') + '"');
             }
 
         }

@@ -2,7 +2,6 @@
     name: 'dplugin_Touhoukashi',
     label: prop.Panel.Lang == 'ja' ? '歌詞検索: 東方同人CD' : 'Download Lyrics: Touhou Doujin CD',
     author: 'tomato111',
-    flag: MF_STRING,
     onStartUp: function () { // 最初に一度だけ呼び出される関数
         var temp = window.GetProperty('Plugin.Search.AutoSaveTo', ''); // 空欄 or Tag or File
         if (!/^(?:File|Tag)$/i.test(temp))
