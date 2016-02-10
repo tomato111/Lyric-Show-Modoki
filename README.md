@@ -1,6 +1,12 @@
 ﻿##Installation
 <http://ashiato1.blog62.fc2.com/blog-entry-64.html>
 ##History
+--v1.5.5(2016/02/10)--------------------------------------------------
+
+* パネルサイズが変化した際に表示を即時に修正するかどうかを設定として追加  
+　Panel.RefreshOnPanelResize (StyleTextRenderを使用する場合はfalse推奨)  
+* 全行表示 かつ StyleTextRender 使用時の処理を修正  
+
 --v1.5.4(2016/01/19)--------------------------------------------------
 
 * '再生時に検索'にチェックを入れた時、Plugin.Search.AutoSearch に  

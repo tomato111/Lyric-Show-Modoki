@@ -32,13 +32,13 @@
         var artist = fb.TitleFormat('%artist%').Eval();
 
         if (ShowInputDialog) {
-            title = prompt('Please input TITLE', 'Uta-net', title);
+            title = prompt('Please input TITLE', label, title);
             if (!title) return;
-            artist = prompt('Please input ARTIST', 'Uta-net', artist);
+            artist = prompt('Please input ARTIST', label, artist);
             if (!artist) return;
         }
 
-        StatusBar.setText('検索中......Uta-net');
+        StatusBar.setText('検索中......' + label);
         StatusBar.show();
         getHTML(null, 'GET', createQuery(title), async, depth, onLoaded);
 
@@ -52,7 +52,7 @@
         }
 
         function onLoaded(request, depth) {
-            StatusBar.setText('検索中......Uta-net');
+            StatusBar.setText('検索中......' + label);
             StatusBar.show();
             debug_html && fb.trace('\nOpen#' + getHTML.PRESENT.depth + ': ' + getHTML.PRESENT.file + '\n');
 

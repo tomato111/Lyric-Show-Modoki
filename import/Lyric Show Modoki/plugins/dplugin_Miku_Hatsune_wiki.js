@@ -34,13 +34,13 @@
         var artist = fb.TitleFormat('%artist%').Eval();
 
         if (ShowInputDialog) {
-            title = prompt('Please input TITLE', 'Miku_Hatsune_wiki', title);
+            title = prompt('Please input TITLE', label, title);
             if (!title) return;
-            artist = prompt('Please input ARTIST', 'Miku_Hatsune_wiki', artist);
+            artist = prompt('Please input ARTIST', label, artist);
             if (!artist) return;
         }
 
-        StatusBar.setText('検索中......Miku Hatsune wiki');
+        StatusBar.setText('検索中......' + label);
         StatusBar.show();
         getHTML(null, 'GET', createQuery(title), async, first, onLoaded);
 
@@ -51,7 +51,7 @@
         }
 
         function onLoaded(request, depth) {
-            StatusBar.setText('検索中......Miku Hatsune wiki');
+            StatusBar.setText('検索中......' + label);
             StatusBar.show();
             debug_html && fb.trace('\nOpen#' + getHTML.PRESENT.depth + ': ' + getHTML.PRESENT.file + '\n');
             var res = request.responseText;
