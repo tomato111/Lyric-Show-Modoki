@@ -1,6 +1,14 @@
 ﻿##Installation
 <http://ashiato1.blog62.fc2.com/blog-entry-64.html>
 ##History
+--v1.5.6(2016/03/04)--------------------------------------------------
+
+* Panel.Background.ImageToRawBitmap と ImageOption を削除  
+* Panel.Background.Alpha, Angle, Blur, BlurValue, BlurAlpha を追加  
+* 歌詞を画像として保存するプラグインを追加（JScript Panel 専用）  
+　png形式では背景を透過して保存します  
+* 不具合修正  
+
 --v1.5.5(2016/02/10)--------------------------------------------------
 
 * パネルサイズが変化した際に表示を即時に修正するかどうかを設定として追加  
