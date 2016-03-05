@@ -3,25 +3,7 @@
     label: prop.Panel.Lang == 'ja' ? '更新チェック: Lyric Show Modoki' : 'Check Update: Lyric Show Modoki',
     author: 'tomato111',
     onStartUp: function () { // 最初に一度だけ呼び出される関数
-        var cu = window.GetProperty('Plugin.CheckUpdateOnStartUp', false);
-        if (cu) {
-            this.onCommand(true);
-            var f = this.onCommand;
-            (function () {
-                if (f.result) {
-                    Menu.addToMenu_LyricShow(
-                        [
-                            {
-                                Flag: 0x00000000,
-                                Caption: prop.Panel.Lang == 'ja' ? '## 新しいバージョンが利用可能です ##' : '## New version is available ##',
-                                Func: f
-                            }
-                        ]
-                    );
-                    Menu.build(prop.Edit.Start ? Menu.Edit : '');
-                }
-            }).timeout(1500);
-        }
+        window.GetProperty('Plugin.CheckUpdateOnStartUp', false) && this.onCommand(true);
     },
     onPlay: function () { }, // 新たに曲が再生される度に呼び出される関数
     onCommand: function (isStartUp) { // プラグインのメニューをクリックすると呼び出される関数
@@ -88,7 +70,16 @@
                     if (diff > 0) // there is a new version.
                         this.result = function () {
                             if (isStartUp) {
-                                onCommand.result = true;
+                                Menu.addToMenu_LyricShow(
+                                    [
+                                        {
+                                            Flag: 0x00000000,
+                                            Caption: prop.Panel.Lang == 'ja' ? '## 新しいバージョンが利用可能です ##' : '## New version is available ##',
+                                            Func: onCommand
+                                        }
+                                    ]
+                                );
+                                Menu.build(prop.Edit.Start ? Menu.Edit : '');
                             }
                             else {
                                 getHTML(null, 'GET', 'https://raw.githubusercontent.com/tomato111/Lyric-Show-Modoki/master/README.md', !async, depth,
