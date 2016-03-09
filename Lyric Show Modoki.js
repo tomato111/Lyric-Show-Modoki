@@ -3,7 +3,7 @@
 
 // ==PREPROCESSOR==
 // @name "Lyric Show Modoki"
-// @version "1.5.6"
+// @version "1.5.7"
 // @author "tomato111"
 // @import "%fb2k_profile_path%import\common\lib.js"
 // ==/PREPROCESSOR==
@@ -14,7 +14,7 @@
 //== Global Variable and Function =====================
 //============================================
 // user reserved words
-var plugins, lyric, parse_path, path, directory, filename, basename, filetype, dateLastModified, dateCreated, dataSize, charset, offsetinfo, backalpha
+var plugins, lyric, parse_path, path, directory, filename, basename, filetype, dateLastModified, dateCreated, dataSize, charset, offsetinfo, backalpha, infoPath, backupLyric
 , offsetY, fixY, moveY, lineY, drag, drag_y, g_x, g_y, ww, wh, larea_seek, rarea_seek, seek_width, rarea_seek_x, arc_w, arc_h, on_size_research, ignore_remainder, Lock, Lock_MiddleButton, movable, jumpY
 , Left_Center, Center_Left, Center_Right, Right_Center, centerleftX, TextHeight, TextHeightWithoutLPadding, BackgroundImg, isM4A
 , prop, LyricShow, Edit, Buttons, StatusBar, Keybind, Menu, Messages, Label;
@@ -23,7 +23,7 @@ var fs = new ActiveXObject("Scripting.FileSystemObject"); // File System Object
 var ws = new ActiveXObject("WScript.Shell"); // WScript Shell Object
 var Trace = new TraceLog();
 var scriptName = "Lyric Show Modoki";
-var scriptVersion = "1.5.6";
+var scriptVersion = "1.5.7";
 var scriptdir = fb.ProfilePath + "import\\" + scriptName + "\\";
 var commondir = fb.ProfilePath + "import\\common\\";
 var down_pos = {};
@@ -34,6 +34,7 @@ var DT_CENTER = 0x00000001;
 var DT_RIGHT = 0x00000002;
 var DT_WORDBREAK = 0x00000010;
 var DT_NOPREFIX = 0x00000800;
+var DT_WORD_ELLIPSIS = 0x00040000
 var GDIPlus_LEFT = 0x00000000;
 var GDIPlus_CENTER = 0x10000000;
 var GDIPlus_RIGHT = 0x20000000;
@@ -44,7 +45,6 @@ var MF_DISABLED = 0x00000002;
 var MF_UNCHECKED = 0x00000000;
 var MF_CHECKED = 0x00000008;
 var MF_STRING = 0x00000000;
-var MF_POPUP = 0x00000010;
 var tagRe = /\[\d\d:\d\d[.:]\d\d\]/;
 var alltagsRe = /\[\d\d:\d\d[.:]\d\d\]/g;
 var timeRe = /\[(\d\d):(\d\d)[.:](\d\d)\]/;
@@ -105,6 +105,7 @@ prop = new function () {
         MouseWheelDelta: window.GetProperty("Panel.MouseWheelDelta", 30),
         MouseWheelSmoothing: window.GetProperty("Panel.MouseWheelSmoothing", true),
         RefreshOnPanelResize: window.GetProperty("Panel.RefreshOnPanelResize", false),
+        InfoPath: window.GetProperty("Panel.InfoPath", ""),
         Keybind:
         {
             SeekToNextLine: window.GetProperty("Panel.Keybind.SeekToNextLine", 88), // Default is 'X' Key
@@ -286,7 +287,7 @@ prop = new function () {
         window.SetProperty("Style.CenterPosition", this.Style.CenterPosition = 46);
 
     // check FadingHeight
-    if (!this.Style.FadingHeight || !(this.Style.FadingHeight instanceof Array) || this.Style.FadingHeight.length < 2
+    if (!this.Style.FadingHeight || this.Style.FadingHeight.length < 2
         || !/^\d+$/.test(this.Style.FadingHeight[0]) || !/^\d+$/.test(this.Style.FadingHeight[1])) {
 
         window.SetProperty("Style.FadingHeight", this.Style.FadingHeight = "40,40");
@@ -299,7 +300,7 @@ prop = new function () {
     if (typeof this.Style.HPadding !== "number")
         window.SetProperty("Style.Horizontal-Padding", this.Style.HPadding = 5);
 
-    if (!this.Style.VPadding || !(this.Style.VPadding instanceof Array) || this.Style.VPadding.length < 2
+    if (!this.Style.VPadding || this.Style.VPadding.length < 2
         || !/^\d+$/.test(this.Style.VPadding[0]) || !/^\d+$/.test(this.Style.VPadding[1])) {
 
         window.SetProperty("Style.Vartical-Padding", this.Style.VPadding = "4,4");
@@ -614,22 +615,21 @@ function doubleFig(num) { // 桁合わせ
     return num;
 }
 
-function copyLyric(withTag) { // copy lyric to clipboad
+function copyLyric(withoutTag) { // copy lyric to clipboad
+
+    if (!lyric)
+        return;
 
     var LineFeedCode = prop.Save.LineFeedCode;
-    var textArray = lyric.text.slice(0);
-    var text;
+    var text = lyric.text.join(LineFeedCode);
 
+    if (filetype === "lrc" && withoutTag)
+        text = text.replace(alltagsRe, "");
 
-    if (filetype === "lrc" && !withTag)
-        for (var i = 0; i < textArray.length; i++)
-            textArray[i] = textArray[i].replace(alltagsRe, "");
-
-    text = textArray.join(LineFeedCode).trim();
     if (lyric.info.length)
         text = lyric.info.join(LineFeedCode) + LineFeedCode + text;
 
-    setClipboard(text);
+    setClipboard(text.trim());
 }
 
 function getLyricFromClipboard() {
@@ -639,7 +639,7 @@ function getLyricFromClipboard() {
     if (text) {
         main(text);
         StatusBar.setText(Messages.GetClipboard.ret());
-        StatusBar.show();
+        StatusBar.show(3000);
     }
     else
         Messages.FailedToReadText.popup();
@@ -671,7 +671,6 @@ function saveToTag(fieldname, status, silent) {
         }
         meta.Dispose();
         Lock = false;
-        (function () { main(); }).timeout(500);
     }
 }
 
@@ -696,7 +695,6 @@ function saveToFile(file, status, silent) {
         }
         meta.Dispose();
         Lock = false;
-        main();
     }
 }
 
@@ -984,13 +982,8 @@ LyricShow = new function (Style) {
                 }
                 // fb.trace(i + " :: " + tmpArray[timeArray[i]] + " :: " + timeArray[i] + " :: " + ms);
 
-                if (dublicate instanceof Array)
-                    for (var k = 0; k < dublicate.length; k++) {
-                        lyric.text[j] = dublicate[k];
-                        putTime(ms, j++);
-                    }
-                else {
-                    lyric.text[j] = dublicate;
+                for (var k = 0; k < dublicate.length; k++) {
+                    lyric.text[j] = dublicate[k];
                     putTime(ms, j++);
                 }
             }
@@ -1927,50 +1920,31 @@ LyricShow = new function (Style) {
                 } finally { metadb && metadb.Dispose(); }
 
                 p = p.split("||");
-                if (p instanceof Array) {
-                    for (var i = 0; i < p.length; i++) {
-                        if (p[i].indexOf("*") === -1 && p[i].indexOf("?") === -1) { // If not wildcard exist
-                            path = p[i];
-                            newImg = this.getImg(path);
-                            if (newImg) break;
-                        }
-                        else { // Search in wildcard.
-                            res = this.searchImageInWildcard(p[i]);
-                            if (res) {
-                                path = res.path;
-                                newImg = res.img;
-                                break;
-                            }
-                        }
-                    }
-                }
-                else {
-                    if (p.indexOf("*") == -1 && p.indexOf("?") == -1) {
-                        path = p;
+                for (var i = 0; i < p.length; i++) {
+                    if (p[i].indexOf("*") === -1 && p[i].indexOf("?") === -1) { // If not wildcard exist
+                        path = p[i];
                         newImg = this.getImg(path);
+                        if (newImg) break;
                     }
-                    else {
-                        res = this.searchImageInWildcard(p);
+                    else { // Search in wildcard.
+                        res = this.searchImageInWildcard(p[i]);
                         if (res) {
                             path = res.path;
                             newImg = res.img;
+                            break;
                         }
                     }
                 }
 
                 if (newImg) {
-                    /*if (path == BackgroundPath) {
-                        newImg.Dispose();
-                        return; // skip Calc, Resize, and Fade effect
-                    }*/
-                    same = Boolean(path == BackgroundPath);
+                    same = Boolean(path === BackgroundPath);
                     BackgroundPath = path;
                     BackgroundSize = this.calcImgSize(newImg, window.Width, window.Height, prop.Panel.BackgroundStretch || prop.Panel.BackgroundBlur, prop.Panel.BackgroundKAR && !prop.Panel.BackgroundBlur);
                     tmp = newImg.Resize(BackgroundSize.width, BackgroundSize.height, 7); // DrawImage関数でリサイズやアルファ値(255以外)を指定し頻繁に更新すると負荷が無視できないので先に適用しておく
                     if (prop.Panel.BackgroundBlur) {
+                        tmp = this.applyBlur(tmp, prop.Panel.BackgroundBlurValue);
+                        // or // tmp.BoxBlur(20, 7);
                         BackgroundImg = tmp.ApplyAlpha(prop.Panel.BackgroundBlurAlpha);
-                        BackgroundImg = this.applyBlur(BackgroundImg, prop.Panel.BackgroundBlurValue);
-                        // or // BackgroundImg.BoxBlur(20, 7);
                     }
                     else
                         BackgroundImg = tmp.ApplyAlpha(prop.Panel.BackgroundAlpha);
@@ -2026,39 +2000,32 @@ LyricShow = new function (Style) {
         prop.Panel.BackgroundEnable && this.BackgroundImage.setImage();
         L:
             {
-                var pathIsArray = path instanceof Array;
-                parse_path = pathIsArray ? path[0] : path; // set default parse_path for save
+                parse_path = path[0]; // set default parse_path for save
                 try { // default ParentFolder of parse_path // 条件を満たす曲をスキップするようなコンポを入れているとparse_pathがなぜか空になってエラーを起こすのでtryで回避
                     directory = parse_path.match(directoryRe)[0];
                 } catch (e) { }
 
                 if (text) { // for Clipboad and FileDialog 
                     if (this.readLyric(text, true)) break L; // 第二引数は IsSpecifiedPath. 保存パスに影響
-                    else return Messages.NotFound.trace();
+                    else return;
                 }
                 for (var p = prop.Panel.Priority, i = 0; i < p.length; i++) { // according to priority order
                     switch (p[i]) {
                         case "Sync_Tag":
                             if (this.readLyric("LYRICS")) break L;
-                            else break;
+                            break;
                         case "Sync_File":
-                            if (pathIsArray)
-                                for (var j = 0; j < path.length; j++) {
-                                    if (this.readLyric(path[j] + ".lrc")) break L;
-                                }
-                            else
-                                if (this.readLyric(path + ".lrc")) break L;
+                            for (var j = 0; j < path.length; j++) {
+                                if (this.readLyric(path[j] + ".lrc")) break L;
+                            }
                             break;
                         case "Unsync_Tag":
                             if (this.readLyric("UNSYNCED LYRICS")) break L;
-                            else break;
+                            break;
                         case "Unsync_File":
-                            if (pathIsArray)
-                                for (j = 0; j < path.length; j++) {
-                                    if (this.readLyric(path[j] + ".txt")) break L;
-                                }
-                            else
-                                if (this.readLyric(path + ".txt")) break L;
+                            for (j = 0; j < path.length; j++) {
+                                if (this.readLyric(path[j] + ".txt")) break L;
+                            }
                             break;
                     }
                 }
@@ -2090,6 +2057,13 @@ LyricShow = new function (Style) {
                 this.setProperties.DrawStyle[i].textImg.Dispose();
             }
 
+        if (lyric) { // 直前の歌詞を復元できるようにバックアップしておく
+            var LineFeedCode = prop.Save.LineFeedCode;
+            backupLyric = lyric.text.join(LineFeedCode).trim();
+            if (lyric.info.length)
+                backupLyric = lyric.info.join(LineFeedCode) + LineFeedCode + backupLyric;
+        }
+
         path = directory = filename = basename = filetype = lyric = offsetinfo = null;
         this.setProperties.lineList = this.setProperties.leftcenterX = this.setProperties.wordbreakList = this.setProperties.wordbreakText = this.setProperties.scrollSpeedList = this.scrollSpeedType2List = this.setProperties.DrawStyle = this.setProperties.h = this.setProperties.minOffsetY = null;
         lineY = moveY = null;
@@ -2098,9 +2072,7 @@ LyricShow = new function (Style) {
             for (i = 0; i < repeatRes.length; i++)
                 repeatRes[i].e = [];
 
-        if (!prop.Panel.BackgroundEnable || !main.IsVisible)
-            this.BackgroundImage.releaseGlaphic();
-        else if (!fb.IsPlaying)
+        if (!prop.Panel.BackgroundEnable || !main.IsVisible || !fb.IsPlaying)
             this.BackgroundImage.releaseGlaphic();
 
         CollectGarbage();
@@ -2966,10 +2938,10 @@ StatusBar = new function (Style) {
     };
 
     this.on_paint = function (gr) {
-        if (this.TIMER) {
+        if (this.TIMER && this.Text) {
             gr.FillSolidRect(g_x, this.Y, ww, this.Height, Style.StatusBarBackground);
             gr.DrawRect(g_x - 1, this.Y - 1, ww + 2, this.Height + 2, 1, Style.StatusBarRect);
-            gr.GdiDrawText(this.Text, Style.StatusBarFont, Style.StatusBarColor, g_x + 3, this.Y + 1, ww - 3, this.Height, DT_LEFT | DT_WORDBREAK | DT_NOPREFIX);
+            gr.GdiDrawText(this.Text, Style.StatusBarFont, Style.StatusBarColor, g_x + 3, this.Y + 1, ww - 3, this.Height, DT_LEFT | DT_WORDBREAK | DT_WORD_ELLIPSIS | DT_NOPREFIX);
         }
     };
 
@@ -3018,7 +2990,7 @@ Keybind = new function () {
         this[38] = function () { lyric && applyDelta(prop.Panel.MouseWheelDelta); }; // Up
         this[40] = function () { lyric && applyDelta(-prop.Panel.MouseWheelDelta); }; // Down
         this[67] = function () { // C
-            if (on_key_down.Ctrl && lyric) copyLyric(true); // (+Ctrl)
+            if (on_key_down.Ctrl) copyLyric(); // (+Ctrl)
             else if (!on_key_down.Ctrl) return false; // Ctrlが押されていない状態でこのメソッドが呼ばれたことを呼び出し元に明示する
         };
         this[86] = function () { // V
@@ -3059,11 +3031,6 @@ Keybind = new function () {
         };
         this[53] = this[101] = function () { // 5
             window.SetProperty("Panel.LRC.ScrollType", prop.Panel.ScrollType = 5);
-            setDrawingMethod();
-            Menu.build();
-        };
-        this[54] = this[102] = function () { // 6
-            window.SetProperty("Style.EnableStyleTextRender", prop.Style.EnableStyleTextRender = !prop.Style.EnableStyleTextRender);
             setDrawingMethod();
             Menu.build();
         };
@@ -3117,16 +3084,24 @@ Menu = new function () {
             Flag: MF_STRING,
             Caption: Label.CopyWith + "\tCtrl+C",
             Func: function () {
-                if (lyric)
-                    copyLyric(true);
+                copyLyric();
             }
         },
         {
             Flag: MF_STRING,
             Caption: Label.CopyWithout,
             Func: function () {
-                if (lyric)
-                    copyLyric();
+                copyLyric(true);
+            }
+        },
+        {
+            Flag: MF_SEPARATOR
+        },
+        {
+            Flag: MF_STRING,
+            Caption: Label.CopyOnePrevious,
+            Func: function () {
+                backupLyric && setClipboard(backupLyric);
             }
         }
     ];
@@ -3199,10 +3174,11 @@ Menu = new function () {
 
     var submenu_Display = [ // check/uncheck item
         {
-            Caption: Label.StyleTextRender + "\t6",
+            Caption: Label.StyleTextRender,
             Func: function () {
                 window.SetProperty("Style.EnableStyleTextRender", prop.Style.EnableStyleTextRender = !prop.Style.EnableStyleTextRender);
                 setDrawingMethod();
+                !lyric && window.Repaint();
                 Menu.build();
             }
         },
@@ -3460,18 +3436,18 @@ Menu = new function () {
             Flag: MF_SEPARATOR
         },
         {
-            Flag: MF_POPUP,
+            Flag: MF_STRING,
             Caption: Label.Display,
             Sub: submenu_Display
         },
         {
-            Flag: MF_POPUP,
+            Flag: MF_STRING,
             Caption: Label.Align,
             Sub: submenu_Align,
             Radio: null
         },
         {
-            Flag: MF_POPUP,
+            Flag: MF_STRING,
             Caption: Label.Color,
             Sub: submenu_Color_LyricShow,
             Radio: null
@@ -3538,7 +3514,7 @@ Menu = new function () {
         {
             Caption: Label.Open,
             Func: function () {
-                var filter = "Lyric Files(*.lrc;*.txt)|*.txt;*.lrc|LRC Files(*.lrc)|*.lrc|Text Files(*.txt)|*.txt|All Files(*.*)|*.*";
+                var filter = "Lyric Files(*.lrc;*.txt)|*.txt;*.lrc|LRC Files(*.lrc)|*.lrc|Text Files(*.txt)|*.txt";
                 var fd = new FileDialog(commondir + 'FileDialog.exe -o "' + filter + '" txt');
                 fd.setOnReady(function (file) { file && main(file); });
                 fd.open();
@@ -3603,21 +3579,27 @@ Menu = new function () {
         },
         {
             Caption: Label.EditLine,
-            Func: function () { Edit.controlLine(2); }
+            Func: function () {
+                Edit.controlLine(2);
+            }
         },
         {
             Caption: Label.InsertLine,
-            Func: function () { Edit.controlLine(1); }
+            Func: function () {
+                Edit.controlLine(1);
+            }
         },
         {
             Caption: Label.DeleteLine,
-            Func: function () { Edit.controlLine(-1); }
+            Func: function () {
+                Edit.controlLine(-1);
+            }
         },
         {
             Flag: MF_SEPARATOR
         },
         {
-            Flag: MF_POPUP,
+            Flag: MF_STRING,
             Caption: Label.Color,
             Sub: submenu_Color_Edit,
             Radio: null
@@ -3635,7 +3617,9 @@ Menu = new function () {
         },
         {
             Caption: Label.DeleteFile,
-            Func: function () { Edit.deleteFile(parse_path + ".txt"); }
+            Func: function () {
+                Edit.deleteFile(parse_path + ".txt");
+            }
         }
     ];
 
@@ -3646,18 +3630,22 @@ Menu = new function () {
         {
             Flag: MF_STRING,
             Caption: Label.Prop,
-            Func: function () { window.ShowProperties(); }
+            Func: function () {
+                window.ShowProperties();
+            }
         },
         {
             Flag: MF_STRING,
             Caption: Label.Help,
-            Func: function () { FuncCommand("http://ashiato1.blog62.fc2.com/blog-entry-64.html"); }
+            Func: function () {
+                FuncCommand("http://ashiato1.blog62.fc2.com/blog-entry-64.html");
+            }
         },
         {
             Flag: MF_SEPARATOR
         },
         { // mustn't add a item after this
-            Flag: MF_POPUP,
+            Flag: MF_STRING,
             Caption: "Now Playing",
             Sub: function (IMenuObj) {
                 var _context = fb.CreateContextMenuManager();
@@ -3677,7 +3665,7 @@ Menu = new function () {
                 Flag: MF_SEPARATOR
             },
             {
-                Flag: MF_POPUP,
+                Flag: MF_STRING,
                 Caption: Label.Plugins,
                 Sub: submenu_Plugins
             }
@@ -3780,9 +3768,9 @@ Menu = new function () {
             if (lyric) {
                 menu_LyricShow[2].Flag = MF_STRING;
                 menu_LyricShow[4].Flag = MF_STRING;
-                menu_LyricShow[5].Flag = filetype === "lrc" ? MF_POPUP : MF_GRAYED;
+                menu_LyricShow[5].Flag = filetype === "lrc" ? MF_STRING : MF_GRAYED;
                 menu_LyricShow[11].Flag = MF_STRING;
-                menu_LyricShow[12].Flag = MF_POPUP;
+                menu_LyricShow[12].Flag = MF_STRING;
                 menu_LyricShow[13].Flag = MF_STRING;
                 menu_LyricShow[14].Flag = MF_STRING;
             }
@@ -3958,6 +3946,7 @@ function on_focus(is_focused) {
 function on_playback_new_track(metadb) {
     if (Lock_MiddleButton && Menu.id !== "Save")
         ws.SendKeys("%"); // close context menu
+    infoPath = null;
     main();
     if (main.IsVisible)
         for (var pname in plugins) {
@@ -4034,7 +4023,19 @@ function on_mouse_leave() {
 
 function on_mouse_lbtn_down(x, y, mask) {
     if (!prop.Edit.Start) {
-        if (lyric) {
+        if (mask === 5) { // Shift key
+            if (fb.IsPlaying && prop.Panel.InfoPath) {
+                if (!infoPath) {
+                    infoPath = fb.TitleFormat(prop.Panel.InfoPath).Eval().split("||");
+                    infoPath.push("main");
+                }
+                main(infoPath[0] === "main" ? "" : infoPath[0]);
+                StatusBar.setText(infoPath[0] === "main" ? "" : infoPath[0]);
+                StatusBar.show(3000);
+                infoPath.push(infoPath.shift());
+            }
+        }
+        else if (lyric) {
             drag = true;
             drag_y = down_pos.y = y;
             down_pos.x = x;

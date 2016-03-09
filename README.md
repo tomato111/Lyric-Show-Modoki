@@ -1,6 +1,13 @@
 ﻿##Installation
 <http://ashiato1.blog62.fc2.com/blog-entry-64.html>
 ##History
+--v1.5.7(2016/03/09)--------------------------------------------------
+
+* Blur使用時の画像に薄く線が出る問題を修正  
+* Panel.InfoPath を追加 （Shift+クリックで切り替え）  
+　TitleFormatting使用可、"||"区切りで複数指定可  
+* 「一つ前の歌詞をコピー」を追加  
+
 --v1.5.6(2016/03/04)--------------------------------------------------
 
 * Panel.Background.ImageToRawBitmap と ImageOption を削除  
