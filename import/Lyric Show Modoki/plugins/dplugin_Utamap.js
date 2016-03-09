@@ -50,7 +50,7 @@
             if (id)
                 return 'http://www.utamap.com/phpflash/flashfalsephp.php?unum=' + id;
             else
-                return 'http://www.utamap.com/searchkasi.php?searchname=title&word=' + EscapeSJIS(word).replace(/%20/g, '+') + (page ? ('&page=' + page) : '') + '&act=search&sortname=1&pattern=1';
+                return 'http://www.utamap.com/searchkasi.php?searchname=title&word=' + EscapeSJIS(word).replace(/%20/g, '+') + (page ? ('&page=' + page) : '') + '&act=search&search_by_keyword=%8C%9F%26%23160%3B%26%23160%3B%26%23160%3B%8D%F5&sortname=1&pattern=1';
         }
 
         function onLoaded(request, depth) {
