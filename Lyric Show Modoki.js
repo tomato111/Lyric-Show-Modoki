@@ -726,13 +726,13 @@ applyDelta.applySimple = function (n) {
     if (n >= fixY) {
         if (offsetY !== fixY) {
             offsetY = fixY;
-            window.Repaint();
+            LyricShow.repaintRect();
         }
     }
     else if (n <= LyricShow.setProperties.minOffsetY) {
         if (offsetY !== LyricShow.setProperties.minOffsetY) {
             offsetY = LyricShow.setProperties.minOffsetY;
-            window.Repaint();
+            LyricShow.repaintRect();
         }
         movable = false;
         ignore_remainder = true;
@@ -740,7 +740,7 @@ applyDelta.applySimple = function (n) {
     else {
         offsetY = n;
         prop.Panel.AutoScroll && (movable = true);
-        window.Repaint();
+        LyricShow.repaintRect();
     }
 };
 applyDelta.applyAnimation = function () {
@@ -1796,7 +1796,7 @@ LyricShow = new function (Style) {
                 !mlwa.IsPaused && fb.Pause();
                 Lock = false;
             }
-            window.Repaint();
+            LyricShow.repaintRect();
         }
     };
 
@@ -1812,6 +1812,10 @@ LyricShow = new function (Style) {
             this.scroll_0.interval(prop.Panel.Interval);
         else
             this["scroll_" + prop.Panel.ScrollType].interval(prop.Panel.Interval);
+    };
+
+    this.repaintRect = function () {
+        window.RepaintRect(this.on_paintInfo.x, 0, this.on_paintInfo.w, window.Height);
     };
 
     this.BackgroundImage = {
@@ -2084,7 +2088,7 @@ LyricShow = new function (Style) {
             offsetY = LyricShow.setProperties.minOffsetY;
             movable = false; // 移動不可のフラグ
         }
-        LyricShow.setProperties.DrawStyle[lyric.i - 1].scroll_0(fb.PlaybackTime * 100) && window.Repaint();
+        LyricShow.setProperties.DrawStyle[lyric.i - 1].scroll_0(fb.PlaybackTime * 100) && LyricShow.repaintRect();
     };
 
     this.scroll_1 = function () { // timerで呼び出す関数
@@ -2094,7 +2098,7 @@ LyricShow = new function (Style) {
             movable = false;
             ignore_remainder = true; // ライン移動時の誤差補正を無効にする（一度だけ）
         }
-        LyricShow.setProperties.DrawStyle[lyric.i - 1].scroll_1(fb.PlaybackTime * 100) && window.Repaint(); // lyric.i(対象行)の１個前(再生行)の情報でスクロール
+        LyricShow.setProperties.DrawStyle[lyric.i - 1].scroll_1(fb.PlaybackTime * 100) && LyricShow.repaintRect(); // lyric.i(対象行)の１個前(再生行)の情報でスクロール
     };
 
     this.scroll_2 = function () { // timerで呼び出す関数
@@ -2104,7 +2108,7 @@ LyricShow = new function (Style) {
             movable = false;
             ignore_remainder = true;
         }
-        LyricShow.setProperties.DrawStyle[lyric.i - 1].scroll_2(fb.PlaybackTime * 100) && window.Repaint();
+        LyricShow.setProperties.DrawStyle[lyric.i - 1].scroll_2(fb.PlaybackTime * 100) && LyricShow.repaintRect();
     };
 
     this.scroll_3 = function () { // timerで呼び出す関数
@@ -2123,17 +2127,17 @@ LyricShow = new function (Style) {
             movable = false;
             ignore_remainder = true;
         }
-        LyricShow.setProperties.DrawStyle[lyric.i - 1].scroll_3(fb.PlaybackTime * 100) && window.Repaint();
+        LyricShow.setProperties.DrawStyle[lyric.i - 1].scroll_3(fb.PlaybackTime * 100) && LyricShow.repaintRect();
     };
 
     this.scroll_4 = function () { // timerで呼び出す関数
 
-        LyricShow.setProperties.DrawStyle[lyric.i - 1].scroll_4(fb.PlaybackTime * 100) && window.Repaint();
+        LyricShow.setProperties.DrawStyle[lyric.i - 1].scroll_4(fb.PlaybackTime * 100) && LyricShow.repaintRect();
     };
 
     this.scroll_5 = function () { // timerで呼び出す関数
 
-        LyricShow.setProperties.DrawStyle[lyric.i - 1].scroll_5(fb.PlaybackTime * 100) && window.Repaint();
+        LyricShow.setProperties.DrawStyle[lyric.i - 1].scroll_5(fb.PlaybackTime * 100) && LyricShow.repaintRect();
     };
 
     this.calcOddNumHeight = function (DrawStyle, i) {
