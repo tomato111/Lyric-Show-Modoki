@@ -3,7 +3,7 @@
 
 // ==PREPROCESSOR==
 // @name "Lyric Show Modoki"
-// @version "1.5.7"
+// @version "1.5.8"
 // @author "tomato111"
 // @import "%fb2k_profile_path%import\common\lib.js"
 // ==/PREPROCESSOR==
@@ -23,7 +23,7 @@ var fs = new ActiveXObject("Scripting.FileSystemObject"); // File System Object
 var ws = new ActiveXObject("WScript.Shell"); // WScript Shell Object
 var Trace = new TraceLog();
 var scriptName = "Lyric Show Modoki";
-var scriptVersion = "1.5.7";
+var scriptVersion = "1.5.8";
 var scriptdir = fb.ProfilePath + "import\\" + scriptName + "\\";
 var commondir = fb.ProfilePath + "import\\common\\";
 var down_pos = {};
@@ -928,7 +928,7 @@ LyricShow = new function (Style) {
 
         if (filetype === "lrc") { // analyze lrc
             var value, key, tmp, tagstart, tmpkey, tmptext, dublicate;
-            var m, ms, offset;
+            var m, ms;
             var tmpArray = [], timeArray = [];
             var offsetRe = /\[offset:(-?\d+)\]/;
             var isTagRe = /(\[[\d.:[\]]+\])(.*)/;
@@ -939,14 +939,14 @@ LyricShow = new function (Style) {
             for (var i = 0; i < lyric.text.length; i++) {
                 if (!tagstart)
                     if (offsetRe.test(lyric.text[i]))
-                        offset = offsetinfo = Number(RegExp.$1);
+                        offsetinfo = Number(RegExp.$1);
 
                 tmp = lyric.text[i].match(isTagRe);
                 if (!tmp) {
                     if (prop.Panel.Contain) {
-                        if (tagstart && tmpkey)
+                        if (tagstart)
                             tmpArray[tmpkey] += prop.Save.LineFeedCode + lyric.text[i];
-                        else if (!tagstart)
+                        else
                             lyric.info[i] = lyric.text[i].replace(offsetRe, "[offset:0]");
                     }
                     continue;
@@ -976,8 +976,8 @@ LyricShow = new function (Style) {
                 dublicate = tmptext.split("$$dublicate$$");
                 m = Math.floor(timeArray[i] / 10000);
                 ms = m * 6000 + timeArray[i] % 10000;
-                if (offset && ms !== 0) {
-                    ms = ms - Math.round(offset / 10);
+                if (offsetinfo && ms !== 0) {
+                    ms = ms - Math.round(offsetinfo / 10);
                     ms = ms < 0 ? 0 : ms;
                 }
                 // fb.trace(i + " :: " + tmpArray[timeArray[i]] + " :: " + timeArray[i] + " :: " + ms);
@@ -1088,7 +1088,7 @@ LyricShow = new function (Style) {
         setWordbreakList: function (View) {
 
             var isLRC = filetype === "lrc";
-            var contain = isLRC && prop.Panel.Contain;
+            var isContain = isLRC && prop.Panel.Contain;
             var wRE = new RegExp(prop.Save.LineFeedCode, "g");
             var leftcenterX = ww;
             var c_ww = Center_Left || Center_Right ? ww - centerleftX + g_x : ww;
@@ -1112,7 +1112,7 @@ LyricShow = new function (Style) {
                 if (View) {
                     for (var i = 0; i < lyric.text.length; i++) {
                         wordbreakList[i] = Math.floor(temp_gr.CalcTextWidth(lyric.text[i].replace(alltagsRe, "") + "[00:00.00] ", Style.Font) / ww) + 1;
-                        if (contain) {
+                        if (isContain) {
                             wRE_res = lyric.text[i].match(wRE);
                             if (wRE_res) wordbreakList[i] += wRE_res.length;
                         }
@@ -1121,7 +1121,6 @@ LyricShow = new function (Style) {
                 }
                 else {
                     for (i = 0; i < lyric.text.length; i++) {
-                        str = "";
                         line_arr = temp_gr.EstimateLineWrap(isLRC ? lyric.text[i].replace(alltagsRe, "") : lyric.text[i], Style.Font, c_ww).toArray();
                         wordbreakList[i] = line_arr.length / 2;
                         numOfWordbreak += wordbreakList[i] - 1;
@@ -1134,8 +1133,8 @@ LyricShow = new function (Style) {
                                     leftcenterX = space / 2;
                             }
 
-                            if (str) str += prop.Save.LineFeedCode;
-                            str += line_arr[j];
+                            if (j === 0) str = line_arr[j];
+                            else str += prop.Save.LineFeedCode + line_arr[j];
                         }
 
                         wordbreakText[i] = str;
@@ -1151,8 +1150,6 @@ LyricShow = new function (Style) {
                 TextHeight = TextHeightWithoutLPadding + Style.LPadding;
 
                 for (i = 0; i < lyric.text.length; i++) {
-                    str = "";
-
                     temp_text = isLRC ? lyric.text[i].replace(alltagsRe, "") : lyric.text[i];
 
                     if (temp_text)
@@ -1172,8 +1169,8 @@ LyricShow = new function (Style) {
                                 leftcenterX = space / 2;
                         }
 
-                        if (str) str += prop.Save.LineFeedCode;
-                        str += line_arr[j];
+                        if (j === 0) str = line_arr[j];
+                        else str += prop.Save.LineFeedCode + line_arr[j];
                     }
 
                     wordbreakText[i] = str;
@@ -2242,14 +2239,14 @@ LyricShow = new function (Style) {
                 }
                 else
                     if (Style.Shadow)
-                        for (i = 0; i < lyric.text.length; i++) {
+                        for (i = 0, disp.top = 0; i < lyric.text.length; i++) {
                             var c = offsetY + DrawStyle[i].y;
                             if (c > wh) { disp.bottom = i - 1; break; } // do not draw text outside the screen. CPU utilization rises
                             else if (c < -DrawStyle[i].height) { disp.top = i + 1; continue; } // ditto
                             else DrawStyle[i].draw_withShadow(gr, DrawStyle[i].text, null, this.on_paintInfo.x, this.on_paintInfo.w);
                         }
                     else
-                        for (i = 0; i < lyric.text.length; i++) {
+                        for (i = 0, disp.top = 0; i < lyric.text.length; i++) {
                             c = offsetY + DrawStyle[i].y;
                             if (c > wh) { disp.bottom = i - 1; break; } // do not draw text outside the screen. CPU utilization rises
                             else if (c < -DrawStyle[i].height) { disp.top = i + 1; continue; } // ditto
@@ -2257,14 +2254,14 @@ LyricShow = new function (Style) {
                         }
             else
                 if (Style.Shadow)
-                    for (i = 0; i < lyric.text.length; i++) {
+                    for (i = 0, disp.top = 0; i < lyric.text.length; i++) {
                         c = offsetY + DrawStyle[i].y;
                         if (c > wh) { disp.bottom = i - 1; break; }
                         else if (c < -DrawStyle[i].height) { disp.top = i + 1; continue; }
                         else DrawStyle[i].draw_withShadow(gr, DrawStyle[i].text, Style.Highline ? Style.Color.PlayingText : Style.Color.Text, this.on_paintInfo.x, this.on_paintInfo.w);
                     }
                 else
-                    for (i = 0; i < lyric.text.length; i++) {
+                    for (i = 0, disp.top = 0; i < lyric.text.length; i++) {
                         c = offsetY + DrawStyle[i].y;
                         if (c > wh) { disp.bottom = i - 1; break; }
                         else if (c < -DrawStyle[i].height) { disp.top = i + 1; continue; }
