@@ -16,10 +16,6 @@
             return;
         }
 
-        //###### Properties ########
-        var ShowInputDialog = true & !isAutoSearch; //タイトル名、アーティスト名の入力ダイアログを表示するならtrue
-        //##########################
-
         var debug_html = false; // for debug
         var async = true;
         var depth = 0;
@@ -31,14 +27,14 @@
         var title = fb.TitleFormat('%title%').Eval();
         var artist = fb.TitleFormat('%artist%').Eval();
 
-        if (ShowInputDialog) {
+        if (!isAutoSearch) {
             title = prompt('Please input TITLE', label, title);
             if (!title) return;
             artist = prompt('Please input ARTIST', label, artist);
             if (!artist) return;
         }
 
-        StatusBar.setText('検索中......' + label);
+        StatusBar.setText((prop.Panel.Lang == 'ja' ? '検索中......' : 'Searching......') + label);
         StatusBar.show();
         getHTML(null, 'GET', createQuery(title), async, depth, onLoaded);
 
@@ -48,13 +44,13 @@
             if (id)
                 return 'http://vovovov26.blog.fc2.com/blog-entry-' + id + '.html';
             else
-                return 'http://vovovov26.blog.fc2.com/?q=' + encodeURIComponent(word).replace(/\(/g, '%28').replace(/\)/g, '%29').replace(/%20/g, '+');
+                return 'http://vovovov26.blog.fc2.com/?q=' + encodeURIComponent(word).replace(/'/g, '%27').replace(/\(/g, '%28').replace(/\)/g, '%29').replace(/%20/g, '+');
         }
 
-        function onLoaded(request, depth) {
-            StatusBar.setText('検索中......' + label);
+        function onLoaded(request, depth, file) {
+            StatusBar.setText((prop.Panel.Lang == 'ja' ? '検索中......' : 'Searching......') + label);
             StatusBar.show();
-            debug_html && fb.trace('\nOpen#' + getHTML.PRESENT.depth + ': ' + getHTML.PRESENT.file + '\n');
+            debug_html && fb.trace('\nOpen#' + depth + ': ' + file + '\n');
 
             var res = request.responseText;
 
@@ -75,7 +71,7 @@
                 }
                 else {
                     main(text);
-                    StatusBar.setText('検索終了。歌詞を取得しました。');
+                    StatusBar.setText(prop.Panel.Lang == 'ja' ? '検索終了。歌詞を取得しました。' : 'Search completed.');
                     StatusBar.show();
                     if (AutoSaveTo)
                         if (/^Tag$/i.test(AutoSaveTo))
@@ -90,9 +86,9 @@
                     return;
                 }
                 StatusBar.hide();
-                var intButton = ws.Popup('ページが見つかりませんでした。\nブラウザで開きますか？', 0, '確認', 36);
-                if (intButton == 6)
-                    FuncCommand('"' + getHTML.PRESENT.file + '"');
+                var intButton = ws.Popup(prop.Panel.Lang == 'ja' ? 'ページが見つかりませんでした。\nブラウザで開きますか？' : 'Page not found.\nOpen the URL in browser?', 0, 'Confirm', 36);
+                if (intButton === 6)
+                    FuncCommand('"' + file + '"');
             }
 
         }
@@ -100,16 +96,13 @@
         function AnalyzePage(resArray, depth) {
             var tmp;
 
-            var IdSearchRe = new RegExp('<h3><a href="blog-entry-(\\d+?)\\.html">' + title + '</a></h3>', 'i'); //$1: id
-            var ContentsSearchRe = /<div class="contents_body">(.+)/i; //$1: contents
-
-            this.id = null;
-            this.lyrics = null;
+            var IdSearchRE = new RegExp('<h3><a href="blog-entry-(\\d+?)\\.html">' + title + '</a></h3>', 'i'); // $1:id
+            var ContentsSearchRE = /<div class="contents_body">(.+)/i; // $1:contents
 
             if (depth === 1) { // lyric
                 onLoaded.info = title + LineFeedCode + LineFeedCode;
                 for (var i = 0; i < resArray.length; i++)
-                    if (ContentsSearchRe.test(resArray[i])) {
+                    if (ContentsSearchRE.test(resArray[i])) {
                         tmp = RegExp.$1.split('<br /><br /><br /><br />' + title + '<br />');
                         if (tmp.length === 2)
                             onLoaded.info += tmp[1]
@@ -125,10 +118,10 @@
             }
             else { // search
                 for (i = 0; i < resArray.length; i++)
-                    if (IdSearchRe.test(resArray[i])) {
+                    if (IdSearchRE.test(resArray[i])) {
                         debug_html && fb.trace('id: ' + RegExp.$1);
                         this.id = RegExp.$1;
-                        return;
+                        break;
                     }
             }
         }

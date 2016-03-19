@@ -16,10 +16,6 @@
             return;
         }
 
-        //###### Properties ########
-        var ShowInputDialog = true & !isAutoSearch; //タイトル名、アーティスト名の入力ダイアログを表示するならtrue
-        //##########################
-
         var debug_html = false; // for debug
         var async = true;
         var depth = 0;
@@ -31,14 +27,14 @@
         var title = fb.TitleFormat('%title%').Eval();
         var artist = fb.TitleFormat('%artist%').Eval();
 
-        if (ShowInputDialog) {
+        if (!isAutoSearch) {
             title = prompt('Please input TITLE', label, title);
             if (!title) return;
             artist = prompt('Please input ARTIST', label, artist);
             if (!artist) return;
         }
 
-        StatusBar.setText('検索中......' + label);
+        StatusBar.setText((prop.Panel.Lang == 'ja' ? '検索中......' : 'Searching......') + label);
         StatusBar.show();
         getHTML(null, 'GET', createQuery(title), async, depth, onLoaded);
 
@@ -48,13 +44,13 @@
             if (id)
                 return 'http://www31.atwiki.jp/touhoukashi/?page=' + id;
             else
-                return 'http://www31.atwiki.jp/touhoukashi/search?andor=and&keyword=' + encodeURIComponent(word).replace(/\(/g, '%28').replace(/\)/g, '%29').replace(/%20/g, '+');
+                return 'http://www31.atwiki.jp/touhoukashi/search?andor=and&keyword=' + encodeURIComponent(word).replace(/'/g, '%27').replace(/\(/g, '%28').replace(/\)/g, '%29').replace(/%20/g, '+');
         }
 
-        function onLoaded(request, depth) {
-            StatusBar.setText('検索中......' + label);
+        function onLoaded(request, depth, file) {
+            StatusBar.setText((prop.Panel.Lang == 'ja' ? '検索中......' : 'Searching......') + label);
             StatusBar.show();
-            debug_html && fb.trace('\nOpen#' + getHTML.PRESENT.depth + ': ' + getHTML.PRESENT.file + '\n');
+            debug_html && fb.trace('\nOpen#' + depth + ': ' + file + '\n');
 
             var res = request.responseText;
 
@@ -63,7 +59,7 @@
             var Page = new AnalyzePage(resArray, depth);
 
             if (Page.id) {
-                getHTML(null, 'GET', createQuery(false, Page.id), async, ++depth, onLoaded);
+                getHTML(null, 'GET', createQuery(null, Page.id), async, ++depth, onLoaded);
             }
             else if (Page.lyrics) {
                 var text = onLoaded.info + Page.lyrics;
@@ -74,7 +70,7 @@
                 }
                 else {
                     main(text);
-                    StatusBar.setText('検索終了。歌詞を取得しました。');
+                    StatusBar.setText(prop.Panel.Lang == 'ja' ? '検索終了。歌詞を取得しました。' : 'Search completed.');
                     StatusBar.show();
                     if (AutoSaveTo)
                         if (/^Tag$/i.test(AutoSaveTo))
@@ -89,37 +85,35 @@
                     return;
                 }
                 StatusBar.hide();
-                var intButton = ws.Popup('ページが見つかりませんでした。\nブラウザで開きますか？', 0, '確認', 36);
-                if (intButton == 6)
-                    FuncCommand('"' + getHTML.PRESENT.file + '"');
+                var intButton = ws.Popup(prop.Panel.Lang == 'ja' ? 'ページが見つかりませんでした。\nブラウザで開きますか？' : 'Page not found.\nOpen the URL in browser?', 0, 'Confirm', 36);
+                if (intButton === 6)
+                    FuncCommand('"' + file + '"');
             }
 
         }
 
         function AnalyzePage(resArray, depth) {
-            var tmp, isInfo, isLyric;
+            var isInfo, isLyric;
 
-            var IdSearchRe = new RegExp('<a href="http://www31.atwiki.jp/touhoukashi/.+?page=(.+?)" title="(?:\\d{1,2})?\\.? ?' + title, 'i'); // $1:id
-            var ContentsSearchRe = new RegExp('(?:<h[23] id="id_.+?">' + title + '</h[23]>|(アルバム)：<a href=")', 'i'); // サイトの書式にブレがあるので少し複雑に
-            var EndInfoRe = /<\/div>/i;
-            var EndLyricRe = /<div class=/i;
-            var LineBreakRe = /<div>|<br \/>/ig;
-            var IgnoreRe = /<\/div>|<a.+?">|<\/a>/ig;
-
-            this.id = null;
-            this.lyrics = '';
+            var IdSearchRE = new RegExp('<a href="http://www31.atwiki.jp/touhoukashi/.+?page=(.+?)" title="(?:\\d{1,2})?\\.? ?' + title, 'i'); // $1:id
+            var ContentsSearchRE = new RegExp('(?:<h[23] id="id_.+?">' + title + '</h[23]>|(アルバム)：<a href=")', 'i'); // サイトの書式にブレがあるので少し複雑に
+            var EndInfoRE = /<\/div>/i;
+            var EndLyricRE = /<div class=/i;
+            var LineBreakRE = /<div>|<br \/>/ig;
+            var IgnoreRE = /<\/div>|<a.+?">|<\/a>/ig;
 
             if (depth === 1) { // lyric
                 onLoaded.info = '';
+                this.lyrics = '';
                 for (var i = 0; i < resArray.length; i++) {
-                    if (ContentsSearchRe.test(resArray[i]) && !isInfo) {
+                    if (ContentsSearchRE.test(resArray[i]) && !isInfo) {
                         isInfo = true; if (!RegExp.$1) continue; // サイトの書式のブレに対応するため、continue;するかどうかを後方参照の有無で決める
                     }
-                    if (EndInfoRe.test(resArray[i]) && isInfo) {
+                    if (EndInfoRE.test(resArray[i]) && isInfo) {
                         isInfo = false; isLyric = true; continue;
                     }
-                    if (EndLyricRe.test(resArray[i]) && isLyric) {
-                        isLyric = false; break;
+                    if (EndLyricRE.test(resArray[i]) && isLyric) {
+                        break;
                     }
 
                     if (isInfo)
@@ -130,21 +124,22 @@
 
                 onLoaded.info = title + LineFeedCode + LineFeedCode +
                     onLoaded.info
-                    .replace(LineBreakRe, LineFeedCode)
-                    .replace(IgnoreRe, '')
+                    .replace(LineBreakRE, LineFeedCode)
+                    .replace(IgnoreRE, '')
                     .replaceEach('&quot;', '"', '&amp;', '&', 'ig')
                     .trim() + LineFeedCode + LineFeedCode;
                 this.lyrics = this.lyrics
-                    .replace(LineBreakRe, LineFeedCode)
-                    .replace(IgnoreRe, '')
+                    .replace(LineBreakRE, LineFeedCode)
+                    .replace(IgnoreRE, '')
                     .replaceEach('&quot;', '"', '&amp;', '&', 'ig')
                     .trim();
             }
             else { // search
                 for (i = 0; i < resArray.length; i++)
-                    if (IdSearchRe.test(resArray[i])) {
+                    if (IdSearchRE.test(resArray[i])) {
                         debug_html && fb.trace('id: ' + RegExp.$1);
                         this.id = RegExp.$1;
+                        break;
                     }
             }
         }
