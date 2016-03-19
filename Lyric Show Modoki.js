@@ -3,7 +3,7 @@
 
 // ==PREPROCESSOR==
 // @name "Lyric Show Modoki"
-// @version "1.5.8"
+// @version "1.5.9"
 // @author "tomato111"
 // @import "%fb2k_profile_path%import\common\lib.js"
 // ==/PREPROCESSOR==
@@ -23,7 +23,7 @@ var fs = new ActiveXObject("Scripting.FileSystemObject"); // File System Object
 var ws = new ActiveXObject("WScript.Shell"); // WScript Shell Object
 var Trace = new TraceLog();
 var scriptName = "Lyric Show Modoki";
-var scriptVersion = "1.5.8";
+var scriptVersion = "1.5.9";
 var scriptdir = fb.ProfilePath + "import\\" + scriptName + "\\";
 var commondir = fb.ProfilePath + "import\\common\\";
 var down_pos = {};
@@ -1812,7 +1812,7 @@ LyricShow = new function (Style) {
     };
 
     this.repaintRect = function () {
-        window.RepaintRect(this.on_paintInfo.x, 0, this.on_paintInfo.w, window.Height);
+        window.RepaintRect(this.on_paintInfo.x - this.on_paintInfo.n, 0, this.on_paintInfo.w + this.on_paintInfo.n * 2, window.Height);
     };
 
     this.BackgroundImage = {
@@ -2177,6 +2177,7 @@ LyricShow = new function (Style) {
     this.on_paintInfo = {
         x: 0,
         w: 0,
+        n: Math.ceil(Style.TextRoundSize / 3),
         di: [],
         dpc: Style.Color.Text,
         dpi: 0,

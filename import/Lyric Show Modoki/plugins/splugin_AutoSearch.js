@@ -6,7 +6,7 @@
         var _this = this;
         var timeout_millisecond = 8000;
 
-        this.AvailablePluginNames = window.GetProperty('Plugin.Search.AutoSearch', 'dplugin_Miku_Hatsune_wiki, dplugin_Utamap, dplugin_Utanet').split(/[ 　]*,[ 　]*/);
+        this.AvailablePluginNames = window.GetProperty('Plugin.Search.AutoSearch', 'dplugin_Miku_Hatsune_wiki, dplugin_Utamap, dplugin_Utanet, dplugin_Kashiget, dplugin_AZLyrics').split(/[ 　]*,[ 　]*/);
         for (var i = 0; i < this.AvailablePluginNames.length;) {
             if (plugins[this.AvailablePluginNames[i]]) i++;
             else this.AvailablePluginNames.splice(i, 1);
@@ -52,7 +52,7 @@
     onPlay: function () { // 新たに曲が再生される度に呼び出される関数
         this.timer.clearInterval();
         this.results.length = 0;
-        if (!this.onCommand.AutoSearch || lyric) {
+        if (!this.onCommand.AutoSearch || !this.AvailablePluginNames.length || lyric) {
             return;
         }
 
