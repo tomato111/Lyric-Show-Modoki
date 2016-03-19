@@ -1279,12 +1279,12 @@ LyricShow = new function (Style) {
                 if (!prop.Edit.Start && Style.DrawingMethod === 2 && (prop.Panel.ScrollType <= 3 || filetype === "txt")) {
                     var w = LyricShow.on_paintInfo.w;
                     // --normal----
-                    this.textImg = gdi.CreateImage(w, this.height);
+                    this.textImg = gdi.CreateImage(w + LyricShow.on_paintInfo.n * 2, this.height);
                     var canvas = this.textImg.GetGraphics();
                     canvas.SetTextRenderingHint(5);
                     canvas.SetSmoothingMode(2);
                     TextRender.OutLineText(Style.Color.Text, Style.Color.TextRound, Style.Shadow ? Style.TextRoundSize : 0);
-                    TextRender.RenderStringRect(canvas, this.text, Style.Font, 0, 0, w, this.height, Style.Align);
+                    TextRender.RenderStringRect(canvas, this.text, Style.Font, LyricShow.on_paintInfo.n, 0, w, this.height, Style.Align);
                     this.textImg.ReleaseGraphics(canvas);
                     // --highline----
                     this.textHighlineImg = gdi.CreateImage(ww, this.height);
@@ -1292,7 +1292,7 @@ LyricShow = new function (Style) {
                     canvas.SetTextRenderingHint(5);
                     canvas.SetSmoothingMode(2);
                     TextRender.OutLineText(Style.Color.PlayingText, Style.Color.TextRound, Style.Shadow ? Style.TextRoundSize : 0);
-                    TextRender.RenderStringRect(canvas, this.text, Style.Font, 0, 0, w, this.height, Style.Align);
+                    TextRender.RenderStringRect(canvas, this.text, Style.Font, LyricShow.on_paintInfo.n, 0, w, this.height, Style.Align);
                     this.textHighlineImg.ReleaseGraphics(canvas);
                 }
             }
@@ -1560,6 +1560,7 @@ LyricShow = new function (Style) {
                         gr.DrawString(text, Style.Font, setAlpha(color, alpha), x, y, w, this.height, Style.Align);
                         break;
                     case 2:
+                        x -= LyricShow.on_paintInfo.n;
                         w = this.textImg.Width;
                         var h = this.textImg.Height;
                         if (color === Style.Color.Text)
@@ -1604,6 +1605,7 @@ LyricShow = new function (Style) {
                         gr.DrawString(text, Style.Font, setAlpha(color, alpha), x, y, w, this.height, Style.Align);
                         break;
                     case 2:
+                        x -= LyricShow.on_paintInfo.n;
                         w = this.textImg.Width;
                         var h = this.textImg.Height;
                         if (color === Style.Color.Text)
@@ -2177,7 +2179,7 @@ LyricShow = new function (Style) {
     this.on_paintInfo = {
         x: 0,
         w: 0,
-        n: Math.ceil(Style.TextRoundSize / 3),
+        n: Math.ceil(Style.TextRoundSize / 2),
         di: [],
         dpc: Style.Color.Text,
         dpi: 0,

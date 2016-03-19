@@ -10,7 +10,7 @@
 
         var debug_html = false; // for debug
         var async = true;
-        var depth = false;
+        var depth = 0;
         var onCommand = arguments.callee;
 
         StatusBar.setText(prop.Panel.Lang == 'ja' ? '更新チェック中......' : 'checking update......');
@@ -25,9 +25,9 @@
 
         //------------------------------------
 
-        function onLoaded(request) {
+        function onLoaded(request, depth, file) {
             !isStartUp && StatusBar.show();
-            debug_html && fb.trace('\nOpen#' + ': ' + getHTML.PRESENT.file + '\n');
+            debug_html && fb.trace('\nOpen#' + ': ' + file + '\n');
 
             var res = request.responseBody;
             res = responseBodyToCharset(res, 'UTF-8'); // fix character corruption
@@ -97,15 +97,20 @@
                                 var intButton = ws.Popup(prop.Panel.Lang == 'ja'
                                     ? '新しいバージョンがあります。\n現在: v' + scriptVersion + '  最新: v' + this.LatestVersion + '\n\nダウンロードしますか？（デスクトップに保存）'
                                     : 'There is a new version.\nCurrent: v' + scriptVersion + '  Latest: v' + this.LatestVersion + '\n\nDownload it? (Save to desktop)', 0, 'Lyric Show Modoki', 36);
-                                if (intButton == 6) {
+                                if (intButton === 6) {
                                     StatusBar.setText(prop.Panel.Lang == 'ja' ? 'ダウンロード中......' : 'Downloading......');
                                     StatusBar.show();
                                     getHTML(null, 'GET', this.LatestFilePath, async, depth,
                                         function (request, depth, file) {
-                                            var res = request.responseBody;
-                                            responseBodyToFile(res, ws.SpecialFolders.item('Desktop') + '\\' + file.match(/^.+\/(.+)$/)[1]);
-                                            StatusBar.setText(prop.Panel.Lang == 'ja' ? 'デスクトップにダウンロードしました。' : 'Downloaded to desktop.');
-                                            StatusBar.show();
+                                            if (request.status === 200) {
+                                                var res = request.responseBody;
+                                                responseBodyToFile(res, ws.SpecialFolders.item('Desktop') + '\\' + file.match(/^.+\/(.+)$/)[1]);
+                                                StatusBar.setText(prop.Panel.Lang == 'ja' ? 'デスクトップにダウンロードしました。' : 'Downloaded to desktop.');
+                                                StatusBar.show();
+                                            }
+                                            else {
+                                                fb.ShowPopupMessage('download error: ' + request.status, 'Lyric Show Modoki');
+                                            }
                                         });
                                 }
                             }
