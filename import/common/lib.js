@@ -518,7 +518,6 @@ function responseBodyToFile(bin, file) {
 
 function getHTML(data, method, file, async, depth, onLoaded) {
     var request = new ActiveXObject("Msxml2.XMLHTTP");
-    getHTML.PRESENT = { file: file, depth: depth };
 
     request.open(method, file, async);
 
