@@ -10,6 +10,11 @@
     onPlay: function () { }, // 新たに曲が再生される度に呼び出される関数
     onCommand: function (isAutoSearch) { // プラグインのメニューをクリックすると呼び出される関数
 
+        if (!isAutoSearch && utils.IsKeyPressed(0x11)) { // VK_CONTROL
+            plugins['splugin_AutoSearch'].setAutoSearchPluginName(this.name);
+            return;
+        }
+
         if (!fb.IsPlaying) {
             StatusBar.setText(prop.Panel.Lang == 'ja' ? '再生していません。' : 'Not Playing');
             StatusBar.show();

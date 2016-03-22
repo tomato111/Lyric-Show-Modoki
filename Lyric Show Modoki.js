@@ -3,7 +3,7 @@
 
 // ==PREPROCESSOR==
 // @name "Lyric Show Modoki"
-// @version "1.5.9"
+// @version "1.6.0"
 // @author "tomato111"
 // @import "%fb2k_profile_path%import\common\lib.js"
 // ==/PREPROCESSOR==
@@ -23,7 +23,7 @@ var fs = new ActiveXObject("Scripting.FileSystemObject"); // File System Object
 var ws = new ActiveXObject("WScript.Shell"); // WScript Shell Object
 var Trace = new TraceLog();
 var scriptName = "Lyric Show Modoki";
-var scriptVersion = "1.5.9";
+var scriptVersion = "1.6.0";
 var scriptdir = fb.ProfilePath + "import\\" + scriptName + "\\";
 var commondir = fb.ProfilePath + "import\\common\\";
 var down_pos = {};
@@ -708,17 +708,16 @@ function applyDelta(delta, isMouseMove) {
     }
     else {
         if (Lock) {
-            applyDelta.applyAnimation.clearInterval();
-            applyDelta.AnmTarget -= applyDelta.AnmAppliedDelta;
-            applyDelta.AnmTarget += delta;
-        }
-        else
-            applyDelta.AnmTarget = delta;
+            applyDelta.AnmDelta += delta;
+            applyDelta.ElapsedTime = 75;
 
-        Lock = true;
-        applyDelta.AnmAppliedDelta = 0;
-        applyDelta.AnmDelta = applyDelta.AnmTarget / 7;
-        applyDelta.applyAnimation.interval(15);
+        }
+        else {
+            Lock = true;
+            applyDelta.AnmDelta = delta;
+            applyDelta.ElapsedTime = 0;
+            applyDelta.applyAnimation.interval(15);
+        }
     }
 
 }
@@ -744,9 +743,15 @@ applyDelta.applySimple = function (n) {
     }
 };
 applyDelta.applyAnimation = function () {
-    applyDelta.applySimple(offsetY + applyDelta.AnmDelta);
-    applyDelta.AnmAppliedDelta += applyDelta.AnmDelta;
-    if (Math.abs(applyDelta.AnmAppliedDelta) >= Math.abs(applyDelta.AnmTarget)) {
+    if (applyDelta.ElapsedTime < 75) {
+        applyDelta.applySimple(offsetY + applyDelta.AnmDelta / 20);
+    }
+    else {
+        applyDelta.applySimple(offsetY + applyDelta.AnmDelta / 10);
+        applyDelta.AnmDelta -= applyDelta.AnmDelta / 10;
+    }
+    applyDelta.ElapsedTime += 15;
+    if (applyDelta.ElapsedTime >= 300) { // 更新回数 20
         arguments.callee.clearInterval();
         Lock = false;
     }
@@ -1566,7 +1571,7 @@ LyricShow = new function (Style) {
                         if (color === Style.Color.Text)
                             gr.DrawImage(this.textImg, x, y, w, h, 0, 0, w, h, 0, alpha);
                         else if (this.i === lyric.i - 1) {
-                            gr.DrawImage(this.textImg, x, y, w, h, 0, 0, w, h, 0, alpha);
+                            Style.FadeInPlayingColor && gr.DrawImage(this.textImg, x, y, w, h, 0, 0, w, h, 0, alpha);
                             gr.DrawImage(this.textHighlineImg, x, y, w, h, 0, 0, w, h, 0, Style.FadeInPlayingColor ? Math.min(LyricShow.on_paintInfo.dpi / 48 * 255, alpha) : alpha);
                         }
                         else
@@ -1611,7 +1616,7 @@ LyricShow = new function (Style) {
                         if (color === Style.Color.Text)
                             gr.DrawImage(this.textImg, x, y, w, h, 0, 0, w, h, 0, alpha);
                         else if (this.i === lyric.i - 1) {
-                            gr.DrawImage(this.textImg, x, y, w, h, 0, 0, w, h, 0, alpha);
+                            Style.FadeInPlayingColor && gr.DrawImage(this.textImg, x, y, w, h, 0, 0, w, h, 0, alpha);
                             gr.DrawImage(this.textHighlineImg, x, y, w, h, 0, 0, w, h, 0, Style.FadeInPlayingColor ? (LyricShow.on_paintInfo.dpi / 48 * 255) * alpha / 255 : alpha);
                         }
                         else
@@ -1772,13 +1777,9 @@ LyricShow = new function (Style) {
         Lock = true;
 
         offsetY = Math.floor(from);
-        mlwa.sum = 0;
         mlwa.to = to;
-
-        mlwa.h = to - offsetY; // 移動量 // 小分けしたものをfromに足し込んでいく
-        mlwa.t = 90; // 移動時間[ms]
-        mlwa.spe = mlwa.h / mlwa.t * prop.Panel.Interval; // 1回の更新での移動量
-        this.moveLineWithAnimationTimer.interval(prop.Panel.Interval);
+        mlwa.anmDelta = to - offsetY;
+        this.moveLineWithAnimationTimer.interval(15);
     };
     this.moveLineWithAnimationTimer = function () { // for Timer
         var mlwa = LyricShow.moveLineWithAnimation;
@@ -1786,15 +1787,16 @@ LyricShow = new function (Style) {
             arguments.callee.clearInterval();
             Lock = false;
         } else {
-            offsetY += mlwa.spe;
-            mlwa.sum += mlwa.spe;
-            if (Math.abs(mlwa.sum) >= Math.abs(mlwa.h)) { // 目標の移動量に達したら終了
+            offsetY += mlwa.anmDelta / 5;
+            mlwa.anmDelta -= mlwa.anmDelta / 5;
+            if (Math.abs(mlwa.anmDelta) <= 0.5) {
                 offsetY = mlwa.to;
                 moveY = 0;
                 arguments.callee.clearInterval();
                 !mlwa.IsPaused && fb.Pause();
                 Lock = false;
             }
+
             LyricShow.repaintRect();
         }
     };
@@ -1903,10 +1905,30 @@ LyricShow = new function (Style) {
             var newImg = gdi.CreateImage(w, h);
             var canvas = newImg.GetGraphics();
             var offset = 100 - blurValue;
-            canvas.DrawImage(blurred_image, 0 - offset, 0 - offset, w + offset * 2, h + offset * 2, 0, 0, w, h, 0, 255); // 上下左右をoffsetの値分だけ引き伸ばして中央部分を切り取った形 // blurValue が小さければ小さいほどぼかしは強くなり、さらに切り取る部分がより中央に寄る
+            canvas.DrawImage(blurred_image, 0 - offset, 0 - offset, w + offset * 2, h + offset * 2, 0, 0, w, h, 0, 255); // 上下左右をoffsetの値分だけ引き伸ばして中央部分を切り取った形 // blurValue が小さいほど切り取る部分がより中央になる
 
             newImg.ReleaseGraphics(canvas);
             blurred_image.Dispose();
+
+            return newImg;
+        },
+        applyAngle: function (image, angle) {
+            if (angle % 360 === 0)
+                return image;
+
+            var newImg = gdi.CreateImage(window.Width, window.Height);
+            var canvas = newImg.GetGraphics();
+            canvas.DrawImage(image, BackgroundSize.x, BackgroundSize.y, image.Width, image.Height, 0, 0, image.Width, image.Height, angle, 255); // パネル外にはみ出すとgr.DrawImageメソッドの描画速度が低下するので、パネルサイズで切り取る　
+
+            newImg.ReleaseGraphics(canvas);
+            image.Dispose();
+
+            BackgroundSize = {
+                x: 0, // パネルサイズで切り取ったので 0
+                y: 0,
+                width: newImg.Width,
+                height: newImg.Height
+            };
 
             return newImg;
         },
@@ -1943,14 +1965,15 @@ LyricShow = new function (Style) {
                     same = Boolean(path === BackgroundPath);
                     BackgroundPath = path;
                     BackgroundSize = this.calcImgSize(newImg, window.Width, window.Height, prop.Panel.BackgroundStretch || prop.Panel.BackgroundBlur, prop.Panel.BackgroundKAR && !prop.Panel.BackgroundBlur);
-                    tmp = newImg.Resize(BackgroundSize.width, BackgroundSize.height, 7); // DrawImage関数でリサイズやアルファ値(255以外)を指定し頻繁に更新すると負荷が無視できないので先に適用しておく
+                    tmp = newImg.Resize(BackgroundSize.width, BackgroundSize.height, 7); // gr.DrawImageメソッドでリサイズ、アルファ値(255以外)、アングル(0以外)を指定し頻繁に更新すると、描画速度の低下と負荷が無視できないので先に適用しておく
                     if (prop.Panel.BackgroundBlur) {
-                        tmp = this.applyBlur(tmp, prop.Panel.BackgroundBlurValue);
-                        // or // tmp.BoxBlur(20, 7);
+                        tmp = this.applyBlur(tmp, prop.Panel.BackgroundBlurValue); // or // tmp.BoxBlur(20, 7);
                         BackgroundImg = tmp.ApplyAlpha(prop.Panel.BackgroundBlurAlpha);
                     }
-                    else
+                    else {
+                        tmp = this.applyAngle(tmp, prop.Panel.BackgroundAngle);
                         BackgroundImg = tmp.ApplyAlpha(prop.Panel.BackgroundAlpha);
+                    }
                     !same && this.fadeTimer();
 
                     tmp.Dispose();
@@ -2194,8 +2217,8 @@ LyricShow = new function (Style) {
         // background color
         gr.FillSolidRect(-1, -1, window.Width + 1, window.Height + 1, Style.Color.Background);
         // background image
-        if (BackgroundImg)
-            gr.DrawImage(BackgroundImg, BackgroundSize.x, BackgroundSize.y, BackgroundSize.width, BackgroundSize.height, 0, 0, BackgroundImg.Width, BackgroundImg.Height, prop.Panel.BackgroundBlur ? 0 : prop.Panel.BackgroundAngle, backalpha);
+        if (BackgroundImg && backalpha) // alphaが0なら描画をスキップ
+            gr.DrawImage(BackgroundImg, BackgroundSize.x, BackgroundSize.y, BackgroundSize.width, BackgroundSize.height, 0, 0, BackgroundSize.width, BackgroundSize.height, 0, backalpha);
 
         // lyrics
         if (lyric) { // lyrics is found
@@ -2579,6 +2602,7 @@ Edit = new function (Style, p) {
     this.start = function () {
 
         LyricShow.pauseTimer(true);
+        Buttons.buildButton();
         with (prop.Style) { Color = CE[CSE]; }
         prop.Edit.Start = true;
         filetype === "txt" && putTime(0, 0);
@@ -2827,7 +2851,6 @@ Buttons = new function () {
             offsetX -= buttonlist[i].Img.width + (i > 0 ? icon_space : 0);
         }
     };
-    this.buildButton();
 
     this.on_paint = function (gr) {
         for (var i = 0; i < button.length; i++)
@@ -3873,6 +3896,7 @@ Menu = new function () {
 //== onLoad function ==========================
 //========================================
 
+window.DlgCode = 0x0004;
 setDrawingMethod();
 on_size();
 for (var pname in plugins) {
@@ -4040,7 +4064,7 @@ function on_mouse_lbtn_down(x, y, mask) {
             }
         }
         else if (lyric) {
-            drag = true;
+            !Lock && (drag = true);
             drag_y = down_pos.y = y;
             down_pos.x = x;
         }
@@ -4074,6 +4098,7 @@ function on_mouse_lbtn_up(x, y, mask) {
     if (!prop.Edit.Start) {
         drag = false;
         if (prop.Panel.ScrollType !== 4 && prop.Panel.ScrollType !== 5 && prop.Panel.SingleClickSeek && filetype === "lrc" && x === down_pos.x && y === down_pos.y) {
+            down_pos.x = down_pos.y = null;
             jumpY = offsetY;
             for (var i = disp.top, j = disp.bottom; i <= j; i++) {
                 if (LyricShow.setProperties.DrawStyle[i].onclick(x, y))

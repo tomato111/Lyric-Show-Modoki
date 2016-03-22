@@ -48,6 +48,35 @@
                     saveToFile(parse_path + (filetype === 'lrc' ? '.lrc' : '.txt'), status + '\n');
         };
 
+        this.setAutoSearchPluginName = function (pname) {
+            var del;
+            var PluginNames = window.GetProperty('Plugin.Search.AutoSearch').split(/[ 　]*,[ 　]*/);
+            if (PluginNames.length === 1 && PluginNames[0] === '')
+                PluginNames.length = 0;
+
+            for (var i = 0; i < PluginNames.length;) {
+                if (PluginNames[i] === pname) {
+                    PluginNames.splice(i, 1);
+                    StatusBar.setText('OFF : ' + pname);
+                    del = true;
+                }
+                else
+                    i++;
+            }
+            if (!del) {
+                PluginNames.push(pname);
+                StatusBar.setText('ON : ' + pname);
+            }
+
+            StatusBar.show();
+            window.SetProperty('Plugin.Search.AutoSearch', PluginNames.join(', '));
+            this.onStartUp();
+            if (this.onCommand.AutoSearch) {
+                plugins[pname].menuitem.Flag = del ? MF_UNCHECKED : MF_CHECKED;
+                Menu.build();
+            }
+        };
+
     },
     onPlay: function () { // 新たに曲が再生される度に呼び出される関数
         this.timer.clearInterval();
