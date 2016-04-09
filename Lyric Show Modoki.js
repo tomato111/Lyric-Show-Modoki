@@ -3,7 +3,7 @@
 
 // ==PREPROCESSOR==
 // @name "Lyric Show Modoki"
-// @version "1.6.0"
+// @version "1.6.1"
 // @author "tomato111"
 // @import "%fb2k_profile_path%import\common\lib.js"
 // ==/PREPROCESSOR==
@@ -11,11 +11,11 @@
 
 
 //============================================
-//== Global Variable and Function =====================
+//== Global Variable and Function ============
 //============================================
 // user reserved words
 var plugins, lyric, parse_path, path, directory, filename, basename, filetype, dateLastModified, dateCreated, dataSize, charset, offsetinfo, backalpha, infoPath, backupLyric
-, offsetY, fixY, moveY, lineY, drag, drag_y, g_x, g_y, ww, wh, larea_seek, rarea_seek, seek_width, rarea_seek_x, arc_w, arc_h, on_size_research, ignore_remainder, Lock, Lock_MiddleButton, movable, jumpY
+, offsetY, fixY, moveY, lineY, drag, drag_y, g_x, g_y, ww, wh, larea_seek, rarea_seek, seek_width, rarea_seek_x, arc_w, arc_h, ignore_remainder, Lock, Lock_MiddleButton, movable, jumpY
 , Left_Center, Center_Left, Center_Right, Right_Center, centerleftX, TextHeight, TextHeightWithoutLPadding, BackgroundImg, isM4A
 , prop, LyricShow, Edit, Buttons, StatusBar, Keybind, Menu, Messages, Label;
 
@@ -23,7 +23,7 @@ var fs = new ActiveXObject("Scripting.FileSystemObject"); // File System Object
 var ws = new ActiveXObject("WScript.Shell"); // WScript Shell Object
 var Trace = new TraceLog();
 var scriptName = "Lyric Show Modoki";
-var scriptVersion = "1.6.0";
+var scriptVersion = "1.6.1";
 var scriptdir = fb.ProfilePath + "import\\" + scriptName + "\\";
 var commondir = fb.ProfilePath + "import\\common\\";
 var down_pos = {};
@@ -776,7 +776,7 @@ function seekLineTo(i) {
 
 
 //===========================================
-//== Create "LyricShow" Object ======================
+//== Create "LyricShow" Object ==============
 //===========================================
 
 LyricShow = new function (Style) {
@@ -827,7 +827,7 @@ LyricShow = new function (Style) {
                                 exp = fs.GetFileName(file).replace(FuzzyRE[i], "").toLowerCase();
 
                                 for (j = 0; j < Files_Collection[directory].length; j++) {
-                                    if (Files_Collection[directory][j].Name1 == exp) {
+                                    if (Files_Collection[directory][j].Name1 === exp) {
                                         file = Files_Collection[directory][j].Path;
                                         f = fs.GetFile(file);
                                         break L;
@@ -840,7 +840,7 @@ LyricShow = new function (Style) {
                                 exp = exp.replace(FuzzyRE[i], "");
 
                                 for (j = 0; j < Files_Collection[directory].length; j++) {
-                                    if (Files_Collection[directory][j].Name2 == exp) {
+                                    if (Files_Collection[directory][j].Name2 === exp) {
                                         file = Files_Collection[directory][j].Path;
                                         f = fs.GetFile(file);
                                         break L;
@@ -960,7 +960,7 @@ LyricShow = new function (Style) {
                 if (!tagstart) tagstart = true;
 
                 key = tmp[1].match(keyRe);
-                value = tmp[2] ? tmp[2].replace(spaceRe, "") : "";
+                value = tmp[2].replace(spaceRe, "");
                 for (var j = 0; j < key.length; j++) {
                     tmpkey = key[j].replace(notNumberRe, "") - 0;
                     if (tmpArray[tmpkey])
@@ -982,8 +982,8 @@ LyricShow = new function (Style) {
                 m = Math.floor(timeArray[i] / 10000);
                 ms = m * 6000 + timeArray[i] % 10000;
                 if (offsetinfo && ms !== 0) {
-                    ms = ms - Math.round(offsetinfo / 10);
-                    ms = ms < 0 ? 0 : ms;
+                    ms -= Math.round(offsetinfo / 10);
+                    ms = Math.max(ms, 0);
                 }
                 // fb.trace(i + " :: " + tmpArray[timeArray[i]] + " :: " + timeArray[i] + " :: " + ms);
 
@@ -1215,7 +1215,7 @@ LyricShow = new function (Style) {
                     n = Math.floor(t / interval); // 更新可能回数
                     t = n * interval || 1; // 次の行までの時間を更新可能回数を考慮した時間に変換する // 変換した時間を基準に移動量を計算
                     scrollSpeedList[i] = h / t * interval; // 1回の更新での移動量(行ごとに変化する)
-                    scrollSpeedType2List[i] = t >= prop.Panel.ScrollDurationTime * 10 ? h / (prop.Panel.ScrollDurationTime * 9.9) * interval : null; // Panel.ScrollType == 2 での1回の更新の移動量. スクロール開始は(prop.Panel.ScrollDurationTime*10)ミリ秒前.
+                    scrollSpeedType2List[i] = t >= prop.Panel.ScrollDurationTime * 10 ? h / (prop.Panel.ScrollDurationTime * 9.9) * interval : null; // Panel.ScrollType === 2 での1回の更新の移動量. スクロール開始は(prop.Panel.ScrollDurationTime*10)ミリ秒前.
                     if (scrollSpeedList[i] > h) // 1回の更新で行の高さを超える移動量となった場合はスキップ
                         scrollSpeedList[i] = h;
                 }
@@ -1754,7 +1754,7 @@ LyricShow = new function (Style) {
         else
             offsetY = fixY - this.setProperties.h * time / Math.round(fb.PlaybackLength * 100); // パネルの半分 - (1ファイルの高さ * 再生時間の割合)
 
-        if (offsetY == parseInt(offsetY, 10)) // 整数かどうか
+        if (offsetY === parseInt(offsetY, 10)) // 整数かどうか
             moveY = 0;
         else if (offsetY > 0)
             moveY = parseFloat("0." + String(fixY - offsetY).split(".")[1]);
@@ -1787,9 +1787,9 @@ LyricShow = new function (Style) {
             arguments.callee.clearInterval();
             Lock = false;
         } else {
-            offsetY += mlwa.anmDelta / 5;
-            mlwa.anmDelta -= mlwa.anmDelta / 5;
-            if (Math.abs(mlwa.anmDelta) <= 0.5) {
+            offsetY += mlwa.anmDelta / 3.5;
+            mlwa.anmDelta -= mlwa.anmDelta / 3.5;
+            if (Math.abs(mlwa.anmDelta) <= 1) {
                 offsetY = mlwa.to;
                 moveY = 0;
                 arguments.callee.clearInterval();
@@ -1826,7 +1826,7 @@ LyricShow = new function (Style) {
             var SupportTypes = ["jpg", "jpeg", "png", "gif", "bmp"];
 
             for (var i = 0; i < SupportTypes.length; i++) {
-                if (ext == SupportTypes[i])
+                if (ext === SupportTypes[i])
                     return true;
             }
             return false;
@@ -2301,8 +2301,8 @@ LyricShow = new function (Style) {
         else if (fb.IsPlaying) { // lyrics is not found
             var nlw, offset;
             var align = window.GetProperty("Style.AlignNoLyric");
-            var noLyricX = (align == 0x00000003 || align == 0x00000006) ? ww : (align == 0x00000004) ? centerleftX : g_x;
-            var c_ww = (align == 0x00000004 || align == 0x00000005) ? ww - centerleftX + g_x : ww;
+            var noLyricX = (align === 0x00000003 || align === 0x00000006) ? ww : (align === 0x00000004) ? centerleftX : g_x;
+            var c_ww = (align === 0x00000004 || align === 0x00000005) ? ww - centerleftX + g_x : ww;
 
             var wordbreak = 0;
             var s = fb.TitleFormat(prop.Panel.NoLyric).Eval().split("\\n");
@@ -2318,7 +2318,7 @@ LyricShow = new function (Style) {
                 offset = g_y + (wh / 2) - s.length / 2 * TextHeight;
             }
 
-            if (align == 0x00000003 || align == 0x00000006) {
+            if (align === 0x00000003 || align === 0x00000006) {
                 if (Style.DrawingMethod === 0)
                     for (i = 0; i < s.length; i++) {
                         nlw = gr.CalcTextWidth(s[i], Style.Font);
@@ -2370,7 +2370,7 @@ LyricShow = new function (Style) {
 
 
 //===========================================
-//== Create "Edit" Object ==========================
+//== Create "Edit" Object ===================
 //===========================================
 
 Edit = new function (Style, p) {
@@ -2402,7 +2402,7 @@ Edit = new function (Style, p) {
         lyric.i++;
         window.Repaint();
 
-        if (lyric.i == lyric.text.length) {
+        if (lyric.i === lyric.text.length) {
             Lock = true; // some command is prevent
             this.saveMenu(x, y);
             prop.Edit.Start && this.undo(); // saveMenu表示中に次の曲に遷移する可能性があるのでundoの前にチェックする
@@ -2412,12 +2412,12 @@ Edit = new function (Style, p) {
 
     this.undo = function (all) {
 
-        if (lyric.i == 1) return;
+        if (lyric.i === 1) return;
 
         do {
             lyric.text[--lyric.i] = lyric.text[lyric.i].slice(10);
             offsetY += DrawStyle[lyric.i - 1].height;
-            if (lyric.i == 1) break;
+            if (lyric.i === 1) break;
         } while (all)
 
         window.Repaint();
@@ -2425,7 +2425,7 @@ Edit = new function (Style, p) {
 
     this.adjustTime = function (n) { // -100 < Int n < 100
 
-        if (lyric.i == 1) return;
+        if (lyric.i === 1) return;
 
         Lock = true;
 
@@ -2462,7 +2462,7 @@ Edit = new function (Style, p) {
 
     this.offsetTime = function (n) { // -100 < Int n < 100
 
-        if (lyric.i == 1) return;
+        if (lyric.i === 1) return;
 
         Lock = true;
 
@@ -2501,7 +2501,7 @@ Edit = new function (Style, p) {
         }
     };
 
-    this.controlLine = function (n, s) {
+    this.controlLine = function (n) {
 
         var a, str;
         var text = lyric.text;
@@ -2510,27 +2510,31 @@ Edit = new function (Style, p) {
         switch (n) {
             case -1: // delete line
                 text.splice(i, 1);
-                if (i == text.length) this.undo();
+                (i === text.length) && this.undo();
                 break;
-            case 0: // space control for shortcut key
+            case 0: // space control
                 if (text[i] !== "") {
                     a = text.splice(i, text.length - i, "");
-                    lyric.text = text.concat(a);
-                } else text.splice(i, 1);
+                    text.push.apply(text, a);
+                }
+                else {
+                    text.splice(i, 1);
+                    (i === text.length) && this.undo();
+                }
                 break;
             case 1: // insert line
                 str = prompt(Label.InserLineText, Label.InsertLine, "");
-                if (/^##(.*)/.test(str)) { // insert line to bottom
-                    lyric.text.push(RegExp.$1 || "");
-                    break;
+                if (str.indexOf("##") === 0) // insert line to bottom
+                    text.push(str.slice(2));
+                else {
+                    a = text.splice(i, text.length - i, str || "");
+                    text.push.apply(text, a);
                 }
-                a = text.splice(i, text.length - i, str || "");
-                lyric.text = text.concat(a);
                 break;
             case 2: // edit line
-                a = text[i - 1].slice(0, 10);
                 str = prompt("", Label.EditLine, text[i - 1].slice(10));
-                if (str) text[i - 1] = a + str;
+                if (typeof str !== "undefined")
+                    text[i - 1] = text[i - 1].slice(0, 10) + str;
                 break;
         }
 
@@ -2686,7 +2690,7 @@ Edit = new function (Style, p) {
             lyric.i = this.i; // ビューモードに入る前の状態に戻す
             offsetY = this.offsetY; // これも同様
             this.i = this.offsetY = null;
-            lyric.i == lyric.text.length && Edit.undo();
+            lyric.i === lyric.text.length && Edit.undo();
             Edit.calcRGBdiff();
         };
     };
@@ -2736,7 +2740,7 @@ Edit = new function (Style, p) {
         // lyrics
         for (var i = -2; i < lyric.text.length - 2; i++) {
             n = p + i;
-            if (i == -2 && n >= 0) { disp.top = n; }
+            if (i === -2 && n >= 0) { disp.top = n; }
             if (n < 0) continue;
             else if (n >= lyric.text.length || offsetY + DrawStyle[n].nextY > wh) { disp.bottom = n - 1; break; }
             else {
@@ -2772,7 +2776,7 @@ Edit = new function (Style, p) {
 
 
 //===========================================
-//== Create "Buttons" Object =======================
+//== Create "Buttons" Object ================
 //===========================================
 
 Buttons = new function () {
@@ -2924,7 +2928,7 @@ Buttons = new function () {
 
 
 //===========================================
-//== Create "StatusBar" Object ======================
+//== Create "StatusBar" Object ==============
 //===========================================
 
 StatusBar = new function (Style) {
@@ -2976,7 +2980,7 @@ StatusBar = new function (Style) {
 
 
 //===========================================
-//== Create "Keybind" Object ======================
+//== Create "Keybind" Object ================
 //===========================================
 
 Keybind = new function () {
@@ -3079,6 +3083,8 @@ Keybind = new function () {
 
         this[13] = function () { !prop.Edit.View && Edit.moveNextLine(); }; // Enter
         this[33] = function () { !prop.Edit.View && Edit.undo(); }; // Page Up
+        this[37] = function () { fb.PlaybackTime -= 3; }; // Left
+        this[39] = function () { fb.PlaybackTime += 3; }; // Right
         this[38] = function () { // Up
             if (on_key_down.Shift) Edit.offsetTime(5); // (+Shift)
             else Edit.adjustTime(-5);
@@ -3096,7 +3102,7 @@ Keybind = new function () {
 
 
 //===========================================
-//== Create "Menu" Object =========================
+//== Create "Menu" Object ===================
 //===========================================
 
 Menu = new function () {
@@ -3821,8 +3827,8 @@ Menu = new function () {
         items: menu_Edit,
         refresh: function () {
             menu_Edit[0].Flag = prop.Edit.View ? MF_CHECKED : MF_UNCHECKED;
-            menu_Edit[4].Flag = (prop.Edit.View && Edit.View.i == lyric.text.length) ? MF_STRING : MF_GRAYED;
-            menu_Edit[5].Flag = (prop.Edit.View && Edit.View.i == lyric.text.length) ? MF_STRING : MF_GRAYED;
+            menu_Edit[4].Flag = (prop.Edit.View && Edit.View.i === lyric.text.length) ? MF_STRING : MF_GRAYED;
+            menu_Edit[5].Flag = (prop.Edit.View && Edit.View.i === lyric.text.length) ? MF_STRING : MF_GRAYED;
             menu_Edit[8].Flag = prop.Edit.View ? MF_GRAYED : MF_STRING;
             menu_Edit[9].Flag = prop.Edit.View ? MF_GRAYED : MF_STRING;
             switch (prop.Style.CSE) {
@@ -3893,7 +3899,7 @@ Menu = new function () {
 
 
 //========================================
-//== onLoad function ==========================
+//== onLoad ==============================
 //========================================
 
 window.DlgCode = 0x0004;
@@ -3903,11 +3909,12 @@ for (var pname in plugins) {
     if (plugins[pname].onStartUp instanceof Function)
         plugins[pname].onStartUp();
 }
+main();
 
 function main(text) {
 
     if (arguments.callee.IsVisible !== window.IsVisible)
-        arguments.callee.IsVisible = prop.Panel.RunInTheBackground ? true : window.IsVisible;
+        arguments.callee.IsVisible = window.IsVisible || prop.Panel.RunInTheBackground;
 
     if (arguments.callee.IsVisible && fb.IsPlaying) {
         var parse_paths = fb.TitleFormat(prop.Panel.Path).Eval().split("||");
@@ -3923,11 +3930,10 @@ function main(text) {
 
     //(function () { if (lyric) { Edit.start(); } }).timeout(400);
 }
-main();
 
 
 //========================================
-//== Callback function =========================
+//== Callback function ===================
 //========================================
 function on_paint(gr) {
     gr.SetTextRenderingHint(5);
@@ -3945,9 +3951,9 @@ function on_paint(gr) {
 }
 
 function on_size() {
+    var on_size_research = Boolean(ww === 0 || wh === 0); // 真なら行検索をやり直す
     g_x = prop.Style.HPadding;
     g_y = prop.Style.VPadding[0];
-    on_size_research = Boolean(ww === 0 || wh === 0); // 真なら行検索をやり直す
     ww = Math.max(window.Width - g_x * 2, 0); // window.Width と window.Height を 0 に設定してくるコンポ（foo_uie_tabs等）があるので、Math.maxメソッドで負数を回避
     wh = Math.max(window.Height - (g_y + prop.Style.VPadding[1]), 0);
     centerleftX = Math.round(ww / 5 + g_x);
@@ -3957,14 +3963,14 @@ function on_size() {
     rarea_seek_x = ww - seek_width;
     arc_w = (seek_width >= 30) * 15;
     arc_h = (wh - 50 >= 30) * 15;
+
     if (prop.Edit.Start) {
         Edit.calcSeekIMGarea();
         Buttons.buildButton();
     }
-
     prop.Panel.RefreshOnPanelResize && ww && wh && refreshDrawStyle();
-    on_size_research && lyric && LyricShow.searchLine(fb.PlaybackTime);
     prop.Panel.RefreshOnPanelResize && BackgroundImg && LyricShow.BackgroundImage.setImage();
+    on_size_research && lyric && LyricShow.searchLine(fb.PlaybackTime);
 }
 
 function on_focus(is_focused) {
@@ -4076,10 +4082,10 @@ function on_mouse_lbtn_down(x, y, mask) {
             fb.PlaybackTime -= 3;
         else if (rarea_seek)
             fb.PlaybackTime += 3;
-        else if (mask == 9)
+        else if (mask === 9)
             fs.FileExists(parse_path + ".txt") && Edit.deleteFile(parse_path + ".txt");
         else if (!prop.Edit.View) {
-            if (mask == 5)
+            if (mask === 5)
                 Edit.controlLine(0);
             else if (y < TextHeight * 2 + g_y)
                 Edit.undo();
@@ -4098,7 +4104,6 @@ function on_mouse_lbtn_up(x, y, mask) {
     if (!prop.Edit.Start) {
         drag = false;
         if (prop.Panel.ScrollType !== 4 && prop.Panel.ScrollType !== 5 && prop.Panel.SingleClickSeek && filetype === "lrc" && x === down_pos.x && y === down_pos.y) {
-            down_pos.x = down_pos.y = null;
             jumpY = offsetY;
             for (var i = disp.top, j = disp.bottom; i <= j; i++) {
                 if (LyricShow.setProperties.DrawStyle[i].onclick(x, y))
@@ -4186,7 +4191,7 @@ function on_key_down(vkey) {
         !on_key_down.Ctrl && (on_key_down.Ctrl = true);
     else if (!prop.Edit.Start) {
         prevent_shortcuts = Keybind.LyricShow_keydown[vkey] && Keybind.LyricShow_keydown[vkey]();
-        if (prevent_shortcuts === undefined)
+        if (typeof prevent_shortcuts === "undefined")
             prevent_shortcuts = Boolean(Keybind.LyricShow_keydown[vkey] || Keybind.LyricShow_keyup[vkey]);
     }
     else if (!Lock) {
