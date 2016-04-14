@@ -81,7 +81,7 @@
     onPlay: function () { // 新たに曲が再生される度に呼び出される関数
         this.timer.clearInterval();
         this.results.length = 0;
-        if (!this.onCommand.AutoSearch || !this.AvailablePluginNames.length || lyric) {
+        if (!this.onCommand.AutoSearch || !this.AvailablePluginNames.length || !main.IsVisible || lyric) {
             return;
         }
 

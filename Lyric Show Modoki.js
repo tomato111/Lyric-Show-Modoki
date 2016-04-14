@@ -14,9 +14,9 @@
 //== Global Variable and Function ============
 //============================================
 // user reserved words
-var plugins, lyric, parse_path, path, directory, filename, basename, filetype, dateLastModified, dateCreated, dataSize, charset, offsetinfo, backalpha, infoPath, backupLyric
+var plugins, lyric, parse_path, path, directory, fieldname, filetype, dataSize, charset, offsetinfo, backalpha, infoPath, backupLyric
 , offsetY, fixY, moveY, lineY, drag, drag_y, g_x, g_y, ww, wh, larea_seek, rarea_seek, seek_width, rarea_seek_x, arc_w, arc_h, ignore_remainder, Lock, Lock_MiddleButton, movable, jumpY
-, Left_Center, Center_Left, Center_Right, Right_Center, centerleftX, TextHeight, TextHeightWithoutLPadding, BackgroundImg, isM4A
+, Left_Center, Center_Left, Center_Right, Right_Center, centerleftX, TextHeight, TextHeightWithoutLPadding, BackgroundImg
 , prop, LyricShow, Edit, Buttons, StatusBar, Keybind, Menu, Messages, Label;
 
 var fs = new ActiveXObject("Scripting.FileSystemObject"); // File System Object
@@ -45,11 +45,8 @@ var MF_DISABLED = 0x00000002;
 var MF_UNCHECKED = 0x00000000;
 var MF_CHECKED = 0x00000008;
 var MF_STRING = 0x00000000;
-var tagRe = /\[\d\d:\d\d[.:]\d\d\]/;
-var alltagsRe = /\[\d\d:\d\d[.:]\d\d\]/g;
-var timeRe = /\[(\d\d):(\d\d)[.:](\d\d)\]/;
-var firstRe = /^\[00:00[.:]00\]/;
-var m4aRE = /^m4a$/i;
+var alltagsRE = /\[\d\d:\d\d[.:]\d\d\]/g;
+var timeRE = /\[(\d\d):(\d\d)[.:](\d\d)\]/;
 var repeatRes = getRepeatRes(scriptdir + "repeat.txt", scriptdir + "repeat-default.txt");
 
 //========
@@ -624,7 +621,7 @@ function copyLyric(withoutTag) { // copy lyric to clipboad
     var text = lyric.text.join(LineFeedCode);
 
     if (filetype === "lrc" && withoutTag)
-        text = text.replace(alltagsRe, "");
+        text = text.replace(alltagsRE, "");
 
     if (lyric.info.length)
         text = lyric.info.join(LineFeedCode) + LineFeedCode + text;
@@ -645,12 +642,14 @@ function getLyricFromClipboard() {
         Messages.FailedToReadText.popup();
 }
 
-function getFieldName(isEdit) {
+function getFieldName() {
 
-    if (prop.Save.iTunesMode)
+    if (prop.Save.iTunesMode) {
+        var isM4A = fs.GetExtensionName(fb.GetNowPlaying().Path).toLowerCase() === "m4a";
         var field = isM4A ? "LYRICS" : "UNSYNCED LYRICS";
+    }
     else
-        field = (filetype === "lrc" || isEdit) ? "LYRICS" : "UNSYNCED LYRICS";
+        field = (filetype === "lrc" || prop.Edit.Start) ? "LYRICS" : "UNSYNCED LYRICS";
     return field;
 }
 
@@ -781,10 +780,11 @@ function seekLineTo(i) {
 
 LyricShow = new function (Style) {
 
-    var p;
     var Files_Collection = {};
-    var directoryRe = /.+\\/;
-    var extensionRe = /^lrc|txt$/i;
+    var directoryRE = /.+\\/;
+    var extensionRE = /^lrc|txt$/i;
+    var zeroTagRE = /^\[00:00[.:]00\]$/;
+    var tagRE = /\[\d\d:\d\d[.:]\d\d\]/;
     var FuzzyRE = ["", /[ 　]/g, /\(.*?\)/g];
     var BackgroundPath, BackgroundSize;
 
@@ -817,7 +817,7 @@ LyricShow = new function (Style) {
                                     Files_Collection[directory].DateLastModified = String(fs.GetFolder(directory).DateLastModified);
                                     arr = utils.Glob(directory + "*.*").toArray(); // fs.GetFolder(directory).Files でのコレクション処理は各アイテムのプロパティアクセスが遅すぎる. 代わりにutils.Glob()を使う
                                     for (var j = 0; j < arr.length; j++) {
-                                        if (extensionRe.test(fs.GetExtensionName(arr[j]))) {
+                                        if (extensionRE.test(fs.GetExtensionName(arr[j]))) {
                                             exp = fs.GetFileName(arr[j]).replace(FuzzyRE[i], "").toLowerCase();
                                             Files_Collection[directory].push({ Name1: exp, Name2: exp.replace(FuzzyRE[i + 1], ""), Path: arr[j] });
                                         }
@@ -864,15 +864,10 @@ LyricShow = new function (Style) {
 
         path = f.Path;
         directory = f.ParentFolder;
-        filename = f.Name;
-        basename = fs.GetBaseName(path);
-        filetype = fs.GetExtensionName(path);
-        dateLastModified = f.DateLastModified;
-        dateCreated = f.DateCreated;
         dataSize = f.Size;
         charset = readTextFile.lastCharset;
         if (!IsSpecifiedPath)
-            parse_path = directory + "\\" + basename;
+            parse_path = directory + "\\" + fs.GetBaseName(path);
         return str;
     };
 
@@ -891,20 +886,18 @@ LyricShow = new function (Style) {
         if (!str) return;
 
         if (/^LYRICS$/.test(tag)) {
-            basename = "LYRICS";
-            filetype = "lrc";
+            fieldname = "LYRICS";
         } else {
-            basename = "UNSYNCED LYRICS";
-            filetype = "txt";
+            fieldname = "UNSYNCED LYRICS";
         }
-        directory = parse_path.match(directoryRe)[0];
+        directory = parse_path.match(directoryRE)[0];
 
         return str;
     };
 
     this.readLyric = function (file, IsSpecifiedPath) {
 
-        var str, isSync;
+        var str;
 
         if (/^(?:LYRICS|UNSYNCED LYRICS)$/.test(file)) {
             if (!(str = this.initWithTag(file))) return;
@@ -915,18 +908,15 @@ LyricShow = new function (Style) {
         else {
             if (!file || !parse_path) return; // 条件を満たす曲をスキップするようなコンポを入れているとparse_pathがなぜか空になってエラーを起こすので回避
             str = file;
-            basename = "Temporary Text";
-            filetype = "txt";
-            directory = parse_path.match(directoryRe)[0];
+            fieldname = "Temporary Text";
+            directory = parse_path.match(directoryRE)[0];
         }
 
 
-        isSync = tagRe.test(str);
-
-        if (filetype === "lrc" && !isSync) // check
-            filetype = "txt";
-        else if (filetype === "txt" && isSync)
+        if (tagRE.test(str)) // isSync
             filetype = "lrc";
+        else
+            filetype = "txt";
 
         lyric = { text: str.trim().split(getLineFeedCode(str)), i: 1, info: [] };
 
@@ -935,7 +925,7 @@ LyricShow = new function (Style) {
             var value, key, tmp, tagstart, tmpkey, tmptext, dublicate;
             var m, ms;
             var tmpArray = [], timeArray = [];
-            var offsetRe = /\[offset:(-?\d+)\]/;
+            var offsetRe = /\[offset: *(-?\d+) *\]/i;
             var isTagRe = /(\[[\d.:[\]]+\])(.*)/;
             var keyRe = /\[[\d:.]+\]/g;
             var spaceRe = /^[ 　]*$/;
@@ -993,7 +983,7 @@ LyricShow = new function (Style) {
                 }
             }
 
-            this.trimLine_TopAndBottom(true);
+            this.trimLine_TopAndBottom();
         }
 
         else { // analyze "no lrc"
@@ -1049,12 +1039,12 @@ LyricShow = new function (Style) {
         return true;
     };
 
-    this.trimLine_TopAndBottom = function (withTag) {
+    this.trimLine_TopAndBottom = function () {
 
         var text = lyric.text;
 
-        if (withTag) {
-            if (!firstRe.test(text[0]))
+        if (filetype === "lrc") {
+            if (!zeroTagRE.test(text[0]))
                 text.unshift("[00:00" + prop.Save.TimetagSign + "00]");
         }
         else {
@@ -1080,7 +1070,7 @@ LyricShow = new function (Style) {
                 var lineList = [""];
                 var text = lyric.text;
                 for (var i = 0; i < text.length; i++) {
-                    if (timeRe.test(text[i]))
+                    if (timeRE.test(text[i]))
                         lineList[i] = (RegExp.$1 * 60 + Number(RegExp.$2)) * 100 + Number(RegExp.$3); // key=line number, value=start time [ms*1/10]
                 }
 
@@ -1116,7 +1106,7 @@ LyricShow = new function (Style) {
 
                 if (View) {
                     for (var i = 0; i < lyric.text.length; i++) {
-                        wordbreakList[i] = Math.floor(temp_gr.CalcTextWidth(lyric.text[i].replace(alltagsRe, "") + "[00:00.00] ", Style.Font) / ww) + 1;
+                        wordbreakList[i] = Math.floor(temp_gr.CalcTextWidth(lyric.text[i].replace(alltagsRE, "") + "[00:00.00] ", Style.Font) / ww) + 1;
                         if (isContain) {
                             wRE_res = lyric.text[i].match(wRE);
                             if (wRE_res) wordbreakList[i] += wRE_res.length;
@@ -1126,7 +1116,7 @@ LyricShow = new function (Style) {
                 }
                 else {
                     for (i = 0; i < lyric.text.length; i++) {
-                        line_arr = temp_gr.EstimateLineWrap(isLRC ? lyric.text[i].replace(alltagsRe, "") : lyric.text[i], Style.Font, c_ww).toArray();
+                        line_arr = temp_gr.EstimateLineWrap(isLRC ? lyric.text[i].replace(alltagsRE, "") : lyric.text[i], Style.Font, c_ww).toArray();
                         wordbreakList[i] = line_arr.length / 2;
                         numOfWordbreak += wordbreakList[i] - 1;
 
@@ -1155,7 +1145,7 @@ LyricShow = new function (Style) {
                 TextHeight = TextHeightWithoutLPadding + Style.LPadding;
 
                 for (i = 0; i < lyric.text.length; i++) {
-                    temp_text = isLRC ? lyric.text[i].replace(alltagsRe, "") : lyric.text[i];
+                    temp_text = isLRC ? lyric.text[i].replace(alltagsRE, "") : lyric.text[i];
 
                     if (temp_text)
                         gdi_diff = temp_gr.CalcTextWidth(temp_text, Style.Font) - Math.ceil(temp_gr.MeasureString(temp_text, Style.Font, 0, 0, ww * 10, wh, 0).Width); // gr.EstimateLineWrap() はGDI用なのでGDI+とのサイズ差を補正して利用する
@@ -2028,7 +2018,7 @@ LyricShow = new function (Style) {
             {
                 parse_path = path[0]; // set default parse_path for save
                 try { // default ParentFolder of parse_path // 条件を満たす曲をスキップするようなコンポを入れているとparse_pathがなぜか空になってエラーを起こすのでtryで回避
-                    directory = parse_path.match(directoryRe)[0];
+                    directory = parse_path.match(directoryRE)[0];
                 } catch (e) { }
 
                 if (text) { // for Clipboad and FileDialog 
@@ -2069,8 +2059,6 @@ LyricShow = new function (Style) {
 
         this.searchLine(fb.PlaybackTime);
         filetype === "txt" && (function () { offsetY = Math.ceil(offsetY) - (moveY - Math.floor(moveY)); }).timeout(1000); // 再生始めは不安定であるが、非同期歌詞ではlineYでの修正が出来ないのでディレイで一度だけ小数点以下を揃えて安定させる
-        if (fb.IsPlaying) // この行を実行する前に再生が停止される可能性があるので条件分岐でエラー回避
-            isM4A = m4aRE.test(fs.GetExtensionName(fb.GetNowPlaying().Path));
     };
 
     this.end = function () {
@@ -2090,7 +2078,7 @@ LyricShow = new function (Style) {
                 backupLyric = lyric.info.join(LineFeedCode) + LineFeedCode + backupLyric;
         }
 
-        path = directory = filename = basename = filetype = lyric = offsetinfo = null;
+        path = directory = dataSize = charset = fieldname = filetype = lyric = offsetinfo = null;
         this.setProperties.lineList = this.setProperties.leftcenterX = this.setProperties.wordbreakList = this.setProperties.wordbreakText = this.setProperties.scrollSpeedList = this.scrollSpeedType2List = this.setProperties.DrawStyle = this.setProperties.h = this.setProperties.minOffsetY = null;
         lineY = moveY = null;
 
@@ -2430,18 +2418,18 @@ Edit = new function (Style, p) {
         Lock = true;
 
         var pl = lyric.i - 1;
-        lyric.text[pl].match(timeRe);
+        lyric.text[pl].match(timeRE);
         var pt = (RegExp.$1 * 60 + Number(RegExp.$2)) * 100 + Number(RegExp.$3);
 
         if (n < 0) {
-            lyric.text[pl - 1].match(timeRe);
+            lyric.text[pl - 1].match(timeRE);
             var tt = (RegExp.$1 * 60 + Number(RegExp.$2)) * 100 + Number(RegExp.$3);
             if (pt - tt > -n || tt === 0) // 下限
                 apply();
         }
         else {
             if (lyric.i !== lyric.text.length) {
-                var r = lyric.text[pl + 1].match(timeRe);
+                var r = lyric.text[pl + 1].match(timeRE);
                 tt = (RegExp.$1 * 60 + Number(RegExp.$2)) * 100 + Number(RegExp.$3);
             }
             if (!r || tt - pt > n) // 上限
@@ -2469,7 +2457,7 @@ Edit = new function (Style, p) {
         var tt;
 
         for (var i = 1; i < lyric.text.length; i++) {
-            if (lyric.text[i].match(timeRe)) {
+            if (lyric.text[i].match(timeRE)) {
                 tt = (RegExp.$1 * 60 + Number(RegExp.$2)) * 100 + Number(RegExp.$3);
                 this.applyTimeDiff(tt, i, -n);
             }
@@ -2549,7 +2537,7 @@ Edit = new function (Style, p) {
 
         Lock_MiddleButton = true;
         var meta = fb.GetNowPlaying();
-        var field = getFieldName(true);
+        var field = getFieldName();
         var file = parse_path + ".lrc";
         var folder = fs.GetParentFolderName(file);
         var LineFeedCode = prop.Save.LineFeedCode;
@@ -2745,9 +2733,9 @@ Edit = new function (Style, p) {
             else if (n >= lyric.text.length || offsetY + DrawStyle[n].nextY > wh) { disp.bottom = n - 1; break; }
             else {
                 if (tagTopRe.test(lyric.text[n]))
-                    str = RegExp.$1 + " " + lyric.text[n].replace(alltagsRe, "");
+                    str = RegExp.$1 + " " + lyric.text[n].replace(alltagsRE, "");
                 else
-                    str = lyric.text[n].replace(alltagsRe, "");
+                    str = lyric.text[n].replace(alltagsRE, "");
                 ci = (i < prop.Edit.Step) ? (i < 0) ? (i >= -prop.Edit.Step) ? -i : null : i : null;
                 c = ci === null ? di[3] : setRGBdiff(Style.Color.Text, di[0] * ci, di[1] * ci, di[2] * ci);
                 // fb.trace(str + "::" + Style.Font + "::" + Style.Color.Text + "::" + g_x + "::" + g_y + "::" + offsetY + "::" + DrawStyle[n].y + "::" + ww + "::" + wh + "::" + Style.Align);
@@ -3466,19 +3454,19 @@ Menu = new function () {
                 var strCount = lyrics.replace(new RegExp(LineFeedCode, "g"), "").length;
 
                 if (path)
-                    var str = path + "\nType: " + filetype.toUpperCase() + "\n"
+                    var mes = path + "\nType: " + filetype.toUpperCase() + "\n"
                             + "Lyrics: " + lineNum + " lines, " + strCount + " length, " + dataSize / 1000 + " KB, read as " + charset + "\n"
-                            + (offsetinfo ? "Applied offset: " + offsetinfo + " ms\n" : filetype === "lrc" ? "Applied offset: 0 ms\n" : "")
+                            + (filetype === "lrc" ? "Applied offset: " + (offsetinfo || 0) + " ms\n" : "")
                             + "------------------------------\n"
                             + lyrics;
                 else
-                    str = "Field: " + basename + "\nType: " + filetype.toUpperCase() + "\n"
+                    mes = "Field: " + fieldname + "\nType: " + filetype.toUpperCase() + "\n"
                         + "Lyrics: " + lineNum + " lines, " + strCount + " length\n"
-                        + (offsetinfo ? "Applied offset: " + offsetinfo + " ms\n" : filetype === "lrc" ? "Applied offset: 0 ms\n" : "")
+                        + (filetype === "lrc" ? "Applied offset: " + (offsetinfo || 0) + " ms\n" : "")
                         + "------------------------------\n"
                         + lyrics;
 
-                fb.ShowPopupMessage(str, scriptName);
+                fb.ShowPopupMessage(mes, scriptName);
             }
         },
         {
@@ -3566,7 +3554,7 @@ Menu = new function () {
         {
             Caption: Label.SaveToTag,
             Func: function () {
-                saveToTag(getFieldName(true));
+                saveToTag(getFieldName());
             }
         },
         {
@@ -3950,11 +3938,10 @@ function on_playback_new_track(metadb) {
         ws.SendKeys("%"); // close context menu
     infoPath = null;
     main();
-    if (main.IsVisible)
-        for (var pname in plugins) {
-            if (plugins[pname].onPlay instanceof Function)
-                plugins[pname].onPlay();
-        }
+    for (var pname in plugins) {
+        if (plugins[pname].onPlay instanceof Function)
+            plugins[pname].onPlay(metadb);
+    }
 }
 
 function on_playback_seek(time) {
