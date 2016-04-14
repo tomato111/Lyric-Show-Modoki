@@ -2780,27 +2780,25 @@ Edit = new function (Style, p) {
 //===========================================
 
 Buttons = new function () {
-    var offsetX, offsetY;
-    var icon_height = 16;
     var icon_space = 4;
     var button = [];
-    var lbtn_down = false;
+    var tooltip = window.CreateTooltip();
 
     var buttonlist = [
         {
             Img: gdi.Image(scriptdir + "clear2.png"),
+            X: "window.Width - 4 - (icon_space * 0) - (16 * 1)",
+            Y: "window.Height - 19",
             Tiptext: Label.Reload,
             Func: function () {
                 main(path || "");
-                (function () {
-                    if (lyric) {
-                        Edit.start();
-                    }
-                }).timeout(400);
+                (function () { lyric && Edit.start(); }).timeout(400);
             }
         },
         {
             Img: gdi.Image(scriptdir + "clear.png"),
+            X: "window.Width - 4 - (icon_space * 1) - (16 * 2)",
+            Y: "window.Height - 19",
             Tiptext: Label.Clear,
             Func: function () {
                 prop.Edit.View && Edit.View.end();
@@ -2809,12 +2807,9 @@ Buttons = new function () {
             }
         },
         {
-            Img: gdi.Image(scriptdir + "dummy.png"),
-            Tiptext: "",
-            Func: function () { }
-        },
-        {
             Img: gdi.Image(scriptdir + "align.png"),
+            X: "window.Width - 4 - (icon_space * 3) - (16 * 3)",
+            Y: "window.Height - 19",
             Tiptext: Label.Align,
             Func: function () {
                 var a = prop.Edit.Align ^ DT_WORDBREAK ^ DT_NOPREFIX;
@@ -2827,12 +2822,9 @@ Buttons = new function () {
             }
         },
         {
-            Img: gdi.Image(scriptdir + "dummy.png"),
-            Tiptext: "",
-            Func: function () { }
-        },
-        {
             Img: gdi.Image(scriptdir + "offset-.png"),
+            X: "window.Width - 4 - (icon_space * 5) - (16 * 4)",
+            Y: "window.Height - 19",
             Tiptext: Label.OffsetM,
             Func: function () {
                 Edit.offsetTime(-5);
@@ -2840,6 +2832,8 @@ Buttons = new function () {
         },
         {
             Img: gdi.Image(scriptdir + "offset+.png"),
+            X: "window.Width - 4 - (icon_space * 6) - (16 * 5)",
+            Y: "window.Height - 19",
             Tiptext: Label.OffsetP,
             Func: function () {
                 Edit.offsetTime(5);
@@ -2848,11 +2842,8 @@ Buttons = new function () {
     ];
 
     this.buildButton = function () {
-        offsetX = window.Width - 4;
-        offsetY = window.Height - 19;
         for (var i = 0; i < buttonlist.length; i++) {
             button[i] = new Button(buttonlist[i], i);
-            offsetX -= buttonlist[i].Img.width + (i > 0 ? icon_space : 0);
         }
     };
 
@@ -2861,15 +2852,10 @@ Buttons = new function () {
             button[i].Draw(gr);
     };
 
-    this.isMouseOver = function (x, y) {
-        return (x >= offsetX && y >= offsetY && y <= offsetY + icon_height);
-    };
-
-    this.on_mouse_over = function (x, y) {
+    this.on_mouse_move = function (x, y) {
         for (var i = 0; i < button.length; i++)
             if (button[i].isMouseOver(x, y)) {
                 if (this.CurrentButton !== button[i]) {
-                    this.CurrentButton && this.CurrentButton.DeactivateTooltip();
                     this.CurrentButton = button[i];
                     this.CurrentButton.ActivateTooltip();
                 }
@@ -2881,28 +2867,14 @@ Buttons = new function () {
         }
     };
 
-    this.on_mouse_lbtn_down = function () {
-        lbtn_down = true;
-    };
-
-    this.on_mouse_lbtn_up = function () {
-        if (lbtn_down)
-            Buttons.CurrentButton.Func();
-    };
-
-    this.resetFlag = function () {
-        if (lbtn_down)
-            lbtn_down = false;
-    };
-
     // Constructor
     function Button(obj, i) {
         this.img = obj.Img;
-        this.x = offsetX - this.img.width - (i > 0 ? icon_space : 0);
-        this.y = offsetY;
-        this.width = this.img.width;
-        this.height = this.img.height;
-        this.Tiptext = obj.Tiptext;
+        this.x = eval(obj.X);
+        this.y = eval(obj.Y);
+        this.width = obj.Img.width;
+        this.height = obj.Img.height;
+        this.tiptext = obj.Tiptext;
         this.Func = obj.Func;
     }
     Button.prototype.isMouseOver = function (x, y) {
@@ -2912,16 +2884,12 @@ Buttons = new function () {
         gr.DrawImage(this.img, this.x, this.y, this.width, this.height, 0, 0, this.width, this.height, 0, 160);
     };
     Button.prototype.ActivateTooltip = function () {
-        this.tip = window.CreateTooltip();
-        this.tip.Text = this.Tiptext;
-        this.tip.Activate();
+        tooltip.Deactivate();
+        tooltip.Text = this.tiptext;
+        tooltip.Activate();
     };
     Button.prototype.DeactivateTooltip = function () {
-        if (this.tip) {
-            this.tip.Deactivate();
-            this.tip.Dispose();
-            this.tip = null;
-        }
+        tooltip.Deactivate();
     };
     // Constructor END
 };
@@ -4017,13 +3985,8 @@ function on_mouse_move(x, y) {
         drag_y = y;
     }
     else if (prop.Edit.Start) {
-        if (Buttons.isMouseOver(x, y))
-            Buttons.on_mouse_over(x, y);
-        else if (Buttons.CurrentButton) {
-            Buttons.CurrentButton.DeactivateTooltip();
-            Buttons.CurrentButton = null;
-        }
-        else
+        Buttons.on_mouse_move(x, y);
+        if (!Buttons.CurrentButton)
             if (x <= seek_width && !larea_seek) {
                 larea_seek = true;
                 window.Repaint();
@@ -4077,7 +4040,7 @@ function on_mouse_lbtn_down(x, y, mask) {
     }
     else if (!Lock) {
         if (Buttons.CurrentButton)
-            Buttons.on_mouse_lbtn_down(x, y);
+            /*none*/;
         else if (larea_seek)
             fb.PlaybackTime -= 3;
         else if (rarea_seek)
@@ -4112,8 +4075,7 @@ function on_mouse_lbtn_up(x, y, mask) {
         }
     }
     else if (Buttons.CurrentButton)
-        Buttons.on_mouse_lbtn_up(x, y);
-    Buttons.resetFlag();
+        Buttons.CurrentButton.Func();
 }
 
 function on_mouse_lbtn_dblclk(x, y, mask) {
