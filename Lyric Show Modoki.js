@@ -3904,6 +3904,11 @@ function on_paint(gr) {
     }
 
     StatusBar.on_paint(gr); // Status Bar
+
+    for (var pname in plugins) { // Plugin
+        if (plugins[pname].onPaint instanceof Function)
+            plugins[pname].onPaint(gr);
+    }
 }
 
 function on_size() {
@@ -4006,6 +4011,11 @@ function on_mouse_leave() {
 }
 
 function on_mouse_lbtn_down(x, y, mask) {
+    for (var pname in plugins) {
+        if (plugins[pname].onClick instanceof Function)
+            if (plugins[pname].onClick(x, y, mask))
+                return;
+    }
     if (!prop.Edit.Start) {
         if (mask === 5) { // Shift key
             if (fb.IsPlaying && prop.Panel.InfoPath) {
