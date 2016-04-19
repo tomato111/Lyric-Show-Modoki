@@ -3,11 +3,7 @@
     label: prop.Panel.Lang == 'ja' ? '歌詞検索: 個人用東方歌詞置き場' : 'Download Lyrics: Touhou Kashi Okiba',
     author: 'tomato111',
     onStartUp: function () { // 最初に一度だけ呼び出される関数
-        var temp = window.GetProperty('Plugin.Search.AutoSaveTo', ''); // 空欄 or Tag or File
-        if (!/^(?:File|Tag)$/i.test(temp))
-            window.SetProperty('Plugin.Search.AutoSaveTo', '');
     },
-    onPlay: function () { }, // 新たに曲が再生される度に呼び出される関数
     onCommand: function (isAutoSearch) { // プラグインのメニューをクリックすると呼び出される関数
 
         if (!isAutoSearch && utils.IsKeyPressed(0x11)) { // VK_CONTROL

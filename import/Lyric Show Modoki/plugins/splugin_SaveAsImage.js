@@ -36,7 +36,6 @@
         this.fd = new FileDialog(commondir + 'FileDialog.exe -s "' + filter + '" jpg');
         this.fd.setOnReady(saveAsImage);
     },
-    onPlay: function () { }, // 新たに曲が再生される度に呼び出される関数
     onCommand: function () { // プラグインのメニューをクリックすると呼び出される関数
         if (!this.isAvailable) {
             StatusBar.setText(prop.Panel.Lang == 'ja' ? 'このプラグインは JScript Panel 専用です。' : 'JScript Panel Only.');

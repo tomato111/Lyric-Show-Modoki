@@ -3,6 +3,10 @@
     label: prop.Panel.Lang == 'ja' ? '設定: 再生時に検索' : 'Setting: Auto Search',
     author: 'tomato111',
     onStartUp: function () { // 最初に一度だけ呼び出される関数
+        var temp = window.GetProperty('Plugin.Search.AutoSaveTo', '');
+        if (!/^(?:File|Tag)$/i.test(temp))
+            window.SetProperty('Plugin.Search.AutoSaveTo', '');
+
         var _this = this;
         var timeout_millisecond = 8000;
 
@@ -78,7 +82,7 @@
         };
 
     },
-    onPlay: function () { // 新たに曲が再生される度に呼び出される関数
+    onPlay: function () { // 新たに曲が再生された時に呼び出される関数
         this.timer.clearInterval();
         this.results.length = 0;
         if (!this.onCommand.AutoSearch || !this.AvailablePluginNames.length || !main.IsVisible || lyric) {

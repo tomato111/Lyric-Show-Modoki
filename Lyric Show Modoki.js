@@ -3,7 +3,7 @@
 
 // ==PREPROCESSOR==
 // @name "Lyric Show Modoki"
-// @version "1.6.1"
+// @version "1.6.2"
 // @author "tomato111"
 // @import "%fb2k_profile_path%import\common\lib.js"
 // ==/PREPROCESSOR==
@@ -23,7 +23,7 @@ var fs = new ActiveXObject("Scripting.FileSystemObject"); // File System Object
 var ws = new ActiveXObject("WScript.Shell"); // WScript Shell Object
 var Trace = new TraceLog();
 var scriptName = "Lyric Show Modoki";
-var scriptVersion = "1.6.1";
+var scriptVersion = "1.6.2";
 var scriptdir = fb.ProfilePath + "import\\" + scriptName + "\\";
 var commondir = fb.ProfilePath + "import\\common\\";
 var down_pos = {};
@@ -447,8 +447,9 @@ PluginLoader = {
     Plugins: {},
 
     Load: function (objFSO, path) {
-        var f, fc, item, stm, str, i = 0;
+        var f, fc, str, pl;
         var jsRE = /\.js$/i;
+        var asgRE = /^[^{]*/;
         var disableRE = new RegExp("^(?:" + prop.Plugin.Disable.trim() + ")$");
 
         try {
@@ -463,13 +464,13 @@ PluginLoader = {
                 str = readTextFile(fc.item().Path);
             } catch (e) { continue; }
             try {
-                item = eval(str);
+                eval(str.replace(asgRE, "pl="));
             } catch (e) {
                 fb.trace(fc.item().Name + " is SyntaxError. (" + scriptName + ")");
                 continue;
             }
-            if (!disableRE.test(item.name))
-                this.Plugins[item.name] = item;
+            if (!disableRE.test(pl.name))
+                this.Plugins[pl.name] = pl;
         }
     },
     Dispose: function () { delete PluginLoader; }
@@ -2547,7 +2548,6 @@ Edit = new function (Style, p) {
         Menu.build(Menu.Save);
         _menu = Menu.getMenu();
         ret = _menu.TrackPopupMenu(x || 0, y || 0);
-        Menu.build(Menu.Edit);
         switch (ret) {
             case 3:
                 try {
@@ -2574,6 +2574,7 @@ Edit = new function (Style, p) {
                 break;
         }
         meta.Dispose();
+        Menu.build(prop.Edit.Start ? Menu.Edit : '');
         Lock_MiddleButton = false;
     };
 
@@ -3375,7 +3376,7 @@ Menu = new function () {
             item = {};
             item["Flag"] = MF_STRING;
             item["Caption"] = plugins[name].label + (i < 10 ? ("\tF" + i) : "");
-            item["Func"] = function () { plugins[arguments.callee.name].onCommand(); };
+            item["Func"] = function () { if (plugins[arguments.callee.name].onCommand instanceof Function) plugins[arguments.callee.name].onCommand(); };
             item.Func.name = name;
             plugins[name].menuitem = item;
             items.push(item);
@@ -3932,6 +3933,11 @@ function on_size() {
     prop.Panel.RefreshOnPanelResize && ww && wh && refreshDrawStyle();
     prop.Panel.RefreshOnPanelResize && BackgroundImg && LyricShow.BackgroundImage.setImage();
     on_size_research && lyric && LyricShow.searchLine(fb.PlaybackTime);
+
+    for (var pname in plugins) {
+        if (plugins[pname].onSize instanceof Function)
+            plugins[pname].onSize();
+    }
 }
 
 function on_focus(is_focused) {
@@ -3943,6 +3949,7 @@ function on_playback_new_track(metadb) {
         ws.SendKeys("%"); // close context menu
     infoPath = null;
     main();
+
     for (var pname in plugins) {
         if (plugins[pname].onPlay instanceof Function)
             plugins[pname].onPlay(metadb);
@@ -3962,6 +3969,11 @@ function on_playback_stop(reason) {
         ws.SendKeys("%"); // close context menu
     if (reason === 0 || reason === 1)
         main();
+
+    for (var pname in plugins) {
+        if (plugins[pname].onStop instanceof Function)
+            plugins[pname].onStop(reason);
+    }
 }
 
 function on_playback_pause(state) {
@@ -3969,6 +3981,11 @@ function on_playback_pause(state) {
         LyricShow.pauseTimer(state);
     else if (prop.Edit.View)
         Edit.View.pauseTimer(state);
+
+    for (var pname in plugins) {
+        if (plugins[pname].onPause instanceof Function)
+            plugins[pname].onPause(state);
+    }
 }
 
 function on_mouse_move(x, y) {
@@ -3996,6 +4013,11 @@ function on_mouse_move(x, y) {
                 window.Repaint();
             }
     }
+
+    for (var pname in plugins) {
+        if (plugins[pname].onMove instanceof Function)
+            plugins[pname].onMove(x, y);
+    }
 }
 
 function on_mouse_leave() {
@@ -4007,6 +4029,11 @@ function on_mouse_leave() {
     if (larea_seek || rarea_seek) {
         larea_seek = rarea_seek = false;
         window.Repaint();
+    }
+
+    for (var pname in plugins) {
+        if (plugins[pname].onLeave instanceof Function)
+            plugins[pname].onLeave();
     }
 }
 
@@ -4021,10 +4048,10 @@ function on_mouse_lbtn_down(x, y, mask) {
             if (fb.IsPlaying && prop.Panel.InfoPath) {
                 if (!infoPath) {
                     infoPath = fb.TitleFormat(prop.Panel.InfoPath).Eval().split("||");
-                    infoPath.push("main");
+                    infoPath.push("");
                 }
-                main(infoPath[0] === "main" ? "" : infoPath[0]);
-                StatusBar.setText(infoPath[0] === "main" ? "" : infoPath[0]);
+                main(infoPath[0]);
+                StatusBar.setText(infoPath[0]);
                 StatusBar.show(3000);
                 infoPath.push(infoPath.shift());
             }

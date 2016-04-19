@@ -5,7 +5,6 @@
     onStartUp: function () { // 最初に一度だけ呼び出される関数
         window.GetProperty('Plugin.CheckUpdateOnStartUp', false) && this.onCommand(true);
     },
-    onPlay: function () { }, // 新たに曲が再生される度に呼び出される関数
     onCommand: function (isStartUp) { // プラグインのメニューをクリックすると呼び出される関数
 
         var debug_html = false; // for debug
