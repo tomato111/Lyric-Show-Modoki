@@ -41,8 +41,11 @@
 
         //------------------------------------
 
-        function createQuery(word) {
-            return 'http://www5.atwiki.jp/hmiku/?cmd=search&keyword=' + encodeURIComponent(word).replaceEach("'", '%27', '\\(', '%28', '\\)', '%29', '%20', '+', 'g') + '&andor=and&ignore=1';
+        function createQuery(word, id) {
+            if (id)
+                return 'http://www5.atwiki.jp/hmiku/?page=' + id;
+            else
+                return 'http://www5.atwiki.jp/hmiku/?cmd=search&keyword=' + encodeURIComponent(word).replaceEach("'", '%27', '\\(', '%28', '\\)', '%29', '%20', '+', 'g') + '&andor=and&ignore=1';
         }
 
         function onLoaded(request, depth, file) {
@@ -57,7 +60,7 @@
             var Page = new AnalyzePage(resArray, depth);
 
             if (Page.id)
-                getHTML(null, 'GET', Page.id, async, true, onLoaded);
+                getHTML(null, 'GET', createQuery(null, Page.id), async, true, onLoaded);
             else if (depth === 0) {
                 getHTML(null, 'GET', createQuery(title + ' ' + artist), async, ++depth, onLoaded);
             }
@@ -95,7 +98,7 @@
         function AnalyzePage(resArray, depth) {
             var tmpti, tmpar, backref, id, aimai, isLyric;
 
-            var IdSearchRE = /<a href="(.*?)" +?title="(.+?)" style=".+?">/; // $1:id, $2:title
+            var IdSearchRE = /<a href=".+?&amp;page=(.+?)" title="(.+?)" style=".+?">/; // $1:id, $2:title
             var ContentsSearchRE = /id_[a-z0-9]{8}|^作詞：|^作曲：|^編曲：|^唄：/;
             var LineBreakRE = /<br ?\/>|<\/div>/ig;
             var Ignore1RE = /<a href.+?>|<\/a>|<span.+?>|<\/span>/ig;

@@ -95,9 +95,9 @@
         }
 
         function AnalyzePage(resArray, depth) {
-            var tmp;
+            var tmp, tmpti;
 
-            var IdSearchRE = new RegExp('<h3><a href="blog-entry-(\\d+?)\\.html">' + title + '</a></h3>', 'i'); // $1:id
+            var IdSearchRE = /<h3><a href="blog-entry-(\d+?)\.html">(.+?)<\/a><\/h3>/i; // $1:id, $2:title
             var ContentsSearchRE = /<div class="contents_body">(.+)/i; // $1:contents
 
             if (depth === 1) { // lyric
@@ -118,11 +118,14 @@
                     }
             }
             else { // search
+                tmpti = title.toLowerCase();
                 for (i = 0; i < resArray.length; i++)
                     if (IdSearchRE.test(resArray[i])) {
-                        debug_html && fb.trace('id: ' + RegExp.$1);
-                        this.id = RegExp.$1;
-                        break;
+                        debug_html && fb.trace('title: ' + RegExp.$2 + ' id: ' + RegExp.$1);
+                        if (RegExp.$2.toLowerCase() === tmpti) {
+                            this.id = RegExp.$1;
+                            break;
+                        }
                     }
             }
         }
