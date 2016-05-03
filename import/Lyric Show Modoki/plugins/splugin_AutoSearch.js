@@ -21,7 +21,7 @@
             var diff = new Date() - _this.date_start;
             if (_this.results.length === _this.AvailablePluginNames.length || diff >= timeout_millisecond) {
                 StatusBar.hide();
-                arguments.callee.clearInterval();
+                _this.timer.clearInterval();
                 for (var i = 0; i < _this.results.length;) {
                     if (_this.results[i].lyric) i++;
                     else _this.results.splice(i, 1);
@@ -99,15 +99,16 @@
 
     },
     onCommand: function () { // プラグインのメニューをクリックすると呼び出される関数
-        arguments.callee.AutoSearch = !arguments.callee.AutoSearch;
-        StatusBar.setText(arguments.callee.AutoSearch ? 'AutoSearch: ON' : 'AutoSearch: OFF');
+        var thisFunc = this.onCommand;
+        thisFunc.AutoSearch = !thisFunc.AutoSearch;
+        StatusBar.setText(thisFunc.AutoSearch ? 'AutoSearch: ON' : 'AutoSearch: OFF');
         StatusBar.show();
-        var flag = arguments.callee.AutoSearch ? MF_CHECKED : MF_UNCHECKED;
+        var flag = thisFunc.AutoSearch ? MF_CHECKED : MF_UNCHECKED;
         this.menuitem.Flag = flag;
         for (var i = 0; i < this.AvailablePluginNames.length; i++) {
             plugins[this.AvailablePluginNames[i]].menuitem.Flag = flag;
         }
         Menu.build();
-        arguments.callee.AutoSearch && fb.IsPlaying && this.onPlay();
+        thisFunc.AutoSearch && fb.IsPlaying && this.onPlay();
     }
 };

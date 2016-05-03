@@ -3870,10 +3870,10 @@ main();
 
 function main(text) {
 
-    if (arguments.callee.IsVisible !== window.IsVisible)
-        arguments.callee.IsVisible = window.IsVisible || prop.Panel.RunInTheBackground;
+    if (main.IsVisible !== window.IsVisible)
+        main.IsVisible = window.IsVisible || prop.Panel.RunInTheBackground;
 
-    if (arguments.callee.IsVisible && fb.IsPlaying) {
+    if (main.IsVisible && fb.IsPlaying) {
         var parse_paths = fb.TitleFormat(prop.Panel.Path).Eval().split("||");
         //Trace.start(" Read Lyrics ");
         LyricShow.start(parse_paths, text);
@@ -4200,7 +4200,7 @@ function on_key_up(vkey) {
 }
 
 function on_notify_data(name, info) {
-    if (name === scriptName && typeof info === "string")
+    if (name === scriptName)
         main(typeof info === "string" ? info : null);
 }
 

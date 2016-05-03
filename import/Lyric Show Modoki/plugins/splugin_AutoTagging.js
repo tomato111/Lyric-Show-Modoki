@@ -8,10 +8,11 @@
         this.onCommand.AutoTagging && saveToTag(getFieldName(), fb.TitleFormat('%title% / ').Eval(), true);
     },
     onCommand: function () { // プラグインのメニューをクリックすると呼び出される関数
-        arguments.callee.AutoTagging = !Boolean(arguments.callee.AutoTagging)
-        StatusBar.setText(arguments.callee.AutoTagging ? 'AutoTagging: ON' : 'AutoTagging: OFF');
+        var thisFunc = this.onCommand;
+        thisFunc.AutoTagging = !thisFunc.AutoTagging;
+        StatusBar.setText(thisFunc.AutoTagging ? 'AutoTagging: ON' : 'AutoTagging: OFF');
         StatusBar.show();
-        this.menuitem.Flag = arguments.callee.AutoTagging ? MF_CHECKED : MF_UNCHECKED;
+        this.menuitem.Flag = thisFunc.AutoTagging ? MF_CHECKED : MF_UNCHECKED;
         Menu.build();
     }
 };
