@@ -1,6 +1,6 @@
 ﻿pl = {
-    name: 'dplugin_Vovovov26',
-    label: prop.Panel.Lang == 'ja' ? '歌詞検索: 個人用東方歌詞置き場' : 'Download Lyrics: Touhou Kashi Okiba',
+    name: 'dplugin_Kashiget',
+    label: prop.Panel.Lang == 'ja' ? '歌詞検索: 歌詞GET' : 'Download Lyrics: Kget',
     author: 'tomato111',
     onStartUp: function () { // 最初に一度だけ呼び出される関数
     },
@@ -37,15 +37,19 @@
 
         StatusBar.setText((prop.Panel.Lang == 'ja' ? '検索中......' : 'Searching......') + label);
         StatusBar.show();
-        getHTML(null, 'GET', createQuery(title), async, depth, onLoaded);
+        getHTML(null, 'GET', createQuery(title, artist), async, depth, onLoaded);
 
         //------------------------------------
 
-        function createQuery(word, id) {
+        function createQuery(title, artist, id) {
             if (id)
-                return 'http://vovovov26.blog.fc2.com/blog-entry-' + id + '.html';
+                return 'http://www.kget.jp/lyric/' + id + '/';
             else
-                return 'http://vovovov26.blog.fc2.com/?q=' + encodeURIComponent(word).replace(/'/g, '%27').replace(/\(/g, '%28').replace(/\)/g, '%29').replace(/%20/g, '+');
+                return 'http://www.kget.jp/search/index.php?c=0&r='
+                    + encodeURIComponent(artist).replaceEach("'", '%27', '\\(', '%28', '\\)', '%29', '%20', '+', 'g')
+                    + '&t='
+                    + encodeURIComponent(title).replaceEach("'", '%27', '\\(', '%28', '\\)', '%29', '%20', '+', 'g')
+                    + '&v=&f=';
         }
 
         function onLoaded(request, depth, file) {
@@ -57,11 +61,10 @@
 
             debug_html && fb.trace(res);
             var resArray = res.split('\n');
-
             var Page = new AnalyzePage(resArray, depth);
 
             if (Page.id) {
-                getHTML(null, 'GET', createQuery(null, Page.id), async, ++depth, onLoaded);
+                getHTML(null, 'GET', createQuery(null, null, Page.id), async, ++depth, onLoaded);
             }
             else if (Page.lyrics) {
                 var text = onLoaded.info + Page.lyrics;
@@ -95,38 +98,49 @@
         }
 
         function AnalyzePage(resArray, depth) {
-            var tmp, tmpti;
+            var isLyric;
 
-            var IdSearchRE = /<h3><a href="blog-entry-(\d+?)\.html">(.+?)<\/a><\/h3>/i; // $1:id, $2:title
-            var ContentsSearchRE = /<div class="contents_body">(.+)/i; // $1:contents
+            var IdSearchRE = /<a class="lyric-anchor" href="\/lyric\/(\d+)\/.+<h2/i; // $1:id
+            var InfoSearchRE = /<div class="by"><p><span>.+?<\/span><em>(.+?)<\/em>.+?<span>.+?<\/span><em>(.+?)<\/em><\/p>/i; // $1:作詞, $2:作曲
+            var StartLyricRE = /<div id="lyric-trunk">/i;
+            var EndLyricRE = /<\/div>/i;
+            var LineBreakRE = /<br \/>/ig;
 
             if (depth === 1) { // lyric
-                onLoaded.info = title + LineFeedCode + LineFeedCode;
-                for (var i = 0; i < resArray.length; i++)
-                    if (ContentsSearchRE.test(resArray[i])) {
-                        tmp = RegExp.$1.split('<br /><br /><br /><br />' + title + '<br />');
-                        if (tmp.length === 2)
-                            onLoaded.info += tmp[1]
-                                .replace(/<div class="fc2_footer".+/i, '')
-                                .replace(/<br \/>/g, LineFeedCode)
-                                .trim() + LineFeedCode + LineFeedCode;
-
-                        this.lyrics = tmp[0]
-                            .replace(/<br \/>/g, LineFeedCode)
-                            .trim();
-                        return;
+                this.lyrics = '';
+                for (var i = 0; i < resArray.length; i++) {
+                    if (StartLyricRE.test(resArray[i])) {
+                        isLyric = true; continue;
                     }
+                    if (EndLyricRE.test(resArray[i]) && isLyric) {
+                        break;
+                    }
+
+                    if (isLyric) {
+                        this.lyrics += resArray[i];
+                    }
+                }
+
+                this.lyrics = this.lyrics
+                    .decNumRefToString()
+                    .replace(LineBreakRE, LineFeedCode)
+                    .trim();
             }
             else { // search
-                tmpti = title.toLowerCase();
-                for (i = 0; i < resArray.length; i++)
+                for (i = 0; i < resArray.length; i++) {
                     if (IdSearchRE.test(resArray[i])) {
-                        debug_html && fb.trace('title: ' + RegExp.$2 + ' id: ' + RegExp.$1);
-                        if (RegExp.$2.toLowerCase() === tmpti) {
-                            this.id = RegExp.$1;
-                            break;
-                        }
+                        debug_html && fb.trace('id: ' + RegExp.$1);
+                        this.id = RegExp.$1;
+                        continue;
                     }
+                    if (this.id && InfoSearchRE.test(resArray[i])) {
+                        onLoaded.info = title + LineFeedCode + LineFeedCode
+                                + '作詞  ' + RegExp.$1 + LineFeedCode
+                                + '作曲  ' + RegExp.$2 + LineFeedCode
+                                + '唄  ' + artist + LineFeedCode + LineFeedCode;
+                        break;
+                    }
+                }
             }
         }
 

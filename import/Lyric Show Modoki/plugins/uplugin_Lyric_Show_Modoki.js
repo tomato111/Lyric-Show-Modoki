@@ -5,29 +5,22 @@
     onStartUp: function () { // 最初に一度だけ呼び出される関数
         window.GetProperty('Plugin.CheckUpdateOnStartUp', false) && this.onCommand(true);
     },
-    onPlay: function () { }, // 新たに曲が再生される度に呼び出される関数
     onCommand: function (isStartUp) { // プラグインのメニューをクリックすると呼び出される関数
 
         var debug_html = false; // for debug
         var async = true;
-        var depth = false;
+        var depth = 0;
         var onCommand = arguments.callee;
 
         StatusBar.setText(prop.Panel.Lang == 'ja' ? '更新チェック中......' : 'checking update......');
         !isStartUp && StatusBar.show();
-
-        try {
-            getHTML(null, 'GET', 'http://ashiato1.blog62.fc2.com/blog-entry-64.html', async, depth, onLoaded);
-        } catch (e) {
-            StatusBar.setText(prop.Panel.Lang == 'ja' ? '更新チェックに失敗しました。' : 'failed to check update.');
-            !isStartUp && StatusBar.show();
-        }
+        getHTML(null, 'GET', 'http://ashiato1.blog62.fc2.com/blog-entry-64.html', async, depth, onLoaded);
 
         //------------------------------------
 
-        function onLoaded(request) {
+        function onLoaded(request, depth, file) {
             !isStartUp && StatusBar.show();
-            debug_html && fb.trace('\nOpen#' + ': ' + getHTML.PRESENT.file + '\n');
+            debug_html && fb.trace('\nOpen#' + ': ' + file + '\n');
 
             var res = request.responseBody;
             res = responseBodyToCharset(res, 'UTF-8'); // fix character corruption
@@ -41,12 +34,11 @@
 
         function AnalyzePage(resArray) {
 
-            this.LatestFilePath;
-            this.LatestVersion;
             this.result;
 
             var searchRE = /id="latestver".+?href="(https:\/\/github\.com\/tomato111.+?Lyric-Show-Modoki-(\d{1,2})\.(\d{1,2})\.(\d{1,2})\.zip)/;
             var n = 0;
+            var latestFilePath;
             var currentVersion;
             var latestVersion;
             var diff;
@@ -54,13 +46,11 @@
             for (i = 0; i < resArray.length; i++) {
                 if (searchRE.test(resArray[i])) {
 
-                    this.LatestFilePath = RegExp.$1;
-                    this.LatestVersion = RegExp.$2 + '.' + RegExp.$3 + '.' + RegExp.$4;
-
-                    debug_html && fb.trace('latest ver: ' + this.LatestVersion + '\ncurrent ver: ' + scriptVersion);
-
+                    latestFilePath = RegExp.$1;
                     currentVersion = scriptVersion.split('.');
                     latestVersion = [RegExp.$2, RegExp.$3, RegExp.$4];
+
+                    debug_html && fb.trace('latest ver: ' + latestVersion.join('.') + '\ncurrent ver: ' + scriptVersion);
 
                     do {
                         diff = latestVersion[n] - currentVersion[n];
@@ -95,17 +85,22 @@
                                     });
                                 StatusBar.hide();
                                 var intButton = ws.Popup(prop.Panel.Lang == 'ja'
-                                    ? '新しいバージョンがあります。\n現在: v' + scriptVersion + '  最新: v' + this.LatestVersion + '\n\nダウンロードしますか？（デスクトップに保存）'
-                                    : 'There is a new version.\nCurrent: v' + scriptVersion + '  Latest: v' + this.LatestVersion + '\n\nDownload it? (Save to desktop)', 0, 'Lyric Show Modoki', 36);
-                                if (intButton == 6) {
+                                    ? '新しいバージョンがあります。\n現在: v' + scriptVersion + '  最新: v' + latestVersion.join('.') + '\n\nダウンロードしますか？（デスクトップに保存）'
+                                    : 'There is a new version.\nCurrent: v' + scriptVersion + '  Latest: v' + latestVersion.join('.') + '\n\nDownload it? (Save to desktop)', 0, 'Lyric Show Modoki', 36);
+                                if (intButton === 6) {
                                     StatusBar.setText(prop.Panel.Lang == 'ja' ? 'ダウンロード中......' : 'Downloading......');
                                     StatusBar.show();
-                                    getHTML(null, 'GET', this.LatestFilePath, async, depth,
+                                    getHTML(null, 'GET', latestFilePath, async, depth,
                                         function (request, depth, file) {
-                                            var res = request.responseBody;
-                                            responseBodyToFile(res, ws.SpecialFolders.item('Desktop') + '\\' + file.match(/^.+\/(.+)$/)[1]);
-                                            StatusBar.setText(prop.Panel.Lang == 'ja' ? 'デスクトップにダウンロードしました。' : 'Downloaded to desktop.');
-                                            StatusBar.show();
+                                            if (request.status === 200) {
+                                                var res = request.responseBody;
+                                                responseBodyToFile(res, ws.SpecialFolders.item('Desktop') + '\\' + file.match(/^.+\/(.+)$/)[1]);
+                                                StatusBar.setText(prop.Panel.Lang == 'ja' ? 'デスクトップにダウンロードしました。' : 'Downloaded to desktop.');
+                                                StatusBar.show();
+                                            }
+                                            else {
+                                                fb.ShowPopupMessage('download error: ' + request.status, 'Lyric Show Modoki');
+                                            }
                                         });
                                 }
                             }

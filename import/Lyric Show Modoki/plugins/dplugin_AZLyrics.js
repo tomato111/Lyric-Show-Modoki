@@ -1,6 +1,6 @@
 ﻿pl = {
-    name: 'dplugin_Vovovov26',
-    label: prop.Panel.Lang == 'ja' ? '歌詞検索: 個人用東方歌詞置き場' : 'Download Lyrics: Touhou Kashi Okiba',
+    name: 'dplugin_AZLyrics',
+    label: prop.Panel.Lang == 'ja' ? '歌詞検索: AZLyrics' : 'Download Lyrics: AZLyrics',
     author: 'tomato111',
     onStartUp: function () { // 最初に一度だけ呼び出される関数
     },
@@ -23,6 +23,7 @@
         var LineFeedCode = prop.Save.LineFeedCode;
         var AutoSaveTo = window.GetProperty('Plugin.Search.AutoSaveTo');
         var label = this.label.replace(/^.+?: /, '');
+        var NotAlphaNumericRE = /[^a-z0-9]/g;
 
         // title, artist for search
         var title = fb.TitleFormat('%title%').Eval();
@@ -37,15 +38,12 @@
 
         StatusBar.setText((prop.Panel.Lang == 'ja' ? '検索中......' : 'Searching......') + label);
         StatusBar.show();
-        getHTML(null, 'GET', createQuery(title), async, depth, onLoaded);
+        getHTML(null, 'GET', createQuery(title, artist), async, depth, onLoaded);
 
         //------------------------------------
 
-        function createQuery(word, id) {
-            if (id)
-                return 'http://vovovov26.blog.fc2.com/blog-entry-' + id + '.html';
-            else
-                return 'http://vovovov26.blog.fc2.com/?q=' + encodeURIComponent(word).replace(/'/g, '%27').replace(/\(/g, '%28').replace(/\)/g, '%29').replace(/%20/g, '+');
+        function createQuery(title, artist) {
+            return 'http://www.azlyrics.com/lyrics/' + artist.toLowerCase().replace(NotAlphaNumericRE, '') + '/' + title.toLowerCase().replace(NotAlphaNumericRE, '') + '.html';
         }
 
         function onLoaded(request, depth, file) {
@@ -56,14 +54,10 @@
             var res = request.responseText;
 
             debug_html && fb.trace(res);
-            var resArray = res.split('\n');
-
+            var resArray = res.split(getLineFeedCode(res));
             var Page = new AnalyzePage(resArray, depth);
 
-            if (Page.id) {
-                getHTML(null, 'GET', createQuery(null, Page.id), async, ++depth, onLoaded);
-            }
-            else if (Page.lyrics) {
+            if (Page.lyrics) {
                 var text = onLoaded.info + Page.lyrics;
 
                 debug_html && fb.trace('\n' + text + '\n===End debug=============');
@@ -95,39 +89,33 @@
         }
 
         function AnalyzePage(resArray, depth) {
-            var tmp, tmpti;
+            var isLyric;
 
-            var IdSearchRE = /<h3><a href="blog-entry-(\d+?)\.html">(.+?)<\/a><\/h3>/i; // $1:id, $2:title
-            var ContentsSearchRE = /<div class="contents_body">(.+)/i; // $1:contents
+            var StartLyricRE = /<!-- Usage of azlyrics/i;
+            var EndLyricRE = /<\/div>/i;
+            var LineBreakRE = /<br>/ig;
+            var IgnoreRE = /<i>|<\/i>/ig;
 
-            if (depth === 1) { // lyric
-                onLoaded.info = title + LineFeedCode + LineFeedCode;
-                for (var i = 0; i < resArray.length; i++)
-                    if (ContentsSearchRE.test(resArray[i])) {
-                        tmp = RegExp.$1.split('<br /><br /><br /><br />' + title + '<br />');
-                        if (tmp.length === 2)
-                            onLoaded.info += tmp[1]
-                                .replace(/<div class="fc2_footer".+/i, '')
-                                .replace(/<br \/>/g, LineFeedCode)
-                                .trim() + LineFeedCode + LineFeedCode;
+            onLoaded.info = title + LineFeedCode + LineFeedCode;
+            this.lyrics = '';
 
-                        this.lyrics = tmp[0]
-                            .replace(/<br \/>/g, LineFeedCode)
-                            .trim();
-                        return;
-                    }
+            for (var i = 0; i < resArray.length; i++){
+                if (StartLyricRE.test(resArray[i])) {
+                    isLyric = true; continue;
+                }
+                if (EndLyricRE.test(resArray[i]) && isLyric) {
+                    break;
+                }
+
+                if (isLyric)
+                    this.lyrics += resArray[i];
             }
-            else { // search
-                tmpti = title.toLowerCase();
-                for (i = 0; i < resArray.length; i++)
-                    if (IdSearchRE.test(resArray[i])) {
-                        debug_html && fb.trace('title: ' + RegExp.$2 + ' id: ' + RegExp.$1);
-                        if (RegExp.$2.toLowerCase() === tmpti) {
-                            this.id = RegExp.$1;
-                            break;
-                        }
-                    }
-            }
+
+            this.lyrics = this.lyrics
+                .replace(LineBreakRE, LineFeedCode)
+                .replace(IgnoreRE, '')
+                .replaceEach('&quot;', '"', '&amp;', '&', 'ig')
+                .trim();
         }
 
     }

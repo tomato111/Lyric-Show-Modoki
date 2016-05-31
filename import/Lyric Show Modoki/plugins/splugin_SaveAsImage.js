@@ -15,15 +15,15 @@
 
             var ext = file.match(/\.(.{3})$/)[1].toLowerCase();
             var ds = _this.currentInfo[0];
-            var w = _this.currentInfo[1];
-            var h = _this.currentInfo[2];
-            if (ds[_this.currentInfo[3] - 1].text !== '') // h は最終行の高さを含んでいないので空文字でないなら足してあげる
-                h += ds[_this.currentInfo[3] - 1].height;
+            var w = ds[0].textImg.Width;
+            var h = _this.currentInfo[1];
+            if (ds[_this.currentInfo[2] - 1].text !== '') // h は最終行の高さを含んでいないので空文字でないなら足してあげる
+                h += ds[_this.currentInfo[2] - 1].height;
 
             var img = gdi.CreateImage(w, h + 15);
             var canvas = img.GetGraphics();
             ext !== 'png' && canvas.FillSolidRect(-1, -1, img.Width + 1, img.Height + 1, prop.Style.Color.Background);
-            for (var i = 0; i < _this.currentInfo[3]; i++) {
+            for (var i = 0; i < _this.currentInfo[2]; i++) {
                 canvas.DrawImage(ds[i].textImg, 0, ds[i].cy, w, ds[i].height, 0, 0, w, ds[i].height, 0, 255);
             }
             img.ReleaseGraphics(canvas);
@@ -36,7 +36,6 @@
         this.fd = new FileDialog(commondir + 'FileDialog.exe -s "' + filter + '" jpg');
         this.fd.setOnReady(saveAsImage);
     },
-    onPlay: function () { }, // 新たに曲が再生される度に呼び出される関数
     onCommand: function () { // プラグインのメニューをクリックすると呼び出される関数
         if (!this.isAvailable) {
             StatusBar.setText(prop.Panel.Lang == 'ja' ? 'このプラグインは JScript Panel 専用です。' : 'JScript Panel Only.');
@@ -50,7 +49,7 @@
         }
 
         if (prop.Style.DrawingMethod === 2 && (prop.Panel.ScrollType <= 3 || filetype === "txt")) {
-            this.currentInfo = [LyricShow.setProperties.DrawStyle, LyricShow.on_paintInfo.w, LyricShow.setProperties.h, lyric.text.length];
+            this.currentInfo = [LyricShow.setProperties.DrawStyle, LyricShow.setProperties.h, lyric.text.length];
             this.fd.open();
         }
         else {
@@ -61,7 +60,7 @@
             prop.Panel.ScrollType = 1;
             setDrawingMethod();
 
-            this.currentInfo = [LyricShow.setProperties.DrawStyle, LyricShow.on_paintInfo.w, LyricShow.setProperties.h, lyric.text.length];
+            this.currentInfo = [LyricShow.setProperties.DrawStyle, LyricShow.setProperties.h, lyric.text.length];
             this.fd.open();
 
             prop.Style.EnableStyleTextRender = tmpStyleTextRender;

@@ -3,22 +3,19 @@
     label: prop.Panel.Lang == 'ja' ? '歌詞検索: 歌ネット' : 'Download Lyrics: Uta-net',
     author: 'tomato111',
     onStartUp: function () { // 最初に一度だけ呼び出される関数
-        var temp = window.GetProperty('Plugin.Search.AutoSaveTo', ''); // 空欄 or Tag or File
-        if (!/^(?:File|Tag)$/i.test(temp))
-            window.SetProperty('Plugin.Search.AutoSaveTo', '');
     },
-    onPlay: function () { }, // 新たに曲が再生される度に呼び出される関数
     onCommand: function (isAutoSearch) { // プラグインのメニューをクリックすると呼び出される関数
+
+        if (!isAutoSearch && utils.IsKeyPressed(0x11)) { // VK_CONTROL
+            plugins['splugin_AutoSearch'].setAutoSearchPluginName(this.name);
+            return;
+        }
 
         if (!fb.IsPlaying) {
             StatusBar.setText(prop.Panel.Lang == 'ja' ? '再生していません。' : 'Not Playing');
             StatusBar.show();
             return;
         }
-
-        //###### Properties ########
-        var ShowInputDialog = true & !isAutoSearch; //タイトル名、アーティスト名の入力ダイアログを表示するならtrue
-        //##########################
 
         var debug_html = false; // for debug
         var async = true;
@@ -31,14 +28,14 @@
         var title = fb.TitleFormat('%title%').Eval();
         var artist = fb.TitleFormat('%artist%').Eval();
 
-        if (ShowInputDialog) {
+        if (!isAutoSearch) {
             title = prompt('Please input TITLE', label, title);
             if (!title) return;
             artist = prompt('Please input ARTIST', label, artist);
             if (!artist) return;
         }
 
-        StatusBar.setText('検索中......' + label);
+        StatusBar.setText((prop.Panel.Lang == 'ja' ? '検索中......' : 'Searching......') + label);
         StatusBar.show();
         getHTML(null, 'GET', createQuery(title), async, depth, onLoaded);
 
@@ -48,13 +45,13 @@
             if (id)
                 return 'http://www.uta-net.com/user/phplib/svg/showkasi.php?ID=' + id + '&WIDTH=560&HEIGHT=1092&FONTSIZE=15&t=1437802371';
             else
-                return 'http://www.uta-net.com/search/?Keyword=' + EscapeSJIS(word).replace(/%20/g, '+') + '&x=' + Math.floor((Math.random() * 45 + 1)) + '&y=' + Math.floor((Math.random() * 23 + 1)) + '&Aselect=2&Bselect=4';
+                return 'http://www.uta-net.com/search/?Keyword=' + EscapeSJIS(word).replace(/\+/g, '%2B').replace(/%20/g, '+') + '&x=' + Math.floor((Math.random() * 45 + 1)) + '&y=' + Math.floor((Math.random() * 23 + 1)) + '&Aselect=2&Bselect=1';
         }
 
-        function onLoaded(request, depth) {
-            StatusBar.setText('検索中......' + label);
+        function onLoaded(request, depth, file) {
+            StatusBar.setText((prop.Panel.Lang == 'ja' ? '検索中......' : 'Searching......') + label);
             StatusBar.show();
-            debug_html && fb.trace('\nOpen#' + getHTML.PRESENT.depth + ': ' + getHTML.PRESENT.file + '\n');
+            debug_html && fb.trace('\nOpen#' + depth + ': ' + file + '\n');
 
             if (depth === 0) {
                 var res = request.responseBody;
@@ -70,7 +67,7 @@
             var Page = new AnalyzePage(resArray, depth);
 
             if (Page.id) {
-                getHTML(null, 'GET', createQuery(false, Page.id), async, ++depth, onLoaded);
+                getHTML(null, 'GET', createQuery(null, Page.id), async, ++depth, onLoaded);
             }
             else if (Page.lyrics) {
                 var text = onLoaded.info + Page.lyrics;
@@ -81,7 +78,7 @@
                 }
                 else {
                     main(text);
-                    StatusBar.setText('検索終了。歌詞を取得しました。');
+                    StatusBar.setText(prop.Panel.Lang == 'ja' ? '検索終了。歌詞を取得しました。' : 'Search completed.');
                     StatusBar.show();
                     if (AutoSaveTo)
                         if (/^Tag$/i.test(AutoSaveTo))
@@ -96,43 +93,45 @@
                     return;
                 }
                 StatusBar.hide();
-                var intButton = ws.Popup('ページが見つかりませんでした。\nブラウザで開きますか？', 0, '確認', 36);
-                if (intButton == 6)
-                    FuncCommand('"' + getHTML.PRESENT.file + '"');
+                var intButton = ws.Popup(prop.Panel.Lang == 'ja' ? 'ページが見つかりませんでした。\nブラウザで開きますか？' : 'Page not found.\nOpen the URL in browser?', 0, 'Confirm', 36);
+                if (intButton === 6)
+                    FuncCommand('"' + file + '"');
             }
 
         }
 
         function AnalyzePage(resArray, depth) {
-            var id, url, res;
+            var tmpti, tmpar, backref;
 
-            var searchRe = new RegExp('<tr><td class="side td1"><a href="/song/(\\d+)/">(.+?)</a>.*?</td>' // $1:id, $2曲名
-                + '<td class="td2"><a href=".*?">(.*?)</a></td>' // $3歌手名
-                + '<td class="td3">(.*?)</td>' // $4作詞者
-                + '<td class="td4">(.*?)</td>', 'i'); // $5作曲者
-
-            this.id = null;
-            this.lyrics = null;
+            var SearchRE = new RegExp('<tr><td class="side td1"><a href="/song/(\\d+)/">(.+?)</a>.*?</td>' // $1:id, $2:曲名
+                + '<td class="td2"><a href=".*?">(.*?)</a></td>' // $3:歌手名
+                + '<td class="td3">(.*?)</td>' // $4:作詞者
+                + '<td class="td4">(.*?)</td>', 'i'); // $5:作曲者
+            var FuzzyRE = /[-.'&＆～・*＊+＋/／!！。,、 　]/g;
 
             if (depth === 1) { // lyric
-                res = resArray[0].replace(/^.+?font-size="\d+">/i, '');
-                res = res.replace(/<rect.+svg>$/i, '');
-                res = res.replace(/<text.+?>/gi, '');
-                res = res.replace(/<\/text>/gi, LineFeedCode);
-                this.lyrics = res.trim();
+                this.lyrics = resArray[0]
+                    .replace(/^.+?font-size="\d+">/i, '')
+                    .replace(/<rect.+svg>$/i, '')
+                    .replace(/<text.+?>/gi, '')
+                    .replace(/<\/text>/gi, LineFeedCode)
+                    .replaceEach('&quot;', '"', '&amp;', '&', 'ig')
+                    .trim();
             }
             else { // search
+                tmpti = title.toLowerCase().replace(FuzzyRE, '');
+                tmpar = artist.toLowerCase().replace(FuzzyRE, '');
                 for (i = 0; i < resArray.length; i++)
-                    if (searchRe.test(resArray[i])) {
-                        if (RegExp.$2 == title && RegExp.$3 == artist) {
-                            debug_html && fb.trace('id: ' + RegExp.$1 + ', title: ' + RegExp.$2 + ', artist: ' + RegExp.$3);
-                            this.id = RegExp.$1;
+                    if (backref = resArray[i].match(SearchRE)) {
+                        if (backref[2].toLowerCase().replace(FuzzyRE, '') === tmpti && backref[3].toLowerCase().replace(FuzzyRE, '') === tmpar) {
+                            debug_html && fb.trace('id: ' + backref[1] + ', title: ' + backref[2] + ', artist: ' + backref[3]);
+                            this.id = backref[1];
 
                             onLoaded.info = title + LineFeedCode + LineFeedCode
-                                + '作詞  ' + RegExp.$4 + LineFeedCode
-                                + '作曲  ' + RegExp.$5 + LineFeedCode
+                                + '作詞  ' + backref[4] + LineFeedCode
+                                + '作曲  ' + backref[5] + LineFeedCode
                                 + '唄  ' + artist + LineFeedCode + LineFeedCode;
-
+                            break;
                         }
                     }
             }
