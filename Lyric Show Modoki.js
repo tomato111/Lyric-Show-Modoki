@@ -63,6 +63,8 @@ prop = new function () {
     window.SetProperty("Panel.LRC.ScrollStartTime", null);
     window.SetProperty("Panel.Background.ImageToRawBitmap", null);
     window.SetProperty("Panel.Background.ImageOption", null);
+    window.SetProperty("Style.User.Edit.ArrowImage", null);
+    window.SetProperty("Style.User.Edit.ArrowOpacity", null);
     // ----
 
 
@@ -210,8 +212,7 @@ prop = new function () {
             Rule: RGBA(0, 0, 0, 40),                        // Ruled line color
             Length: RGB(100, 100, 100),                     // Number of line
             Seek: RGBA(255, 0, 0, 28),                      // Seek area color
-            Arrow_img: gdi.Image(scriptdir + "seekb.png"),  // Arrow image
-            ArrowOpacity: 120                               // Aroow image opacity
+            SeekArrow: RGBA(128, 128, 128, 128)             // Seek arrow color
         },
         black: {
             Text: RGB(210, 210, 210),
@@ -221,8 +222,7 @@ prop = new function () {
             Rule: RGBA(255, 255, 205, 40),
             Length: RGB(180, 180, 180),
             Seek: RGBA(20, 205, 255, 28),
-            Arrow_img: gdi.Image(scriptdir + "seekw.png"),
-            ArrowOpacity: 100
+            SeekArrow: RGBA(128, 128, 128, 160)
         },
         user: {
             Text: eval(window.GetProperty("Style.User.Edit.Text", "RGB(210, 210, 210)")),
@@ -232,8 +232,7 @@ prop = new function () {
             Rule: eval(window.GetProperty("Style.User.Edit.RuledLine", "RGBA(255, 255, 205, 40)")),
             Length: eval(window.GetProperty("Style.User.Edit.LineNumber", "RGB(180, 180, 180)")),
             Seek: eval(window.GetProperty("Style.User.Edit.SeekArea", "RGBA(20, 205, 255, 28)")),
-            Arrow_img: eval(gdi.Image(window.GetProperty("Style.User.Edit.ArrowImage", scriptdir + "seekw.png"))),
-            ArrowOpacity: window.GetProperty("Style.User.Edit.ArrowOpacity", 120)
+            SeekArrow: eval(window.GetProperty("Style.User.Edit.SeekArrow", "RGBA(128, 128, 128, 160)"))
         }
     };
 
@@ -358,7 +357,7 @@ prop = new function () {
 
     // ==Plugin====
     this.Plugin = {
-        Disable: window.GetProperty("Plugin.Disable", "").replace(/[ 　]*,[ 　]*/g, "|") // set plugin names. (e.g. dplugin_Utamap, oplugin_NewFile_TXT
+        Disable: window.GetProperty("Plugin.Disable", "") // set plugin names. (e.g. dplugin_Utamap, oplugin_NewFile_TXT
     };
 };
 
@@ -450,7 +449,7 @@ PluginLoader = {
         var f, fc, str, pl;
         var jsRE = /\.js$/i;
         var asgRE = /^[^{]*/;
-        var disableRE = new RegExp("^(?:" + prop.Plugin.Disable.trim() + ")$");
+        var disableRE = new RegExp("^(?:" + prop.Plugin.Disable.trim().replace(/[ 　]*,[ 　]*/g, "|") + ")$");
 
         try {
             f = objFSO.GetFolder(path);
@@ -2364,8 +2363,7 @@ LyricShow = new function (Style) {
 
 Edit = new function (Style, p) {
 
-    var edit_fixY, di = [];
-    var larrowX, arrowY, rarrowX, Arrow_img, DrawStyle;
+    var DrawStyle, edit_fixY, di = [];
     var tagTopRe = /(^\[\d\d:\d\d[.:]\d\d\])/;
 
     this.init = function () {
@@ -2513,12 +2511,13 @@ Edit = new function (Style, p) {
                 break;
             case 1: // insert line
                 str = prompt(Label.InserLineText, Label.InsertLine, "");
-                if (str.indexOf("##") === 0) // insert line to bottom
-                    text.push(str.slice(2));
-                else {
-                    a = text.splice(i, text.length - i, str || "");
-                    text.push.apply(text, a);
-                }
+                if (typeof str !== "undefined")
+                    if (str.indexOf("##") === 0) // insert line to bottom
+                        text.push(str.slice(2));
+                    else {
+                        a = text.splice(i, text.length - i, str);
+                        text.push.apply(text, a);
+                    }
                 break;
             case 2: // edit line
                 str = prompt("", Label.EditLine, text[i - 1].slice(10));
@@ -2604,7 +2603,6 @@ Edit = new function (Style, p) {
         p.setWordbreakList(true);
         p.buildDrawStyle();
         this.init();
-        this.calcSeekIMGarea();
 
         if (filetype === "lrc")
             this.View.start();
@@ -2695,14 +2693,6 @@ Edit = new function (Style, p) {
         }
     };
 
-    this.calcSeekIMGarea = function () {
-
-        Arrow_img = Style.Color.Arrow_img;
-        larrowX = Math.floor(seek_width / 2 - Arrow_img.width / 2);
-        arrowY = Math.floor(wh / 2 - Arrow_img.height / 2 - 8);
-        rarrowX = ww - larrowX - Arrow_img.width;
-    };
-
     this.calcRGBdiff = function () {
 
         var bg = prop.Edit.View ? Style.Color.ViewBackground : Style.Color.Background;
@@ -2753,11 +2743,21 @@ Edit = new function (Style, p) {
 
         if (larea_seek) { // seek
             gr.FillRoundRect(0, TextHeight, seek_width, Math.max(wh - 50, 0), arc_w, arc_h, Style.Color.Seek);
-            gr.DrawImage(Arrow_img, larrowX, arrowY, Arrow_img.width, Arrow_img.height + 17, 0, 0, Arrow_img.width, Arrow_img.height, 0, Style.Color.ArrowOpacity);
+            gr.DrawPolygon(Style.Color.SeekArrow, 1,
+                [
+                    (seek_width / 2 + seek_width / 12), (wh / 2 - wh / 20),
+                    (seek_width / 2 - seek_width / 12), (wh / 2),
+                    (seek_width / 2 + seek_width / 12), (wh / 2 + wh / 20)
+                ]);
         }
         if (rarea_seek) {
             gr.FillRoundRect(rarea_seek_x, TextHeight, seek_width, Math.max(wh - 50, 0), arc_w, arc_h, Style.Color.Seek);
-            gr.DrawImage(Arrow_img, rarrowX, arrowY, Arrow_img.width, Arrow_img.height + 17, 0, 0, Arrow_img.width, Arrow_img.height, 180, Style.Color.ArrowOpacity);
+            gr.DrawPolygon(Style.Color.SeekArrow, 1,
+                [
+                    ww - (seek_width / 2 + seek_width / 12), (wh / 2 - wh / 20),
+                    ww - (seek_width / 2 - seek_width / 12), (wh / 2),
+                    ww - (seek_width / 2 + seek_width / 12), (wh / 2 + wh / 20)
+                ]);
         }
     };
 
@@ -3927,12 +3927,13 @@ function on_size() {
     arc_h = (wh - 50 >= 30) * 15;
 
     if (prop.Edit.Start) {
-        Edit.calcSeekIMGarea();
         Buttons.buildButton();
     }
-    prop.Panel.RefreshOnPanelResize && ww && wh && refreshDrawStyle();
-    prop.Panel.RefreshOnPanelResize && BackgroundImg && LyricShow.BackgroundImage.setImage();
-    on_size_research && lyric && LyricShow.searchLine(fb.PlaybackTime);
+    else {
+        prop.Panel.RefreshOnPanelResize && ww && wh && refreshDrawStyle();
+        prop.Panel.RefreshOnPanelResize && BackgroundImg && LyricShow.BackgroundImage.setImage();
+        on_size_research && lyric && LyricShow.searchLine(fb.PlaybackTime);
+    }
 
     for (var pname in plugins) {
         if (plugins[pname].onSize instanceof Function)
