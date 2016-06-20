@@ -1282,7 +1282,7 @@ LyricShow = new function (Style) {
                     TextRender.RenderStringRect(canvas, this.text, Style.Font, LyricShow.on_paintInfo.n, 0, w, this.height, Style.Align);
                     this.textImg.ReleaseGraphics(canvas);
                     // --highline----
-                    this.textHighlineImg = gdi.CreateImage(ww, this.height);
+                    this.textHighlineImg = gdi.CreateImage(w + LyricShow.on_paintInfo.n * 2, this.height);
                     canvas = this.textHighlineImg.GetGraphics();
                     canvas.SetTextRenderingHint(5);
                     canvas.SetSmoothingMode(2);
@@ -1855,7 +1855,7 @@ LyricShow = new function (Style) {
 
             var size;
             if (strch) { // パネルより小さい画像を拡大する
-                size = { x: 0, y: 0, width: dspW, height: dspH };
+                size = { x: 0, y: 0, width: dspW || 1, height: dspH || 1 };
                 if (kar) { // アスペクト比を考慮
                     size.width = Math.ceil(srcW * dspH / srcH); // 画像の縦をパネルの高さと仮定し、横幅を計算
                     if (size.width > dspW) { // パネル幅を超えるなら、画像の横をパネル幅と仮定し、高さを計算
