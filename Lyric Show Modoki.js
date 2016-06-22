@@ -3,7 +3,7 @@
 
 // ==PREPROCESSOR==
 // @name "Lyric Show Modoki"
-// @version "1.6.3"
+// @version "1.6.4"
 // @author "tomato111"
 // @import "%fb2k_profile_path%import\common\lib.js"
 // ==/PREPROCESSOR==
@@ -23,7 +23,7 @@ var fs = new ActiveXObject("Scripting.FileSystemObject"); // File System Object
 var ws = new ActiveXObject("WScript.Shell"); // WScript Shell Object
 var Trace = new TraceLog();
 var scriptName = "Lyric Show Modoki";
-var scriptVersion = "1.6.3";
+var scriptVersion = "1.6.4";
 var scriptdir = fb.ProfilePath + "import\\" + scriptName + "\\";
 var commondir = fb.ProfilePath + "import\\common\\";
 var down_pos = {};
@@ -1106,7 +1106,7 @@ LyricShow = new function (Style) {
 
                 if (View) {
                     for (var i = 0; i < lyric.text.length; i++) {
-                        wordbreakList[i] = Math.floor(temp_gr.CalcTextWidth(lyric.text[i].replace(alltagsRE, "") + "[00:00.00] ", Style.Font) / ww) + 1;
+                        wordbreakList[i] = Math.floor(temp_gr.CalcTextWidth(lyric.text[i].replace(alltagsRE, "") + "[00:00.00] ", Style.Font) / (ww || 1)) + 1;
                         if (isContain) {
                             wRE_res = lyric.text[i].match(wRE);
                             if (wRE_res) wordbreakList[i] += wRE_res.length;
@@ -4118,7 +4118,7 @@ function on_mouse_lbtn_dblclk(x, y, mask) {
 function on_mouse_mbtn_down(x, y, mask) {
     if (Lock_MiddleButton) ws.SendKeys("%"); // close context menu
     else if (prop.Edit.Start) Edit.switchView();
-    else if (lyric) Edit.start();
+    else if (lyric) !Lock && Edit.start();
     else {
         Menu.build(Menu.Plugins);
         Menu.show(x, y);

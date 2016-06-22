@@ -10,7 +10,7 @@
         var _this = this;
         var timeout_millisecond = 8000;
 
-        this.AvailablePluginNames = window.GetProperty('Plugin.Search.AutoSearch', 'dplugin_Miku_Hatsune_wiki, dplugin_Utamap, dplugin_Utanet, dplugin_Kashiget, dplugin_AZLyrics').split(/[ 　]*,[ 　]*/);
+        this.AvailablePluginNames = window.GetProperty('Plugin.Search.AutoSearch', 'dplugin_Miku_Hatsune_wiki, dplugin_Utamap, dplugin_Utanet, dplugin_Kashiget, dplugin_AZLyrics, dplugin_Kashinavi, dplugin_Tube365').split(/[ 　]*,[ 　]*/);
         for (var i = 0; i < this.AvailablePluginNames.length;) {
             if (plugins[this.AvailablePluginNames[i]]) i++;
             else this.AvailablePluginNames.splice(i, 1);
