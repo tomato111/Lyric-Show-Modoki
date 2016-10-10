@@ -3373,6 +3373,8 @@ Menu = new function () {
     function createPluginMenuItems(plugins) {
         var items = [], item, i = 1, FunctionKey = 111;
         for (var name in plugins) {
+            if (!plugins[name].label) // Do not build to menu item if label is not set.
+                continue;
             item = {};
             item["Flag"] = MF_STRING;
             item["Caption"] = plugins[name].label + (i < 10 ? ("\tF" + i) : "");
