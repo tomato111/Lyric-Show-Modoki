@@ -1,6 +1,14 @@
 ﻿##Installation
 <http://ashiato1.blog62.fc2.com/blog-entry-64.html>
 ##History
+--v1.6.5(//)--------------------------------------------------
+
+* 編集画面でLeft/Rightキーによる3秒シークを無効orキー変更できるようにした  
+　Edit.Keybind.AheadBy3Seconds, BackBy3Seconds  
+* プラグインにlabelが設定されていない場合、メニュー項目を表示しないようにした  
+* Ctrl+ホイール回転によるフォントサイズ変更の処理を微修正  
+* 100分以上の曲に対応。形式は[mmm:ss.xx]  
+
 --v1.6.4(2016/06/22)--------------------------------------------------
 
 * Style.User.Edit.ArrowImage と ArrowOpacity を削除  

@@ -34,7 +34,7 @@ var DT_CENTER = 0x00000001;
 var DT_RIGHT = 0x00000002;
 var DT_WORDBREAK = 0x00000010;
 var DT_NOPREFIX = 0x00000800;
-var DT_WORD_ELLIPSIS = 0x00040000
+var DT_WORD_ELLIPSIS = 0x00040000;
 var GDIPlus_LEFT = 0x00000000;
 var GDIPlus_CENTER = 0x10000000;
 var GDIPlus_RIGHT = 0x20000000;
@@ -45,8 +45,9 @@ var MF_DISABLED = 0x00000002;
 var MF_UNCHECKED = 0x00000000;
 var MF_CHECKED = 0x00000008;
 var MF_STRING = 0x00000000;
-var alltagsRE = /\[\d\d:\d\d[.:]\d\d\]/g;
-var timeRE = /\[(\d\d):(\d\d)[.:](\d\d)\]/;
+var alltagsRE = /\[\d\d\d?:\d\d[.:]\d\d\]/g;
+var tagTimeRE = /^\[(\d\d\d?):(\d\d)[.:](\d\d)\]/;
+var isSyncRE = /^\[\d\d\d?:\d\d[.:]\d\d\]/m;
 var repeatRes = getRepeatRes(scriptdir + "repeat.txt", scriptdir + "repeat-default.txt");
 
 //========
@@ -789,7 +790,6 @@ LyricShow = new function (Style) {
     var directoryRE = /.+\\/;
     var extensionRE = /^lrc|txt$/i;
     var zeroTagRE = /^\[00:00[.:]00\]$/;
-    var tagRE = /\[\d\d:\d\d[.:]\d\d\]/;
     var FuzzyRE = ["", /[ 　]/g, /\(.*?\)/g];
     var BackgroundPath, BackgroundSize;
 
@@ -918,10 +918,7 @@ LyricShow = new function (Style) {
         }
 
 
-        if (tagRE.test(str)) // isSync
-            filetype = "lrc";
-        else
-            filetype = "txt";
+        filetype = isSyncRE.test(str) ? "lrc" : "txt";
 
         lyric = { text: str.trim().split(getLineFeedCode(str)), i: 1, info: [] };
 
@@ -1075,7 +1072,7 @@ LyricShow = new function (Style) {
                 var lineList = [""];
                 var text = lyric.text;
                 for (var i = 0; i < text.length; i++) {
-                    if (timeRE.test(text[i]))
+                    if (tagTimeRE.test(text[i]))
                         lineList[i] = (RegExp.$1 * 60 + Number(RegExp.$2)) * 100 + Number(RegExp.$3); // key=line number, value=start time [ms*1/10]
                 }
 
@@ -2369,7 +2366,6 @@ LyricShow = new function (Style) {
 Edit = new function (Style, p) {
 
     var DrawStyle, edit_fixY, di = [];
-    var tagTopRe = /(^\[\d\d:\d\d[.:]\d\d\])/;
 
     this.init = function () {
 
@@ -2407,7 +2403,7 @@ Edit = new function (Style, p) {
         if (lyric.i === 1) return;
 
         do {
-            lyric.text[--lyric.i] = lyric.text[lyric.i].slice(10);
+            lyric.text[--lyric.i] = lyric.text[lyric.i].replace(tagTimeRE, "");
             offsetY += DrawStyle[lyric.i - 1].height;
             if (lyric.i === 1) break;
         } while (all)
@@ -2422,18 +2418,18 @@ Edit = new function (Style, p) {
         Lock = true;
 
         var pl = lyric.i - 1;
-        lyric.text[pl].match(timeRE);
+        lyric.text[pl].match(tagTimeRE);
         var pt = (RegExp.$1 * 60 + Number(RegExp.$2)) * 100 + Number(RegExp.$3);
 
         if (n < 0) {
-            lyric.text[pl - 1].match(timeRE);
+            lyric.text[pl - 1].match(tagTimeRE);
             var tt = (RegExp.$1 * 60 + Number(RegExp.$2)) * 100 + Number(RegExp.$3);
             if (pt - tt > -n || tt === 0) // 下限
                 apply();
         }
         else {
             if (lyric.i !== lyric.text.length) {
-                var r = lyric.text[pl + 1].match(timeRE);
+                var r = lyric.text[pl + 1].match(tagTimeRE);
                 tt = (RegExp.$1 * 60 + Number(RegExp.$2)) * 100 + Number(RegExp.$3);
             }
             if (!r || tt - pt > n) // 上限
@@ -2461,7 +2457,7 @@ Edit = new function (Style, p) {
         var tt;
 
         for (var i = 1; i < lyric.text.length; i++) {
-            if (lyric.text[i].match(timeRE)) {
+            if (tagTimeRE.test(lyric.text[i])) {
                 tt = (RegExp.$1 * 60 + Number(RegExp.$2)) * 100 + Number(RegExp.$3);
                 this.applyTimeDiff(tt, i, -n);
             }
@@ -2484,7 +2480,7 @@ Edit = new function (Style, p) {
         if (time < 0)
             time = 0;
 
-        lyric.text[i] = lyric.text[i].slice(10);
+        lyric.text[i] = lyric.text[i].replace(tagTimeRE, "");
         putTime(time, i);
 
         if (prop.Edit.View) {
@@ -2525,9 +2521,9 @@ Edit = new function (Style, p) {
                     }
                 break;
             case 2: // edit line
-                str = prompt("", Label.EditLine, text[i - 1].slice(10));
+                str = prompt("", Label.EditLine, text[i - 1].replace(tagTimeRE, ""));
                 if (typeof str !== "undefined")
-                    text[i - 1] = text[i - 1].slice(0, 10) + str;
+                    text[i - 1] = text[i - 1].match(tagTimeRE)[0] + str;
                 break;
         }
 
@@ -2728,8 +2724,8 @@ Edit = new function (Style, p) {
             if (n < 0) continue;
             else if (n >= lyric.text.length || offsetY + DrawStyle[n].nextY > wh) { disp.bottom = n - 1; break; }
             else {
-                if (tagTopRe.test(lyric.text[n]))
-                    str = RegExp.$1 + " " + lyric.text[n].replace(alltagsRE, "");
+                if (tagTimeRE.test(lyric.text[n]))
+                    str = RegExp.lastMatch + " " + lyric.text[n].replace(alltagsRE, "");
                 else
                     str = lyric.text[n].replace(alltagsRE, "");
                 ci = (i < prop.Edit.Step) ? (i < 0) ? (i >= -prop.Edit.Step) ? -i : null : i : null;
