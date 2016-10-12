@@ -320,7 +320,12 @@ prop = new function () {
         Rule: window.GetProperty("Edit.ShowRuledLine", true),
         Step: window.GetProperty("Edit.Step", 14),
         Start: false,
-        View: false
+        View: false,
+        Keybind:
+        {
+            AheadBy3Seconds: window.GetProperty("Edit.Keybind.AheadBy3Seconds", 39), // Default is 'Right' Key
+            BackBy3Seconds: window.GetProperty("Edit.Keybind.BackBy3Seconds", 37) // Default is 'Left' Key
+        }
     };
 
     if (!this.Edit.Step && typeof this.Edit.Step !== "number" || this.Edit.Step < 0)
@@ -3038,10 +3043,13 @@ Keybind = new function () {
         keynum = prop.Panel.Keybind["SeekToTop"];
         this[keynum] = commands["SeekToTop"];
 
+        keynum = prop.Edit.Keybind["AheadBy3Seconds"];
+        this[keynum] = function () { fb.PlaybackTime += 3; };
+        keynum = prop.Edit.Keybind["BackBy3Seconds"];
+        this[keynum] = function () { fb.PlaybackTime -= 3; };
+
         this[13] = function () { !prop.Edit.View && Edit.moveNextLine(); }; // Enter
         this[33] = function () { !prop.Edit.View && Edit.undo(); }; // Page Up
-        this[37] = function () { fb.PlaybackTime -= 3; }; // Left
-        this[39] = function () { fb.PlaybackTime += 3; }; // Right
         this[38] = function () { // Up
             if (on_key_down.Shift) Edit.offsetTime(5); // (+Shift)
             else Edit.adjustTime(-5);
@@ -4137,8 +4145,12 @@ function on_mouse_wheel(step) {
                 return;
             window.SetProperty("Style.Font-Size", prop.Style.Font_Size += step);
             prop.Style.Font = gdi.Font(prop.Style.Font_Family, prop.Style.Font_Size, (prop.Style.Font_Bold ? 1 : 0) + (prop.Style.Font_Italic ? 2 : 0));
-            refreshDrawStyle();
-            lyric && LyricShow.searchLine(fb.PlaybackTime);
+            if (prop.Style.EnableStyleTextRender) {
+                refreshDrawStyle.clearTimeout();
+                refreshDrawStyle.timeout(400);
+            }
+            else
+                refreshDrawStyle();
             StatusBar.setText("Font Size : " + prop.Style.Font_Size);
             StatusBar.show(3000);
         }
