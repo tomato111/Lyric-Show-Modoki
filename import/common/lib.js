@@ -523,7 +523,10 @@ function getHTML(data, method, file, async, depth, onLoaded) {
 
     request.onreadystatechange = function () {
         if (request.readyState == 4) {
-            onLoaded(request, depth, file);
+            try { onLoaded(request, depth, file); }
+            catch (e) {
+                fb.ShowPopupMessage('Error: onLoaded function crashed in getHTML\n\n' + file.match(/^https?:\/\/.+?\//) + '\n\n' + e.description);
+            }
         }
     }
 

@@ -113,12 +113,11 @@
                     if (InfoRE.test(resArray[i])) {
                         onLoaded.info += '作詞  ' + RegExp.$1 + LineFeedCode
                             + '作曲  ' + RegExp.$2 + LineFeedCode
-                            + '唄  ' + artist + LineFeedCode
+                            + '唄  ' + artist + LineFeedCode + LineFeedCode;
                     }
-                onLoaded.info += LineFeedCode;
             }
             else if (depth === true) { // lyric
-                this.lyrics = resArray[1]
+                this.lyrics = resArray[0]
                     .replace(/^document\.write\("<p oncopy='return false;' unselectable='on;'>/i, '')
                     .replace(/<p>"\)$/i, '')
                     .replace(/<br>/gi, LineFeedCode)
