@@ -2516,20 +2516,25 @@ Edit = new function (Style, p) {
                     if (str.indexOf("##") === 0) // insert line to bottom
                         text.push(str.slice(2));
                     else {
-                        a = text.splice(i, text.length - i, str);
+                        a = text.splice(lyric.i, text.length - lyric.i, str);
                         text.push.apply(text, a);
                     }
+                else
+                    return;
                 break;
             case 2: // edit line
                 str = prompt("", Label.EditLine, text[i - 1].replace(tagTimeRE, ""));
                 if (typeof str !== "undefined")
                     text[i - 1] = text[i - 1].match(tagTimeRE)[0] + str;
+                else
+                    return;
                 break;
         }
 
         p.setWordbreakList(true);
         p.buildDrawStyle();
         DrawStyle = p.DrawStyle;
+        n === 2 && (offsetY = edit_fixY + Style.LPadding / 2 - DrawStyle[lyric.i - 1].y);
 
         window.Repaint();
     };
@@ -2665,7 +2670,6 @@ Edit = new function (Style, p) {
         this.start = function () {
             prop.Edit.View = true;
             this.i = lyric.i; // ビューモード解除時に元に戻れるように値を退避
-            this.offsetY = offsetY; // これも同様
             lyric.i !== lyric.text.length && this.setProperties();
             Edit.calcRGBdiff();
             this.searchLine(fb.PlaybackTime);
@@ -2676,8 +2680,7 @@ Edit = new function (Style, p) {
             prop.Edit.View = false;
             this.pauseTimer(true);
             lyric.i = this.i; // ビューモードに入る前の状態に戻す
-            offsetY = this.offsetY; // これも同様
-            this.i = this.offsetY = null;
+            offsetY = edit_fixY + Style.LPadding / 2 - DrawStyle[lyric.i - 1].y;
             lyric.i === lyric.text.length && Edit.undo();
             Edit.calcRGBdiff();
         };
