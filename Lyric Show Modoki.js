@@ -45,6 +45,8 @@ var MF_DISABLED = 0x00000002;
 var MF_UNCHECKED = 0x00000000;
 var MF_CHECKED = 0x00000008;
 var MF_STRING = 0x00000000;
+var VK_SHIFT = 0x10;
+var VK_CONTROL = 0x11;
 var alltagsRE = /\[\d\d\d?:\d\d[.:]\d\d\]/g;
 var tagTimeRE = /^\[(\d\d\d?):(\d\d)[.:](\d\d)\]/;
 var isSyncRE = /^\[\d\d\d?:\d\d[.:]\d\d\]/m;
@@ -1650,8 +1652,11 @@ LyricShow = new function (Style) {
                 return true;
             };
             DrawString.prototype.doCommand = function () {
-                if (this.time === 0) fb.PlaybackTime = 0;
-                else if (this.time) fb.PlaybackTime = this.time;
+                if (utils.IsKeyPressed(VK_CONTROL))
+                    FuncCommand("https://www.google.com/search?q=" + encodeURIComponent(this.text.replace(new RegExp(prop.Save.LineFeedCode, "g"), "")));
+                else
+                    if (this.time === 0) fb.PlaybackTime = 0;
+                    else if (this.time) fb.PlaybackTime = this.time;
             };
             // Constructor END
         }
@@ -2982,11 +2987,10 @@ Keybind = new function () {
         this[38] = function () { lyric && applyDelta(prop.Panel.MouseWheelDelta); }; // Up
         this[40] = function () { lyric && applyDelta(-prop.Panel.MouseWheelDelta); }; // Down
         this[67] = function () { // C
-            if (on_key_down.Ctrl) copyLyric(); // (+Ctrl)
-            else if (!on_key_down.Ctrl) return false; // Ctrlが押されていない状態でこのメソッドが呼ばれたことを呼び出し元に明示する
+            utils.IsKeyPressed(VK_CONTROL) && copyLyric(); // (+Ctrl)
         };
         this[86] = function () { // V
-            if (on_key_down.Ctrl && fb.IsPlaying) { // (+Ctrl)
+            if (utils.IsKeyPressed(VK_CONTROL) && fb.IsPlaying) { // (+Ctrl)
                 getLyricFromClipboard();
                 if (prop.Save.ClipbordAutoSaveTo) {
                     if (/^Tag$/i.test(prop.Save.ClipbordAutoSaveTo))
@@ -2995,7 +2999,6 @@ Keybind = new function () {
                         saveToFile(parse_path + (filetype === "lrc" ? ".lrc" : ".txt"));
                 }
             }
-            else if (!on_key_down.Ctrl) return false; // Ctrlが押されていない状態でこのメソッドが呼ばれたことを呼び出し元に明示する
         };
     };
 
@@ -3050,11 +3053,11 @@ Keybind = new function () {
         this[13] = function () { !prop.Edit.View && Edit.moveNextLine(); }; // Enter
         this[33] = function () { !prop.Edit.View && Edit.undo(); }; // Page Up
         this[38] = function () { // Up
-            if (on_key_down.Shift) Edit.offsetTime(5); // (+Shift)
+            if (utils.IsKeyPressed(VK_SHIFT)) Edit.offsetTime(5); // (+Shift)
             else Edit.adjustTime(-5);
         };
         this[40] = function () { // Down
-            if (on_key_down.Shift) Edit.offsetTime(-5); // (+Shift)
+            if (utils.IsKeyPressed(VK_SHIFT)) Edit.offsetTime(-5); // (+Shift)
             else Edit.adjustTime(5);
         };
     };
@@ -4054,7 +4057,7 @@ function on_mouse_lbtn_down(x, y, mask) {
                 return;
     }
     if (!prop.Edit.Start) {
-        if (mask === 5) { // Shift key
+        if (utils.IsKeyPressed(VK_SHIFT)) {
             if (fb.IsPlaying && prop.Panel.InfoPath) {
                 if (!infoPath) {
                     infoPath = fb.TitleFormat(prop.Panel.InfoPath).Eval().split("||");
@@ -4079,10 +4082,10 @@ function on_mouse_lbtn_down(x, y, mask) {
             fb.PlaybackTime -= 3;
         else if (rarea_seek)
             fb.PlaybackTime += 3;
-        else if (mask === 9)
+        else if (utils.IsKeyPressed(VK_CONTROL))
             fs.FileExists(parse_path + ".txt") && Edit.deleteFile(parse_path + ".txt");
         else if (!prop.Edit.View) {
-            if (mask === 5)
+            if (utils.IsKeyPressed(VK_SHIFT))
                 Edit.controlLine(0);
             else if (y < TextHeight * 2 + g_y)
                 Edit.undo();
@@ -4141,7 +4144,7 @@ function on_mouse_mbtn_dblclk(x, y, mask) {
 
 function on_mouse_wheel(step) {
     if (!prop.Edit.Start) {
-        if (on_key_down.Ctrl) {
+        if (utils.IsKeyPressed(VK_CONTROL)) {
             if (step === 1 && prop.Style.Font_Size >= 48 || step === -1 && prop.Style.Font_Size <= 10)
                 return;
             window.SetProperty("Style.Font-Size", prop.Style.Font_Size += step);
@@ -4174,7 +4177,7 @@ function on_mouse_wheel(step) {
 }
 
 function on_mouse_rbtn_up(x, y, mask) {
-    if (mask === 4) // Shift key
+    if (utils.IsKeyPressed(VK_SHIFT))
         return;
     else {
         !Lock && Menu.show(x, y);
@@ -4185,29 +4188,20 @@ function on_mouse_rbtn_up(x, y, mask) {
 function on_key_down(vkey) {
     //console(vkey);
     var prevent_shortcuts;
-    if (vkey === 16)
-        !on_key_down.Shift && (on_key_down.Shift = true);
-    else if (vkey === 17)
-        !on_key_down.Ctrl && (on_key_down.Ctrl = true);
-    else if (!prop.Edit.Start) {
-        prevent_shortcuts = Keybind.LyricShow_keydown[vkey] && Keybind.LyricShow_keydown[vkey]();
-        if (typeof prevent_shortcuts === "undefined")
-            prevent_shortcuts = Boolean(Keybind.LyricShow_keydown[vkey] || Keybind.LyricShow_keyup[vkey]);
+    if (!prop.Edit.Start) {
+        Keybind.LyricShow_keydown[vkey] && Keybind.LyricShow_keydown[vkey]();
+        prevent_shortcuts = Boolean(Keybind.LyricShow_keydown[vkey] || Keybind.LyricShow_keyup[vkey]);
     }
     else if (!Lock) {
         Keybind.Edit_keydown[vkey] && Keybind.Edit_keydown[vkey]();
         prevent_shortcuts = Boolean(Keybind.Edit_keydown[vkey] || Keybind.Edit_keyup[vkey]);
     }
 
-    return prevent_shortcuts; // prevent keyboard shortcuts
+    return prevent_shortcuts;
 }
 
 function on_key_up(vkey) {
-    if (vkey === 16)
-        on_key_down.Shift = false;
-    else if (vkey === 17)
-        on_key_down.Ctrl = false;
-    else if (!prop.Edit.Start)
+    if (!prop.Edit.Start)
         Keybind.LyricShow_keyup[vkey] && Keybind.LyricShow_keyup[vkey]();
     else if (!Lock)
         Keybind.Edit_keyup[vkey] && Keybind.Edit_keyup[vkey]();
