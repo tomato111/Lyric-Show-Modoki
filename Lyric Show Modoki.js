@@ -3,7 +3,7 @@
 
 // ==PREPROCESSOR==
 // @name "Lyric Show Modoki"
-// @version "1.6.5"
+// @version "1.6.6"
 // @author "tomato111"
 // @import "%fb2k_profile_path%import\common\lib.js"
 // ==/PREPROCESSOR==
@@ -23,7 +23,7 @@ var fs = new ActiveXObject("Scripting.FileSystemObject"); // File System Object
 var ws = new ActiveXObject("WScript.Shell"); // WScript Shell Object
 var Trace = new TraceLog();
 var scriptName = "Lyric Show Modoki";
-var scriptVersion = "1.6.5";
+var scriptVersion = "1.6.6";
 var scriptdir = fb.ProfilePath + "import\\" + scriptName + "\\";
 var commondir = fb.ProfilePath + "import\\common\\";
 var down_pos = {};
@@ -210,7 +210,7 @@ prop = new function () {
         white: {
             Text: RGB(80, 80, 80),                          // Text color
             Background: RGBA(255, 255, 255, 255),           // Background color
-            ViewBackground: RGBA(193, 219, 252, 80),        // Bacground color of ViewMode
+            ViewBackground: RGBA(236, 244, 254, 255),        // Bacground color of ViewMode
             Line: RGBA(193, 219, 252, 200),                 // Bacground color of playing line
             Rule: RGBA(0, 0, 0, 40),                        // Ruled line color
             Length: RGB(100, 100, 100),                     // Number of line
@@ -219,8 +219,8 @@ prop = new function () {
         },
         black: {
             Text: RGB(210, 210, 210),
-            Background: RGBA(0, 0, 0, 200),
-            ViewBackground: RGBA(0, 0, 0, 189),
+            Background: RGBA(0, 0, 0, 210),
+            ViewBackground: RGBA(0, 0, 0, 195),
             Line: RGBA(153, 255, 20, 70),
             Rule: RGBA(255, 255, 205, 40),
             Length: RGB(180, 180, 180),
@@ -229,8 +229,8 @@ prop = new function () {
         },
         user: {
             Text: eval(window.GetProperty("Style.User.Edit.Text", "RGB(210, 210, 210)")),
-            Background: eval(window.GetProperty("Style.User.Edit.Background", "RGBA(0,0,0,200)")),
-            ViewBackground: eval(window.GetProperty("Style.User.Edit.ViewBackground", "RGBA(0,0,0,189)")),
+            Background: eval(window.GetProperty("Style.User.Edit.Background", "RGBA(0,0,0,210)")),
+            ViewBackground: eval(window.GetProperty("Style.User.Edit.ViewBackground", "RGBA(0,0,0,195)")),
             Line: eval(window.GetProperty("Style.User.Edit.PlayingLine", "RGBA(153, 255, 20, 70)")),
             Rule: eval(window.GetProperty("Style.User.Edit.RuledLine", "RGBA(255, 255, 205, 40)")),
             Length: eval(window.GetProperty("Style.User.Edit.LineNumber", "RGB(180, 180, 180)")),
@@ -1652,8 +1652,11 @@ LyricShow = new function (Style) {
                 return true;
             };
             DrawString.prototype.doCommand = function () {
-                if (utils.IsKeyPressed(VK_CONTROL))
-                    FuncCommand("https://www.google.com/search?q=" + encodeURIComponent(this.text.replace(new RegExp(prop.Save.LineFeedCode, "g"), "")));
+                if (utils.IsKeyPressed(VK_CONTROL)) {
+                    var word = encodeURIComponent(this.text.replace(/[\s　]+/g, " ")).replaceEach("'", '%27', '\\(', '%28', '\\)', '%29', '%20', '+', '!', '%21', 'g');
+                    word && FuncCommand("https://www.google.com/search?q=" + word);
+                    word && FuncCommand("https://twitter.com/search?q=" + word);
+                }
                 else
                     if (this.time === 0) fb.PlaybackTime = 0;
                     else if (this.time) fb.PlaybackTime = this.time;
@@ -1666,8 +1669,6 @@ LyricShow = new function (Style) {
     this.searchLine = function (time) {
 
         this.pauseTimer(true);
-        disp.top = 0;
-        disp.bottom = lyric.text.length - 1;
         prop.Panel.AutoScroll && (movable = true);
         ignore_remainder = false; // 誤差補正ON
         time *= 100;
@@ -2087,7 +2088,7 @@ LyricShow = new function (Style) {
 
         path = directory = dataSize = charset = fieldname = filetype = lyric = offsetinfo = null;
         this.setProperties.lineList = this.setProperties.leftcenterX = this.setProperties.wordbreakList = this.setProperties.wordbreakText = this.setProperties.scrollSpeedList = this.scrollSpeedType2List = this.setProperties.DrawStyle = this.setProperties.h = this.setProperties.minOffsetY = null;
-        lineY = moveY = null;
+        lineY = moveY = jumpY = null;
 
         if (repeatRes)
             for (i = 0; i < repeatRes.length; i++)
@@ -2217,6 +2218,9 @@ LyricShow = new function (Style) {
 
         // lyrics
         if (lyric) { // lyrics is found
+            disp.top = 0;
+            disp.bottom = lyric.text.length - 1;
+
             if (lyric.info.length && offsetY > 0 && prop.Panel.ScrollType !== 4 && prop.Panel.ScrollType !== 5)
                 for (var i = 1; i <= lyric.info.length; i++) {
                     Style.Shadow && gr.GdiDrawText(lyric.info[lyric.info.length - i], Style.Font, Style.Color.TextShadow, this.on_paintInfo.x + Style.ShadowPosition[0], Math.ceil(g_y + offsetY - TextHeight * i + Style.ShadowPosition[1]), this.on_paintInfo.w, wh, DT_CENTER | DT_NOPREFIX);
@@ -2260,14 +2264,14 @@ LyricShow = new function (Style) {
                 }
                 else
                     if (Style.Shadow)
-                        for (i = 0, disp.top = 0; i < lyric.text.length; i++) {
+                        for (i = 0; i < lyric.text.length; i++) {
                             var c = offsetY + DrawStyle[i].y;
                             if (c > wh) { disp.bottom = i - 1; break; } // do not draw text outside the screen. CPU utilization rises
                             else if (c < -DrawStyle[i].height) { disp.top = i + 1; continue; } // ditto
                             else DrawStyle[i].draw_withShadow(gr, DrawStyle[i].text, null, this.on_paintInfo.x, this.on_paintInfo.w);
                         }
                     else
-                        for (i = 0, disp.top = 0; i < lyric.text.length; i++) {
+                        for (i = 0; i < lyric.text.length; i++) {
                             c = offsetY + DrawStyle[i].y;
                             if (c > wh) { disp.bottom = i - 1; break; } // do not draw text outside the screen. CPU utilization rises
                             else if (c < -DrawStyle[i].height) { disp.top = i + 1; continue; } // ditto
@@ -2275,14 +2279,14 @@ LyricShow = new function (Style) {
                         }
             else
                 if (Style.Shadow)
-                    for (i = 0, disp.top = 0; i < lyric.text.length; i++) {
+                    for (i = 0; i < lyric.text.length; i++) {
                         c = offsetY + DrawStyle[i].y;
                         if (c > wh) { disp.bottom = i - 1; break; }
                         else if (c < -DrawStyle[i].height) { disp.top = i + 1; continue; }
                         else DrawStyle[i].draw_withShadow(gr, DrawStyle[i].text, Style.Highline ? Style.Color.PlayingText : Style.Color.Text, this.on_paintInfo.x, this.on_paintInfo.w);
                     }
                 else
-                    for (i = 0, disp.top = 0; i < lyric.text.length; i++) {
+                    for (i = 0; i < lyric.text.length; i++) {
                         c = offsetY + DrawStyle[i].y;
                         if (c > wh) { disp.bottom = i - 1; break; }
                         else if (c < -DrawStyle[i].height) { disp.top = i + 1; continue; }
@@ -2375,7 +2379,6 @@ Edit = new function (Style, p) {
     this.init = function () {
 
         edit_fixY = TextHeight * 2;
-        disp.top = 0;
         DrawStyle = p.DrawStyle;
         offsetY = edit_fixY + Style.LPadding / 2;
 
@@ -2644,7 +2647,6 @@ Edit = new function (Style, p) {
 
         this.searchLine = function (time) {
             this.pauseTimer(true);
-            disp.top = 0;
 
             time = Math.round(time * 100); // time *= 100 この計算になぜか微量の誤差が生じてapplyTimeDiffに影響が出るので対策する
 
@@ -2717,6 +2719,8 @@ Edit = new function (Style, p) {
 
         var p = lyric.i - 1; // playing line
         var n, str, ci, c;
+        disp.top = 0;
+        disp.bottom = lyric.text.length - 1;
 
         // background color
         gr.FillSolidRect(-1, -1, window.Width + 1, window.Height + 1, prop.Edit.View ? Style.Color.ViewBackground : Style.Color.Background);
@@ -2730,7 +2734,7 @@ Edit = new function (Style, p) {
             n = p + i;
             if (i === -2 && n >= 0) { disp.top = n; }
             if (n < 0) continue;
-            else if (n >= lyric.text.length || offsetY + DrawStyle[n].nextY > wh) { disp.bottom = n - 1; break; }
+            else if (n === lyric.text.length || offsetY + DrawStyle[n].y > wh) { disp.bottom = n - 1; break; }
             else {
                 if (tagTimeRE.test(lyric.text[n]))
                     str = RegExp.lastMatch + " " + lyric.text[n].replace(alltagsRE, "");
