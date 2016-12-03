@@ -2380,7 +2380,7 @@ Edit = new function (Style, p) {
 
         edit_fixY = TextHeight * 2;
         DrawStyle = p.DrawStyle;
-        offsetY = edit_fixY + Style.LPadding / 2;
+        offsetY = edit_fixY + Math.round(Style.LPadding / 2);
 
         if (filetype === "lrc") {
             lyric.i = lyric.text.length;
@@ -2542,7 +2542,7 @@ Edit = new function (Style, p) {
         p.setWordbreakList(true);
         p.buildDrawStyle();
         DrawStyle = p.DrawStyle;
-        n === 2 && (offsetY = edit_fixY + Style.LPadding / 2 - DrawStyle[lyric.i - 1].y);
+        n === 2 && (offsetY = edit_fixY + Math.round(Style.LPadding / 2) - DrawStyle[lyric.i - 1].y);
 
         window.Repaint();
     };
@@ -2654,7 +2654,7 @@ Edit = new function (Style, p) {
                 if (p.lineList[i] > time) break;
 
             lyric.i = i;
-            offsetY = edit_fixY + Style.LPadding / 2 - DrawStyle[lyric.i - 1].y;
+            offsetY = edit_fixY + Math.round(Style.LPadding / 2) - DrawStyle[lyric.i - 1].y;
             window.Repaint();
             this.pauseTimer(fb.IsPaused);
         };
@@ -2687,7 +2687,7 @@ Edit = new function (Style, p) {
             prop.Edit.View = false;
             this.pauseTimer(true);
             lyric.i = this.i; // ビューモードに入る前の状態に戻す
-            offsetY = edit_fixY + Style.LPadding / 2 - DrawStyle[lyric.i - 1].y;
+            offsetY = edit_fixY + Math.round(Style.LPadding / 2) - DrawStyle[lyric.i - 1].y;
             lyric.i === lyric.text.length && Edit.undo();
             Edit.calcRGBdiff();
         };
