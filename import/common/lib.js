@@ -593,27 +593,35 @@ function getLineFeedCode(str) {
 }
 
 //-- Build Menu --
-function buildMenu(items, parentMenu, flag, text, radio) {
+function buildMenu(items, parentMenu, flag, caption, radio) {
+    if (arguments.length === 1) buildMenu.init();
+
     var _menu = window.CreatePopupMenu();
-    var start_idx = idx;
+    var start_idx = buildMenu.idx;
     if (parentMenu)
-        _menu.AppendTo(parentMenu, flag, text);
-    if (typeof items === "function") {
+        _menu.AppendTo(parentMenu, flag, caption);
+    if (items instanceof Function) {
         items(_menu);
         return;
     }
     for (var i = 0; i < items.length; i++) {
+        flag = (items[i].Flag instanceof Function) ? items[i].Flag() : items[i].Flag;
+        caption = (items[i].Caption instanceof Function) ? items[i].Caption() : items[i].Caption;
         if (items[i].Sub) {
-            arguments.callee(items[i].Sub, _menu, items[i].Flag, items[i].Caption, items[i].Radio);
+            arguments.callee(items[i].Sub, _menu, flag, caption, Number(items[i].Radio instanceof Function ? items[i].Radio() : items[i].Radio));
             continue;
         }
-        _menu.AppendMenuItem(items[i].Flag, idx, items[i].Caption);
-        item_list[idx++] = items[i];
+        _menu.AppendMenuItem(flag, buildMenu.idx, caption);
+        buildMenu.item_list[buildMenu.idx++] = items[i];
     }
 
-    (typeof radio == "number") && _menu.CheckMenuRadioItem(start_idx, idx - 1, start_idx + radio);
+    isFinite(radio) && _menu.CheckMenuRadioItem(start_idx, buildMenu.idx - 1, start_idx + radio);
     return _menu;
 }
+buildMenu.init = function () {
+    this.item_list = {};
+    this.idx = 1;
+};
 
 //-- Get Charset From Codepage --
 function GetCharsetFromCodepage(codepage) {

@@ -3178,6 +3178,7 @@ Menu = new function () {
 
     var submenu_Display = [ // check/uncheck item
         {
+            Flag: function () { return prop.Style.EnableStyleTextRender ? MF_CHECKED : MF_UNCHECKED; },
             Caption: Label.StyleTextRender,
             Func: function () {
                 window.SetProperty("Style.EnableStyleTextRender", prop.Style.EnableStyleTextRender = !prop.Style.EnableStyleTextRender);
@@ -3187,6 +3188,7 @@ Menu = new function () {
             }
         },
         {
+            Flag: function () { return prop.Style.Font_Bold ? MF_CHECKED : MF_UNCHECKED; },
             Caption: Label.Bold,
             Func: function () {
                 window.SetProperty("Style.Font-Bold", prop.Style.Font_Bold = !prop.Style.Font_Bold);
@@ -3197,6 +3199,7 @@ Menu = new function () {
             }
         },
         {
+            Flag: function () { return prop.Style.Shadow ? MF_CHECKED : MF_UNCHECKED; },
             Caption: Label.Shadow,
             Func: function () {
                 window.SetProperty("Style.Text-Shadow", prop.Style.Shadow = !prop.Style.Shadow);
@@ -3206,6 +3209,7 @@ Menu = new function () {
             }
         },
         {
+            Flag: function () { return prop.Style.Font_Italic ? MF_CHECKED : MF_UNCHECKED; },
             Caption: Label.Italic,
             Func: function () {
                 window.SetProperty("Style.Font-Italic", prop.Style.Font_Italic = !prop.Style.Font_Italic);
@@ -3216,6 +3220,7 @@ Menu = new function () {
             }
         },
         {
+            Flag: function () { return prop.Panel.BackgroundEnable ? MF_CHECKED : MF_UNCHECKED; },
             Caption: Label.BEnable,
             Func: function () {
                 window.SetProperty("Panel.Background.Enable", prop.Panel.BackgroundEnable = !prop.Panel.BackgroundEnable);
@@ -3231,6 +3236,7 @@ Menu = new function () {
             }
         },
         {
+            Flag: function () { return prop.Panel.BackgroundBlur ? MF_CHECKED : MF_UNCHECKED; },
             Caption: Label.BBlur,
             Func: function () {
                 window.SetProperty("Panel.Background.Blur", prop.Panel.BackgroundBlur = !prop.Panel.BackgroundBlur);
@@ -3244,6 +3250,7 @@ Menu = new function () {
             }
         },
         {
+            Flag: function () { return prop.Panel.MouseWheelSmoothing ? MF_CHECKED : MF_UNCHECKED; },
             Caption: Label.WheelSmoothing,
             Func: function () {
                 window.SetProperty("Panel.MouseWheelSmoothing", prop.Panel.MouseWheelSmoothing = !prop.Panel.MouseWheelSmoothing);
@@ -3251,6 +3258,7 @@ Menu = new function () {
             }
         },
         {
+            Flag: function () { return prop.Style.Fading ? MF_CHECKED : MF_UNCHECKED; },
             Caption: Label.Fading,
             Func: function () {
                 window.SetProperty("Style.Fading", prop.Style.Fading = !prop.Style.Fading);
@@ -3262,6 +3270,7 @@ Menu = new function () {
             Flag: MF_SEPARATOR
         },
         {
+            Flag: function () { return prop.Style.Highline ? MF_CHECKED : MF_UNCHECKED; },
             Caption: Label.Highline,
             Func: function () {
                 window.SetProperty("Style.HighlineColor for unsynced lyrics", prop.Style.Highline = !prop.Style.Highline);
@@ -3270,6 +3279,7 @@ Menu = new function () {
             }
         },
         {
+            Flag: function () { return prop.Panel.ExpandRepetition ? MF_CHECKED : MF_UNCHECKED; },
             Caption: Label.ExpandR,
             Func: function () {
                 window.SetProperty("Panel.ExpandRepetition", prop.Panel.ExpandRepetition = !prop.Panel.ExpandRepetition);
@@ -3280,6 +3290,7 @@ Menu = new function () {
             Flag: MF_SEPARATOR
         },
         {
+            Flag: function () { return prop.Panel.Contain ? MF_CHECKED : MF_UNCHECKED; },
             Caption: Label.Contain,
             Func: function () {
                 window.SetProperty("Panel.LRC.ContainNormalLines", prop.Panel.Contain = !prop.Panel.Contain);
@@ -3287,6 +3298,7 @@ Menu = new function () {
             }
         },
         {
+            Flag: function () { return prop.Panel.ScrollToCenter ? MF_CHECKED : MF_UNCHECKED; },
             Caption: Label.ScrollToCenter,
             Func: function () {
                 window.SetProperty("Panel.LRC.ScrollToCenter", prop.Panel.ScrollToCenter = !prop.Panel.ScrollToCenter);
@@ -3294,6 +3306,7 @@ Menu = new function () {
             }
         },
         {
+            Flag: function () { return prop.Style.FadeInPlayingColor ? MF_CHECKED : MF_UNCHECKED; },
             Caption: Label.FadeInPlayingColor,
             Func: function () {
                 window.SetProperty("Style.FadeInPlayingColor", prop.Style.FadeInPlayingColor = !prop.Style.FadeInPlayingColor);
@@ -3302,6 +3315,7 @@ Menu = new function () {
             }
         },
         {
+            Flag: function () { return prop.Style.KeepPlayingColor ? MF_CHECKED : MF_UNCHECKED; },
             Caption: Label.KeepPlayingColor,
             Func: function () {
                 window.SetProperty("Style.KeepPlayingColor", prop.Style.KeepPlayingColor = !prop.Style.KeepPlayingColor);
@@ -3408,6 +3422,7 @@ Menu = new function () {
     //=============
     var menu_LyricShow = [
         {
+            Flag: function () { return fb.IsPlaying ? MF_STRING : MF_GRAYED; },
             Caption: Label.Refresh,
             Func: main
         },
@@ -3415,6 +3430,7 @@ Menu = new function () {
             Flag: MF_SEPARATOR
         },
         {
+            Flag: function () { return lyric ? MF_STRING : MF_GRAYED; },
             Caption: Label.Edit,
             Func: function () {
                 Edit.start();
@@ -3424,7 +3440,8 @@ Menu = new function () {
             Flag: MF_SEPARATOR
         },
         {
-            Caption: null,
+            Flag: function () { return lyric ? MF_STRING : MF_GRAYED; },
+            Caption: function () { return prop.Panel.AutoScroll ? Label.ForbidAutoScroll : Label.AllowAutoScroll },
             Func: function () {
                 window.SetProperty("Panel.AutoScroll", prop.Panel.AutoScroll = !prop.Panel.AutoScroll);
                 movable = prop.Panel.AutoScroll;
@@ -3434,9 +3451,10 @@ Menu = new function () {
             }
         },
         {
+            Flag: function () { return filetype === "lrc" ? MF_STRING : MF_GRAYED; },
             Caption: Label.ChangeScroll,
             Sub: submenu_ScrollType,
-            Radio: null
+            Radio: function () { return prop.Panel.ScrollType - 1; } // radio number begin with 0
         },
         {
             Flag: MF_SEPARATOR
@@ -3450,18 +3468,34 @@ Menu = new function () {
             Flag: MF_STRING,
             Caption: Label.Align,
             Sub: submenu_Align,
-            Radio: null
+            Radio: function () { // radio number begin with 0
+                switch (Number(window.GetProperty("Style.Align"))) {
+                    case 0: return 0; // Left
+                    case 1: return 3; // Center
+                    case 2: return 6; // Right
+                    case 3: return 1; // Left_Center
+                    case 4: return 2; // Center_Left
+                    case 5: return 4; // Center_Right
+                    case 6: return 5; // Right_Center
+                }
+            }
         },
         {
             Flag: MF_STRING,
             Caption: Label.Color,
             Sub: submenu_Color_LyricShow,
-            Radio: null
+            Radio: function () { // radio number begin with 0
+                for (var i = 0; i < submenu_Color_LyricShow.length; i++) {
+                    if (submenu_Color_LyricShow[i].Caption === prop.Style.CSLS)
+                        return i;
+                }
+            }
         },
         {
             Flag: MF_SEPARATOR
         },
         {
+            Flag: function () { return lyric ? MF_STRING : MF_GRAYED; },
             Caption: Label.About,
             Func: function () {
                 if (!lyric) return;
@@ -3487,16 +3521,19 @@ Menu = new function () {
             }
         },
         {
+            Flag: function () { return lyric ? MF_STRING : MF_GRAYED; },
             Caption: Label.Copy,
             Sub: submenu_Copy
         },
         {
+            Flag: function () { return lyric ? MF_STRING : MF_GRAYED; },
             Caption: Label.SaveToTag,
             Func: function () {
                 saveToTag(getFieldName());
             }
         },
         {
+            Flag: function () { return lyric ? MF_STRING : MF_GRAYED; },
             Caption: Label.SaveToFile,
             Func: function () {
                 saveToFile(parse_path + (filetype === "lrc" ? ".lrc" : ".txt"));
@@ -3506,6 +3543,7 @@ Menu = new function () {
             Flag: MF_SEPARATOR
         },
         {
+            Flag: function () { return fb.IsPlaying ? MF_STRING : MF_GRAYED; },
             Caption: Label.GetClipboard + "\tCtrl+V",
             Func: function () {
                 getLyricFromClipboard();
@@ -3518,6 +3556,7 @@ Menu = new function () {
             }
         },
         {
+            Flag: function () { return fb.IsPlaying ? MF_STRING : MF_GRAYED; },
             Caption: Label.Open,
             Func: function () {
                 var filter = "Lyric Files(*.lrc;*.txt)|*.txt;*.lrc|LRC Files(*.lrc)|*.lrc|Text Files(*.txt)|*.txt";
@@ -3530,6 +3569,7 @@ Menu = new function () {
             Flag: MF_SEPARATOR
         },
         {
+            Flag: function () { return path ? MF_STRING : MF_GRAYED; },
             Caption: Label.OpenIn,
             Func: function () {
                 if (path) {
@@ -3541,6 +3581,7 @@ Menu = new function () {
             }
         },
         {
+            Flag: function () { return fb.IsPlaying ? MF_STRING : MF_GRAYED; },
             Caption: Label.OpenFolder,
             Func: function () {
                 if (path)
@@ -3553,6 +3594,7 @@ Menu = new function () {
 
     var menu_Edit = [
         {
+            Flag: function () { return prop.Edit.View ? MF_CHECKED : MF_UNCHECKED; },
             Caption: Label.View,
             Func: Edit.switchView
         },
@@ -3560,6 +3602,7 @@ Menu = new function () {
             Flag: MF_SEPARATOR
         },
         {
+            Flag: function () { return; },
             Caption: Label.LyricShow,
             Func: function () {
                 main();
@@ -3569,12 +3612,14 @@ Menu = new function () {
             Flag: MF_SEPARATOR
         },
         {
+            Flag: function () { return (prop.Edit.View && Edit.View.i === lyric.text.length) ? MF_STRING : MF_GRAYED; },
             Caption: Label.SaveToTag,
             Func: function () {
                 saveToTag(getFieldName());
             }
         },
         {
+            Flag: function () { return (prop.Edit.View && Edit.View.i === lyric.text.length) ? MF_STRING : MF_GRAYED; },
             Caption: Label.SaveToFile,
             Func: function () {
                 saveToFile(parse_path + ".lrc");
@@ -3584,18 +3629,21 @@ Menu = new function () {
             Flag: MF_SEPARATOR
         },
         {
+            Flag: MF_STRING,
             Caption: Label.EditLine,
             Func: function () {
                 Edit.controlLine(2);
             }
         },
         {
+            Flag: function () { return prop.Edit.View ? MF_GRAYED : MF_STRING; },
             Caption: Label.InsertLine,
             Func: function () {
                 Edit.controlLine(1);
             }
         },
         {
+            Flag: function () { return prop.Edit.View ? MF_GRAYED : MF_STRING; },
             Caption: Label.DeleteLine,
             Func: function () {
                 Edit.controlLine(-1);
@@ -3608,9 +3656,15 @@ Menu = new function () {
             Flag: MF_STRING,
             Caption: Label.Color,
             Sub: submenu_Color_Edit,
-            Radio: null
+            Radio: function () { // radio number begin with 0
+                for (var i = 0; i < submenu_Color_Edit.length; i++) {
+                    if (submenu_Color_Edit[i].Caption === prop.Style.CSE)
+                        return i;
+                }
+            }
         },
         {
+            Flag: function () { return prop.Edit.Rule ? MF_CHECKED : MF_UNCHECKED; },
             Caption: Label.Rule,
             Func: function () {
                 window.SetProperty("Edit.ShowRuledLine", prop.Edit.Rule = !prop.Edit.Rule);
@@ -3622,6 +3676,7 @@ Menu = new function () {
             Flag: MF_SEPARATOR
         },
         {
+            Flag: function () { return fs.FileExists(parse_path + ".txt") ? MF_STRING : MF_GRAYED; },
             Caption: Label.DeleteFile,
             Func: function () {
                 Edit.deleteFile(parse_path + ".txt");
@@ -3656,10 +3711,10 @@ Menu = new function () {
             Sub: function (IMenuObj) {
                 var _context = fb.CreateContextMenuManager();
                 _context.InitNowPlaying();
-                _context.BuildMenu(IMenuObj, idx, -1);
+                _context.BuildMenu(IMenuObj, buildMenu.idx, -1);
 
-                item_list._context = _context;
-                item_list._contextIdx = idx;
+                buildMenu.item_list._context = _context;
+                buildMenu.item_list._contextIdx = buildMenu.idx;
             }
         }
     ];
@@ -3718,136 +3773,38 @@ Menu = new function () {
     //========
     this.LyricShow = {
         id: "LyricShow",
-        items: menu_LyricShow,
-        refresh: function () {
-            submenu_Display[0].Flag = prop.Style.EnableStyleTextRender ? MF_CHECKED : MF_UNCHECKED;
-            submenu_Display[1].Flag = prop.Style.Font_Bold ? MF_CHECKED : MF_UNCHECKED;
-            submenu_Display[2].Flag = prop.Style.Shadow ? MF_CHECKED : MF_UNCHECKED;
-            submenu_Display[3].Flag = prop.Style.Font_Italic ? MF_CHECKED : MF_UNCHECKED;
-            submenu_Display[4].Flag = prop.Panel.BackgroundEnable ? MF_CHECKED : MF_UNCHECKED;
-            submenu_Display[5].Flag = prop.Panel.BackgroundBlur ? MF_CHECKED : MF_UNCHECKED;
-            submenu_Display[6].Flag = prop.Panel.MouseWheelSmoothing ? MF_CHECKED : MF_UNCHECKED;
-            submenu_Display[7].Flag = prop.Style.Fading ? MF_CHECKED : MF_UNCHECKED;
-            submenu_Display[9].Flag = prop.Style.Highline ? MF_CHECKED : MF_UNCHECKED;
-            submenu_Display[10].Flag = prop.Panel.ExpandRepetition ? MF_CHECKED : MF_UNCHECKED;
-            submenu_Display[12].Flag = prop.Panel.Contain ? MF_CHECKED : MF_UNCHECKED;
-            submenu_Display[13].Flag = prop.Panel.ScrollToCenter ? MF_CHECKED : MF_UNCHECKED;
-            submenu_Display[14].Flag = prop.Style.FadeInPlayingColor ? MF_CHECKED : MF_UNCHECKED;
-            submenu_Display[15].Flag = prop.Style.KeepPlayingColor ? MF_CHECKED : MF_UNCHECKED;
-
-            menu_LyricShow[5].Radio = prop.Panel.ScrollType - 1; // radio number begin with 0
-            switch (Number(window.GetProperty("Style.Align"))) {
-                case 0: // Left
-                    menu_LyricShow[8].Radio = 0; break;
-                case 1: // Center
-                    menu_LyricShow[8].Radio = 3; break;
-                case 2: // Right
-                    menu_LyricShow[8].Radio = 6; break;
-                case 3: // Left_Center
-                    menu_LyricShow[8].Radio = 1; break;
-                case 4: // Center_Left
-                    menu_LyricShow[8].Radio = 2; break;
-                case 5: // Center_Right
-                    menu_LyricShow[8].Radio = 4; break;
-                case 6: // Right_Center
-                    menu_LyricShow[8].Radio = 5; break;
-            }
-            switch (prop.Style.CSLS) {
-                case "white":
-                    menu_LyricShow[9].Radio = 0; break;
-                case "black":
-                    menu_LyricShow[9].Radio = 1; break;
-                case "user":
-                    menu_LyricShow[9].Radio = 2; break;
-            }
-            switch (prop.Style.DrawingMethod) {
-                case 0:
-                    menu_LyricShow[10].Radio = 0; break;
-                case 1:
-                    menu_LyricShow[10].Radio = 1; break;
-                case 2:
-                    menu_LyricShow[10].Radio = 2; break;
-            }
-            menu_LyricShow[19].Flag = path ? MF_STRING : MF_GRAYED;
-            menu_LyricShow[4].Caption = prop.Panel.AutoScroll ? Label.ForbidAutoScroll : Label.AllowAutoScroll;
-
-            if (lyric) {
-                menu_LyricShow[2].Flag = MF_STRING;
-                menu_LyricShow[4].Flag = MF_STRING;
-                menu_LyricShow[5].Flag = filetype === "lrc" ? MF_STRING : MF_GRAYED;
-                menu_LyricShow[11].Flag = MF_STRING;
-                menu_LyricShow[12].Flag = MF_STRING;
-                menu_LyricShow[13].Flag = MF_STRING;
-                menu_LyricShow[14].Flag = MF_STRING;
-            }
-            else {
-                menu_LyricShow[2].Flag = menu_LyricShow[4].Flag = menu_LyricShow[5].Flag = menu_LyricShow[11].Flag = menu_LyricShow[12].Flag = menu_LyricShow[13].Flag = menu_LyricShow[14].Flag = MF_GRAYED;
-            }
-
-            if (fb.IsPlaying) {
-                menu_LyricShow[0].Flag = MF_STRING;
-                menu_LyricShow[16].Flag = MF_STRING;
-                menu_LyricShow[17].Flag = MF_STRING;
-                menu_LyricShow[20].Flag = MF_STRING;
-            }
-            else
-                menu_LyricShow[0].Flag = menu_LyricShow[16].Flag = menu_LyricShow[17].Flag = menu_LyricShow[20].Flag = MF_GRAYED;
-        }
+        items: menu_LyricShow
     };
 
     this.Edit = {
         id: "Edit",
-        items: menu_Edit,
-        refresh: function () {
-            menu_Edit[0].Flag = prop.Edit.View ? MF_CHECKED : MF_UNCHECKED;
-            menu_Edit[4].Flag = (prop.Edit.View && Edit.View.i === lyric.text.length) ? MF_STRING : MF_GRAYED;
-            menu_Edit[5].Flag = (prop.Edit.View && Edit.View.i === lyric.text.length) ? MF_STRING : MF_GRAYED;
-            menu_Edit[8].Flag = prop.Edit.View ? MF_GRAYED : MF_STRING;
-            menu_Edit[9].Flag = prop.Edit.View ? MF_GRAYED : MF_STRING;
-            switch (prop.Style.CSE) {
-                case "white":
-                    menu_Edit[11].Radio = 0; break;
-                case "black":
-                    menu_Edit[11].Radio = 1; break;
-                case "user":
-                    menu_Edit[11].Radio = 2; break;
-            }
-            menu_Edit[12].Flag = prop.Edit.Rule ? MF_CHECKED : MF_UNCHECKED;
-            menu_Edit[14].Flag = fs.FileExists(parse_path + ".txt") ? MF_STRING : MF_GRAYED;
-        }
+        items: menu_Edit
     };
 
     this.Save = {
         id: "Save",
-        items: menu_Save,
-        refresh: function () { }
+        items: menu_Save
     };
 
     this.Plugins = {
         id: "Plugins",
-        items: submenu_Plugins,
-        refresh: function () { }
+        items: submenu_Plugins
     };
 
     //=====
     //  build
     //=====
     this.build = function (mobj) {
-        this.init();
+        _menu && _menu.Dispose();
+
         mobj = mobj || this.LyricShow;
-        mobj.refresh();
         _menu = buildMenu(mobj.items);
         this.id = mobj.id;
     };
 
-    this.init = function () {
-        _menu && _menu.Dispose();
-        item_list = {};
-        idx = 1;
-    };
-
     this.show = function (x, y) {
         Lock_MiddleButton = true;
+        var item_list = buildMenu.item_list;
         var ret = _menu.TrackPopupMenu(x, y);
         //console(ret);
         if (ret !== 0) {
@@ -3865,7 +3822,7 @@ Menu = new function () {
 
     this.addToMenu_LyricShow = function (items) {
         var temp = menu_LyricShow.splice(menu_LyricShow.length - 2, 2);
-        menu_LyricShow = menu_LyricShow.concat(items).concat(temp);
+        menu_LyricShow = menu_LyricShow.concat(items, temp);
         this.LyricShow.items = menu_LyricShow;
     };
 };
