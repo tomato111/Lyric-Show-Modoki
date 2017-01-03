@@ -428,7 +428,8 @@ LanguageLoader = {
             Deleted: new Message(lang1.Deleted || lang0.Deleted, scriptName, 64),
             FailedToSaveLyricsToTag: new Message(lang1.FailedToSaveLyricsToTag || lang0.FailedToSaveLyricsToTag, scriptName, 48),
             FailedToReadText: new Message(lang1.FailedToReadText || lang0.FailedToReadText, scriptName, 48),
-            GetClipboard: new Message(lang1.GetClipboard || lang0.GetClipboard, scriptName, 48)
+            GetClipboard: new Message(lang1.GetClipboard || lang0.GetClipboard, scriptName, 48),
+            LargeFieldsConfig: new Message(lang1.LargeFieldsConfig || lang0.LargeFieldsConfig, scriptName, 48)
         };
 
         lang0 = languages[0].items.Label;
@@ -891,6 +892,8 @@ LyricShow = new function (Style) {
         var str = FileInfo.MetaValue(idx, 0); // second arguments is numbar for multivalue. e.g.) ab;cde;f
 
         if (!str) return;
+        if (str === ".")
+            Messages.LargeFieldsConfig.fbpopup();
 
         if (/^LYRICS$/.test(tag)) {
             fieldname = "LYRICS";
