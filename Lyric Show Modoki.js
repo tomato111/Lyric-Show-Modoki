@@ -3,7 +3,7 @@
 
 // ==PREPROCESSOR==
 // @name "Lyric Show Modoki"
-// @version "1.6.6"
+// @version "1.6.7"
 // @author "tomato111"
 // @import "%fb2k_profile_path%import\common\lib.js"
 // ==/PREPROCESSOR==
@@ -23,7 +23,7 @@ var fs = new ActiveXObject("Scripting.FileSystemObject"); // File System Object
 var ws = new ActiveXObject("WScript.Shell"); // WScript Shell Object
 var Trace = new TraceLog();
 var scriptName = "Lyric Show Modoki";
-var scriptVersion = "1.6.6";
+var scriptVersion = "1.6.7";
 var scriptdir = fb.ProfilePath + "import\\" + scriptName + "\\";
 var commondir = fb.ProfilePath + "import\\common\\";
 var down_pos = {};
@@ -79,7 +79,7 @@ prop = new function () {
         Path: window.GetProperty("Panel.Path", defaultpath),
         PathFuzzyLevel: window.GetProperty("Panel.Path.FuzzyLevel", 0),
         Lang: window.GetProperty("Panel.Language", ""),
-        Conf: window.GetProperty("Panel.HideConfigureMenu", false),
+        HideConf: window.GetProperty("Panel.HideConfigureMenu", false),
         Interval: 15, // Don't change
         Editor: window.GetProperty("Panel.ExternalEditor", ""),
         NoLyric: window.GetProperty("Panel.NoLyricsFound", "Title: %title%\\nArtist: %artist%\\nAlbum: %album%\\n\\n-no lyrics-"),
@@ -1572,7 +1572,7 @@ LyricShow = new function (Style) {
                             gr.DrawImage(this.textImg, x, y, w, h, 0, 0, w, h, 0, alpha);
                         else if (this.i === lyric.i - 1) {
                             Style.FadeInPlayingColor && gr.DrawImage(this.textImg, x, y, w, h, 0, 0, w, h, 0, alpha);
-                            gr.DrawImage(this.textHighlineImg, x, y, w, h, 0, 0, w, h, 0, Style.FadeInPlayingColor ? Math.min(LyricShow.on_paintInfo.dpi / 48 * 255, alpha) : alpha);
+                            gr.DrawImage(this.textHighlineImg, x, y, w, h, 0, 0, w, h, 0, Style.FadeInPlayingColor ? (LyricShow.on_paintInfo.dpi / 48) * alpha : alpha);
                         }
                         else
                             gr.DrawImage(this.textHighlineImg, x, y, w, h, 0, 0, w, h, 0, alpha);
@@ -1617,7 +1617,7 @@ LyricShow = new function (Style) {
                             gr.DrawImage(this.textImg, x, y, w, h, 0, 0, w, h, 0, alpha);
                         else if (this.i === lyric.i - 1) {
                             Style.FadeInPlayingColor && gr.DrawImage(this.textImg, x, y, w, h, 0, 0, w, h, 0, alpha);
-                            gr.DrawImage(this.textHighlineImg, x, y, w, h, 0, 0, w, h, 0, Style.FadeInPlayingColor ? (LyricShow.on_paintInfo.dpi / 48 * 255) * alpha / 255 : alpha);
+                            gr.DrawImage(this.textHighlineImg, x, y, w, h, 0, 0, w, h, 0, Style.FadeInPlayingColor ? (LyricShow.on_paintInfo.dpi / 48) * alpha : alpha);
                         }
                         else
                             gr.DrawImage(this.textHighlineImg, x, y, w, h, 0, 0, w, h, 0, alpha);
@@ -3400,9 +3400,7 @@ Menu = new function () {
         return items;
     }
 
-    if (plugins) {
-        var submenu_Plugins = createPluginMenuItems(plugins); // normal item
-    }
+    var submenu_Plugins = createPluginMenuItems(plugins); // normal item
 
     function createPluginMenuItems(plugins) {
         var items = [], item;
@@ -3424,7 +3422,16 @@ Menu = new function () {
                 }
             }
         }
-
+        items.push(
+            {
+                Flag: MF_SEPARATOR
+            },
+            {
+                Flag: MF_STRING,
+                Caption: Label.OpenPluginsFolder,
+                Func: function () { FuncCommand(scriptdir + "plugins\\"); }
+            }
+        );
         return items;
     }
 
@@ -3600,8 +3607,17 @@ Menu = new function () {
                 else if (directory)
                     FuncCommand(directory);
             }
+        },
+        {
+            Flag: MF_SEPARATOR
+        },
+        {
+            Flag: MF_STRING,
+            Caption: Label.Plugins,
+            Sub: submenu_Plugins
         }
     ];
+
 
     var menu_Edit = [
         {
@@ -3695,6 +3711,7 @@ Menu = new function () {
         }
     ];
 
+
     var common = [
         {
             Flag: MF_SEPARATOR
@@ -3714,6 +3731,11 @@ Menu = new function () {
             }
         },
         {
+            Flag: function () { return prop.Panel.HideConf ? null : MF_STRING; },
+            Caption: Label.Conf,
+            Func: function () { window.ShowConfigure(); }
+        },
+        {
             Flag: MF_SEPARATOR
         },
         { // mustn't add a item after this
@@ -3730,35 +3752,8 @@ Menu = new function () {
         }
     ];
 
-
-    if (submenu_Plugins) // Insert plugin items
-        menu_LyricShow = menu_LyricShow.concat(
-            {
-                Flag: MF_SEPARATOR
-            },
-            {
-                Flag: MF_STRING,
-                Caption: Label.Plugins,
-                Sub: submenu_Plugins
-            }
-        );
-
     menu_LyricShow = menu_LyricShow.concat(common); // Insert common menuitems
     menu_Edit = menu_Edit.concat(common);
-
-    if (!prop.Panel.Conf) { // Insert "Configure" item
-        var conf = [
-            {
-                Flag: MF_STRING,
-                Caption: Label.Conf,
-                Func: function () { window.ShowConfigure(); }
-            }
-        ];
-        var temp = menu_LyricShow.splice(menu_LyricShow.length - 2, 2);
-        menu_LyricShow = menu_LyricShow.concat(conf, temp);
-        temp = menu_Edit.splice(menu_Edit.length - 2, 2);
-        menu_Edit = menu_Edit.concat(conf, temp);
-    }
 
 
     var menu_Save = [

@@ -607,6 +607,7 @@ function buildMenu(items, parentMenu, flag, caption, radio) {
     for (var i = 0; i < items.length; i++) {
         flag = (items[i].Flag instanceof Function) ? items[i].Flag() : items[i].Flag;
         caption = (items[i].Caption instanceof Function) ? items[i].Caption() : items[i].Caption;
+        if (flag === null) continue;
         if (items[i].Sub) {
             arguments.callee(items[i].Sub, _menu, flag, caption, Number(items[i].Radio instanceof Function ? items[i].Radio() : items[i].Radio));
             continue;
