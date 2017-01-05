@@ -365,8 +365,11 @@ prop = new function () {
 
     // ==Plugin====
     this.Plugin = {
-        Disable: window.GetProperty("Plugin.Disable", "") // set plugin names. (e.g. dplugin_Utamap, oplugin_NewFile_TXT
+        Disable: window.GetProperty("Plugin.Disable", ""), // set plugin's names. (e.g. dplugin_Utamap, oplugin_NewFile_TXT
+        FunctionKey: window.GetProperty("Plugin.FunctionKey", ",,,,,,,,uplugin_Lyric_Show_Modoki").split(",") // set plugin's names. (e.g. ,,dplugin_AZLyrics,,,,,,uplugin_Lyric_Show_Modoki
     };
+
+    this.Plugin.FunctionKey.length = 9;
 };
 
 //========
@@ -3402,19 +3405,24 @@ Menu = new function () {
     }
 
     function createPluginMenuItems(plugins) {
-        var items = [], item, i = 1, FunctionKey = 111;
+        var items = [], item;
         for (var name in plugins) {
             if (!plugins[name].label) // Do not build to menu item if label is not set.
                 continue;
             item = {};
             item["Flag"] = MF_STRING;
-            item["Caption"] = plugins[name].label + (i < 10 ? ("\tF" + i) : "");
+            item["Caption"] = plugins[name].label;
             item["Func"] = function () { if (plugins[arguments.callee.name].onCommand instanceof Function) plugins[arguments.callee.name].onCommand(); };
             item.Func.name = name;
             plugins[name].menuitem = item;
             items.push(item);
-            if (i < 10) // Set Keybind_up (F1～F9) 
-                Keybind.LyricShow_keyup[FunctionKey + i++] = item.Func;
+
+            for (var i = 0; i < prop.Plugin.FunctionKey.length; i++) { // Set Keybind_up (F1～F9) 
+                if (prop.Plugin.FunctionKey[i].trim() === name) {
+                    item.Caption += "\tF" + (i + 1);
+                    Keybind.LyricShow_keyup[112 + i] = item.Func;
+                }
+            }
         }
 
         return items;
@@ -3747,9 +3755,9 @@ Menu = new function () {
             }
         ];
         var temp = menu_LyricShow.splice(menu_LyricShow.length - 2, 2);
-        menu_LyricShow = menu_LyricShow.concat(conf).concat(temp);
+        menu_LyricShow = menu_LyricShow.concat(conf, temp);
         temp = menu_Edit.splice(menu_Edit.length - 2, 2);
-        menu_Edit = menu_Edit.concat(conf).concat(temp);
+        menu_Edit = menu_Edit.concat(conf, temp);
     }
 
 
