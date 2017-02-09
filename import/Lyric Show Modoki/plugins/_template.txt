@@ -2,25 +2,30 @@
     name: 'plugin_test',
     label: 'test_plugin',
     author: 'foo bar',
-    onStartUp: function () { // 最初に一度だけ呼び出される関数
+    onStartUp: function () { // 最初に一度だけ呼び出される
     },
-    onCommand: function () { // プラグインのメニューをクリックすると呼び出される関数
+    onCommand: function () { // プラグインのメニューをクリックすると呼び出される
     	fb.ShowPopupMessage('Test Message', 'Test Title', 0);
     },
-    onPlay: function (metadb) { // 新たに曲が再生された時に呼び出される関数
+    onPlay: function (metadb) { // 新たに曲が再生された時に呼び出される
     },
-    onStop: function (reason) { // 曲の再生が停止または終了した時に呼び出される関数
+    onStop: function (reason) { // 曲の再生が停止または終了した時に呼び出される
     },
-    onPause: function (state) { // 再生が一時停止または解除された時に呼び出される関数
+    onPause: function (state) { // 再生が一時停止または解除された時に呼び出される
     },
-    onSize: function () { // パネルサイズが変化した時に呼び出される関数
+    onSize: function () { // パネルサイズが変化した時に呼び出される
     },
-    onMove: function (x, y) { // パネルにマウスポインタを置くと呼び出され続ける関数
+    onMove: function (x, y) { // パネルにマウスポインタを置くと呼び出され続ける
     },
-    onLeave: function () { // パネルからマウスポインタが離れた時に呼び出される関数
+    onLeave: function () { // パネルからマウスポインタが離れた時に呼び出される
     },
-    onClick: function (x, y, mask) { // パネルクリック時に呼び出される関数 // trueを返すと本体のクリックイベントをキャンセル
+    onClick: function (x, y, mask) { // パネルクリック時に呼び出される // trueを返すと本体のクリックイベントをキャンセル
     },
-    onPaint: function (gr) { // 描画イベントが発生した時に呼び出される関数
+    onPaint: function (gr) { // 描画イベントが発生した時に呼び出される
     }
 };
+
+/*
+nameプロパティ以外は省略可。
+labelプロパティを省略することでメニュー項目を非表示にできる。
+*/
