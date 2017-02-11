@@ -3,7 +3,7 @@
 
 // ==PREPROCESSOR==
 // @name "Lyric Show Modoki"
-// @version "1.6.7"
+// @version "1.6.8"
 // @author "tomato111"
 // @import "%fb2k_profile_path%import\common\lib.js"
 // ==/PREPROCESSOR==
@@ -14,7 +14,7 @@
 //== Global Variable and Function ============
 //============================================
 // user reserved words
-var plugins, lyric, parse_path, path, directory, fieldname, filetype, dataSize, charset, offsetinfo, backalpha, infoPath, backupLyric
+var plugins, lyric, parse_path, path, directory, fieldname, filetype, dataSize, charset, offsetinfo, backalpha, infoPath
 , offsetY, fixY, moveY, lineY, drag, drag_y, g_x, g_y, ww, wh, larea_seek, rarea_seek, seek_width, rarea_seek_x, arc_w, arc_h, ignore_remainder, Lock, Lock_MiddleButton, movable, jumpY
 , Left_Center, Center_Left, Center_Right, Right_Center, centerleftX, TextHeight, TextHeightWithoutLPadding, BackgroundImg
 , prop, LyricShow, Edit, Buttons, StatusBar, Keybind, Menu, Messages, Label;
@@ -23,11 +23,12 @@ var fs = new ActiveXObject("Scripting.FileSystemObject"); // File System Object
 var ws = new ActiveXObject("WScript.Shell"); // WScript Shell Object
 var Trace = new TraceLog();
 var scriptName = "Lyric Show Modoki";
-var scriptVersion = "1.6.7";
+var scriptVersion = "1.6.8";
 var scriptdir = fb.ProfilePath + "import\\" + scriptName + "\\";
 var commondir = fb.ProfilePath + "import\\common\\";
 var down_pos = {};
 var disp = {};
+var backupLyric = [];
 var TextRender = gdi.CreateStyleTextRender();
 var DT_LEFT = 0x00000000;
 var DT_CENTER = 0x00000001;
@@ -992,8 +993,6 @@ LyricShow = new function (Style) {
                     putTime(ms, j++);
                 }
             }
-
-            this.trimLine_TopAndBottom();
         }
 
         else { // analyze "no lrc"
@@ -1042,14 +1041,13 @@ LyricShow = new function (Style) {
                         } // label END 
                 }
             }
-
-            this.trimLine_TopAndBottom();
         }
 
+        this.trimLine();
         return true;
     };
 
-    this.trimLine_TopAndBottom = function () {
+    this.trimLine = function () {
 
         var text = lyric.text;
 
@@ -1058,18 +1056,30 @@ LyricShow = new function (Style) {
                 text.unshift("[00:00" + prop.Save.TimetagSign + "00]");
         }
         else {
+            for (; ;)
+                if (text[0] === "")
+                    text.shift();
+                else break;
+
+            for (; ;)
+                if (text[text.length - 1] === "")
+                    text.pop();
+                else break;
+
             text.unshift("");
             text.push("");
+        }
+    };
 
-            for (; ;)
-                if (text[1] === "")
-                    text.splice(1, 1);
-                else break;
+    this.backup = function () {
 
-            for (; ;)
-                if (text[text.length - 2] === "")
-                    text.splice(text.length - 2, 1);
-                else break;
+        var LineFeedCode = prop.Save.LineFeedCode;
+        var backup = lyric.text.join(LineFeedCode).trim();
+        if (lyric.info.length)
+            backup = lyric.info.join(LineFeedCode) + LineFeedCode + backup;
+        if (backupLyric[0] !== backup) {
+            backupLyric.unshift(backup);
+            backupLyric.length = 6;
         }
     };
 
@@ -1301,17 +1311,16 @@ LyricShow = new function (Style) {
                     this.textHighlineImg.ReleaseGraphics(canvas);
                 }
             }
-            DrawString.prototype.scroll_0 = function (time) { // for unsynced lyrics
+            DrawString.prototype.scroll_0 = function () { // for unsynced lyrics
                 if (!movable) return;
 
                 offsetY -= this.speed;
                 moveY += this.speed;
 
                 if (moveY >= 1) {
-                    moveY = 1 - Math.abs(offsetY - Math.floor(offsetY));
+                    moveY -= Math.floor(moveY);
                     return true; // refresh flag
                 }
-                // fb.trace(this.i + " :: " + this.height + " :: " + this.speed + " :: " + offsetY + " :: " + lyric.text.length + " :: " + time + " > " + LyricShow.setProperties.DrawStyle[this.i + 1].time * 100)
             };
             DrawString.prototype.scroll_1 = function (time) { // for synced lyrics
                 //--color--
@@ -1756,7 +1765,7 @@ LyricShow = new function (Style) {
             }
         }
         else
-            offsetY = fixY - this.setProperties.h * time / Math.round(fb.PlaybackLength * 100); // パネルの半分 - (1ファイルの高さ * 再生時間の割合)
+            offsetY = fixY - this.setProperties.h * time / (fb.PlaybackLength * 100); // パネルの半分 - (1ファイルの高さ * 再生時間の割合)
 
         if (offsetY === parseInt(offsetY, 10)) // 整数かどうか
             moveY = 0;
@@ -2072,7 +2081,7 @@ LyricShow = new function (Style) {
         this.setProperties.buildDrawStyle();
 
         this.searchLine(fb.PlaybackTime);
-        filetype === "txt" && (function () { offsetY = Math.ceil(offsetY) - (moveY - Math.floor(moveY)); }).timeout(1000); // 再生始めは不安定であるが、非同期歌詞ではlineYでの修正が出来ないのでディレイで一度だけ小数点以下を揃えて安定させる
+        this.backup();
     };
 
     this.end = function () {
@@ -2084,13 +2093,6 @@ LyricShow = new function (Style) {
                 this.setProperties.DrawStyle[i].textHighlineImg.Dispose();
                 this.setProperties.DrawStyle[i].textImg.Dispose();
             }
-
-        if (lyric) { // 直前の歌詞を復元できるようにバックアップしておく
-            var LineFeedCode = prop.Save.LineFeedCode;
-            backupLyric = lyric.text.join(LineFeedCode).trim();
-            if (lyric.info.length)
-                backupLyric = lyric.info.join(LineFeedCode) + LineFeedCode + backupLyric;
-        }
 
         path = directory = dataSize = charset = fieldname = filetype = lyric = offsetinfo = null;
         this.setProperties.lineList = this.setProperties.leftcenterX = this.setProperties.wordbreakList = this.setProperties.wordbreakText = this.setProperties.scrollSpeedList = this.scrollSpeedType2List = this.setProperties.DrawStyle = this.setProperties.h = this.setProperties.minOffsetY = null;
@@ -2112,7 +2114,7 @@ LyricShow = new function (Style) {
             offsetY = LyricShow.setProperties.minOffsetY;
             movable = false; // 移動不可のフラグ
         }
-        LyricShow.setProperties.DrawStyle[lyric.i - 1].scroll_0(fb.PlaybackTime * 100) && LyricShow.repaintRect();
+        LyricShow.setProperties.DrawStyle[lyric.i - 1].scroll_0() && LyricShow.repaintRect();
     };
 
     this.scroll_1 = function () { // timerで呼び出す関数
@@ -2644,13 +2646,6 @@ Edit = new function (Style, p) {
 
     this.View = new function () {
 
-        this.setProperties = function () {
-            p.setLineList(true);
-            p.setWordbreakList(true);
-            p.buildDrawStyle();
-            DrawStyle = p.DrawStyle;
-        };
-
         this.searchLine = function (time) {
             this.pauseTimer(true);
 
@@ -2683,7 +2678,12 @@ Edit = new function (Style, p) {
         this.start = function () {
             prop.Edit.View = true;
             this.i = lyric.i; // ビューモード解除時に元に戻れるように値を退避
-            lyric.i !== lyric.text.length && this.setProperties();
+            if (lyric.i !== lyric.text.length) {
+                p.setLineList(true);
+                p.setWordbreakList(true);
+                p.buildDrawStyle();
+                DrawStyle = p.DrawStyle;
+            }
             Edit.calcRGBdiff();
             this.searchLine(fb.PlaybackTime);
             Menu.build(Menu.Edit);
@@ -2702,9 +2702,9 @@ Edit = new function (Style, p) {
     this.switchView = function () {
 
         prop.Edit.View = !prop.Edit.View;
-        if (prop.Edit.View) Edit.View.start();
+        if (prop.Edit.View) this.View.start();
         else {
-            Edit.View.end();
+            this.View.end();
             window.Repaint();
             Menu.build(Menu.Edit);
         }
@@ -2795,8 +2795,8 @@ Buttons = new function () {
     var buttonlist = [
         {
             Img: gdi.Image(scriptdir + "clear2.png"),
-            X: "window.Width - 4 - (icon_space * 0) - (16 * 1)",
-            Y: "window.Height - 19",
+            X: function () { return window.Width - 4 - (icon_space * 0) - (16 * 1); },
+            Y: function () { return window.Height - 19; },
             Tiptext: Label.Reload,
             Func: function () {
                 main(path || "");
@@ -2805,8 +2805,8 @@ Buttons = new function () {
         },
         {
             Img: gdi.Image(scriptdir + "clear.png"),
-            X: "window.Width - 4 - (icon_space * 1) - (16 * 2)",
-            Y: "window.Height - 19",
+            X: function () { return window.Width - 4 - (icon_space * 1) - (16 * 2); },
+            Y: function () { return window.Height - 19; },
             Tiptext: Label.Clear,
             Func: function () {
                 prop.Edit.View && Edit.View.end();
@@ -2816,8 +2816,8 @@ Buttons = new function () {
         },
         {
             Img: gdi.Image(scriptdir + "align.png"),
-            X: "window.Width - 4 - (icon_space * 3) - (16 * 3)",
-            Y: "window.Height - 19",
+            X: function () { return window.Width - 4 - (icon_space * 3) - (16 * 3); },
+            Y: function () { return window.Height - 19; },
             Tiptext: Label.Align,
             Func: function () {
                 var a = prop.Edit.Align ^ DT_WORDBREAK ^ DT_NOPREFIX;
@@ -2831,8 +2831,8 @@ Buttons = new function () {
         },
         {
             Img: gdi.Image(scriptdir + "offset-.png"),
-            X: "window.Width - 4 - (icon_space * 5) - (16 * 4)",
-            Y: "window.Height - 19",
+            X: function () { return window.Width - 4 - (icon_space * 5) - (16 * 4); },
+            Y: function () { return window.Height - 19; },
             Tiptext: Label.OffsetM,
             Func: function () {
                 Edit.offsetTime(-5);
@@ -2840,8 +2840,8 @@ Buttons = new function () {
         },
         {
             Img: gdi.Image(scriptdir + "offset+.png"),
-            X: "window.Width - 4 - (icon_space * 6) - (16 * 5)",
-            Y: "window.Height - 19",
+            X: function () { return window.Width - 4 - (icon_space * 6) - (16 * 5); },
+            Y: function () { return window.Height - 19; },
             Tiptext: Label.OffsetP,
             Func: function () {
                 Edit.offsetTime(5);
@@ -2851,7 +2851,7 @@ Buttons = new function () {
 
     this.buildButton = function () {
         for (var i = 0; i < buttonlist.length; i++) {
-            button[i] = new Button(buttonlist[i], i);
+            button[i] = new Button(buttonlist[i]);
         }
     };
 
@@ -2876,10 +2876,10 @@ Buttons = new function () {
     };
 
     // Constructor
-    function Button(obj, i) {
+    function Button(obj) {
         this.img = obj.Img;
-        this.x = eval(obj.X);
-        this.y = eval(obj.Y);
+        this.x = obj.X();
+        this.y = obj.Y();
         this.width = obj.Img.width;
         this.height = obj.Img.height;
         this.tiptext = obj.Tiptext;
@@ -3091,14 +3091,14 @@ Menu = new function () {
     //============
     var submenu_Copy = [ // normal item
         {
-            Flag: MF_STRING,
+            Flag: function () { return lyric ? MF_STRING : MF_GRAYED; },
             Caption: Label.CopyWith + "\tCtrl+C",
             Func: function () {
                 copyLyric();
             }
         },
         {
-            Flag: MF_STRING,
+            Flag: function () { return lyric ? MF_STRING : MF_GRAYED; },
             Caption: Label.CopyWithout,
             Func: function () {
                 copyLyric(true);
@@ -3108,10 +3108,49 @@ Menu = new function () {
             Flag: MF_SEPARATOR
         },
         {
-            Flag: MF_STRING,
-            Caption: Label.CopyOnePrevious,
+            Flag: MF_GRAYED,
+            Caption: "[Previous]",
+        },
+        {
+            Flag: function () { return !lyric && backupLyric[0] ? MF_STRING : null; },
+            Caption: function () { return (backupLyric[0] && backupLyric[0].replace(alltagsRE, "").replace(/\[\w+?:.+?\]|\s/g, " ").trim().slice(0, 20)) + "..."; },
             Func: function () {
-                backupLyric && setClipboard(backupLyric);
+                setClipboard(backupLyric[0]);
+            }
+        },
+        {
+            Flag: function () { return backupLyric[1] ? MF_STRING : null; },
+            Caption: function () { return ">" + (backupLyric[1] && backupLyric[1].replace(alltagsRE, "").replace(/\[\w+?:.+?\]|\s/g, " ").trim().slice(0, 20)) + "..."; },
+            Func: function () {
+                setClipboard(backupLyric[1]);
+            }
+        },
+        {
+            Flag: function () { return backupLyric[2] ? MF_STRING : null; },
+            Caption: function () { return ">>" + (backupLyric[2] && backupLyric[2].replace(alltagsRE, "").replace(/\[\w+?:.+?\]|\s/g, " ").trim().slice(0, 19)) + "..."; },
+            Func: function () {
+                setClipboard(backupLyric[2]);
+            }
+        },
+        {
+            Flag: function () { return backupLyric[3] ? MF_STRING : null; },
+            Caption: function () { return ">>>" + (backupLyric[3] && backupLyric[3].replace(alltagsRE, "").replace(/\[\w+?:.+?\]|\s/g, " ").trim().slice(0, 19)) + "..."; },
+            Func: function () {
+                setClipboard(backupLyric[3]);
+            }
+        },
+        {
+            Flag: function () { return backupLyric[4] ? MF_STRING : null; },
+            Caption: function () { return ">>>>" + (backupLyric[4] && backupLyric[4].replace(alltagsRE, "").replace(/\[\w+?:.+?\]|\s/g, " ").trim().slice(0, 18)) + "..."; },
+            Func: function () {
+                setClipboard(backupLyric[4]);
+            }
+        },
+        {
+            Flag: function () { return backupLyric[5] ? MF_STRING : null; },
+            Caption: function () { return ">>>>>" + (backupLyric[5] && backupLyric[5].replace(alltagsRE, "").replace(/\[\w+?:.+?\]|\s/g, " ").trim().slice(0, 18)) + "..."; },
+            Func: function () {
+                setClipboard(backupLyric[5]);
             }
         }
     ];
@@ -3539,7 +3578,7 @@ Menu = new function () {
             }
         },
         {
-            Flag: function () { return lyric ? MF_STRING : MF_GRAYED; },
+            Flag: function () { return lyric || backupLyric[0] ? MF_STRING : MF_GRAYED; },
             Caption: Label.Copy,
             Sub: submenu_Copy
         },
@@ -3623,17 +3662,17 @@ Menu = new function () {
         {
             Flag: function () { return prop.Edit.View ? MF_CHECKED : MF_UNCHECKED; },
             Caption: Label.View,
-            Func: Edit.switchView
+            Func: function () {
+                Edit.switchView();
+            }
         },
         {
             Flag: MF_SEPARATOR
         },
         {
-            Flag: function () { return; },
+            Flag: MF_STRING,
             Caption: Label.LyricShow,
-            Func: function () {
-                main();
-            }
+            Func: main
         },
         {
             Flag: MF_SEPARATOR
@@ -3733,13 +3772,15 @@ Menu = new function () {
         {
             Flag: function () { return prop.Panel.HideConf ? null : MF_STRING; },
             Caption: Label.Conf,
-            Func: function () { window.ShowConfigure(); }
+            Func: function () {
+                window.ShowConfigure();
+            }
         },
         {
             Flag: MF_SEPARATOR
         },
-        { // mustn't add a item after this
-            Flag: MF_STRING,
+        { // Do not add items after this
+            Flag: function () { return fb.IsPlaying ? MF_STRING : MF_GRAYED; },
             Caption: "Now Playing",
             Sub: function (IMenuObj) {
                 var _context = fb.CreateContextMenuManager();
@@ -4078,7 +4119,7 @@ function on_mouse_lbtn_up(x, y, mask) {
             }
         }
     }
-    else if (Buttons.CurrentButton)
+    else if (Buttons.CurrentButton && Buttons.CurrentButton.isMouseOver(x, y))
         Buttons.CurrentButton.Func();
 }
 
