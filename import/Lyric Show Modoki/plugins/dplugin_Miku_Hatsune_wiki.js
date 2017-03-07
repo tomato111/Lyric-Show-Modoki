@@ -43,9 +43,9 @@
 
         function createQuery(word, id) {
             if (id)
-                return 'http://www5.atwiki.jp/hmiku/?page=' + id;
+                return 'https://www5.atwiki.jp/hmiku/?pageid=' + id;
             else
-                return 'http://www5.atwiki.jp/hmiku/?cmd=search&keyword=' + encodeURIComponent(word).replaceEach("'", '%27', '\\(', '%28', '\\)', '%29', '%20', '+', 'g') + '&andor=and&ignore=1';
+                return 'https://www5.atwiki.jp/hmiku/?cmd=search&keyword=' + encodeURIComponent(word).replaceEach("'", '%27', '\\(', '%28', '\\)', '%29', '%20', '+', 'g') + '&andor=and&ignore=1';
         }
 
         function onLoaded(request, depth, file) {
@@ -98,7 +98,7 @@
         function AnalyzePage(resArray, depth) {
             var tmpti, tmpar, backref, id, aimai, isLyric;
 
-            var IdSearchRE = /<a href=".+?&amp;page=(.+?)" title="(.+?)" style=".+?">/; // $1:id, $2:title
+            var IdSearchRE = /<a href=".+?&amp;pageid=(.+?)" title="(.+?)" style=".+?">/; // $1:id, $2:title
             var ContentsSearchRE = /id_[a-z0-9]{8}|^作詞：|^作曲：|^編曲：|^唄：/;
             var LineBreakRE = /<br ?\/>|<\/div>/ig;
             var Ignore1RE = /<a href.+?>|<\/a>|<span.+?>|<\/span>/ig;

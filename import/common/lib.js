@@ -517,7 +517,16 @@ function responseBodyToFile(bin, file) {
 }
 
 function getHTML(data, method, file, async, depth, onLoaded) {
-    var request = new ActiveXObject("Msxml2.XMLHTTP");
+    try {
+        var request = new ActiveXObject("Msxml2.XMLHTTP.6.0");
+    } catch (e) {
+        try {
+            request = new ActiveXObject("Msxml2.XMLHTTP.3.0");
+        } catch (e) {
+            fb.ShowPopupMessage("Error: Failed to create XMLHTTP object");
+            return;
+        }
+    }
 
     request.open(method, file, async);
 
