@@ -1,6 +1,11 @@
-﻿##Installation
+﻿## Installation
 <http://ashiato1.blog62.fc2.com/blog-entry-64.html>
-##History
+## History
+--dev-------------------------------------------------
+
+* DSPによる再生速度の変化を推測し、スクロール量を補正する設定を追加  
+　Panel.GuessPlaybackTempo (再生速度の変更をしていないならfalse推奨)  
+
 --v1.6.10(2017/03/12)-------------------------------------------------
 
 * 1つのサイトの仕様変更に対応  

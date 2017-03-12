@@ -15,8 +15,8 @@
 //============================================
 // user reserved words
 var plugins, lyric, parse_path, path, directory, fieldname, filetype, dataSize, charset, offsetinfo, backalpha, infoPath
-, offsetY, fixY, moveY, lineY, drag, drag_y, g_x, g_y, ww, wh, larea_seek, rarea_seek, seek_width, rarea_seek_x, arc_w, arc_h, ignore_remainder, Lock, Lock_MiddleButton, movable, jumpY
-, Left_Center, Center_Left, Center_Right, Right_Center, centerleftX, TextHeight, TextHeightWithoutLPadding, BackgroundImg
+, offsetY, fixY, drag, drag_y, g_x, g_y, ww, wh, larea_seek, rarea_seek, seek_width, rarea_seek_x, arc_w, arc_h, ignore_remainder, Lock, Lock_MiddleButton, movable, jumpY
+, Left_Center, Center_Left, Center_Right, Right_Center, centerleftX, TextHeight, BackgroundImg
 , prop, LyricShow, Edit, Buttons, StatusBar, Keybind, Menu, Messages, Label;
 
 var fs = new ActiveXObject("Scripting.FileSystemObject"); // File System Object
@@ -109,6 +109,7 @@ prop = new function () {
         MouseWheelSmoothing: window.GetProperty("Panel.MouseWheelSmoothing", true),
         RefreshOnPanelResize: window.GetProperty("Panel.RefreshOnPanelResize", false),
         InfoPath: window.GetProperty("Panel.InfoPath", ""),
+        GuessPlaybackTempo: window.GetProperty("Panel.GuessPlaybackTempo", false),
         Keybind:
         {
             SeekToNextLine: window.GetProperty("Panel.Keybind.SeekToNextLine", 88), // Default is 'X' Key
@@ -202,7 +203,7 @@ prop = new function () {
             Text: eval(window.GetProperty("Style.User.LyricShow.Text", "RGB(190, 190, 190)")),
             TextShadow: eval(window.GetProperty("Style.User.LyricShow.TextShadow", "RGB(55, 55, 55)")),
             TextRound: eval(window.GetProperty("Style.User.LyricShow.TextRound", "RGB(65, 65, 65)")),
-            Background: eval(window.GetProperty("Style.User.LyricShow.Background", "RGBA(75, 75, 75, 255)")),
+            Background: eval(window.GetProperty("Style.User.LyricShow.Background", "RGBA(76, 76, 76, 255)")),
             PlayingText: eval(window.GetProperty("Style.User.LyricShow.PlayingText", "RGB(255, 142, 196)"))
         }
     };
@@ -644,7 +645,6 @@ function copyLyric(withoutTag) { // copy lyric to clipboad
 
 function getLyricFromClipboard() {
 
-    var ws = new ActiveXObject("WScript.Shell");
     var text = getClipboard();
     if (text) {
         main(text);
@@ -798,6 +798,8 @@ LyricShow = new function (Style) {
     var extensionRE = /^lrc|txt$/i;
     var zeroTagRE = /^\[00:00[.:]00\]$/;
     var FuzzyRE = ["", /[ 　]/g, /\(.*?\)/g];
+    var tempo = 1;
+    var moveY, lineY, TextHeightWithoutLPadding;
     var BackgroundPath, BackgroundSize;
 
     this.init = function () {
@@ -1314,8 +1316,9 @@ LyricShow = new function (Style) {
             DrawString.prototype.scroll_0 = function () { // for unsynced lyrics
                 if (!movable) return;
 
-                offsetY -= this.speed;
-                moveY += this.speed;
+                var s = this.speed * tempo;
+                offsetY -= s;
+                moveY += s;
 
                 if (moveY >= 1) {
                     moveY -= Math.floor(moveY);
@@ -1333,9 +1336,10 @@ LyricShow = new function (Style) {
 
                 if (movable) {
                     if (lineY < this.height) { // 移動許可範囲の設定
-                        offsetY -= this.speed;
-                        moveY += this.speed;
-                        lineY += this.speed;
+                        var s = this.speed * tempo;
+                        offsetY -= s;
+                        moveY += s;
+                        lineY += s;
                     }
 
                     if (time >= this.p.lineList[this.i + 1]) {
@@ -1378,15 +1382,17 @@ LyricShow = new function (Style) {
                     if (lineY < this.height) { // 移動許可範囲の設定
                         if (this.speedType2) {
                             if (this.p.lineList[this.i + 1] - time <= prop.Panel.ScrollDurationTime) {
-                                offsetY -= this.speedType2;
-                                moveY += this.speedType2;
-                                lineY += this.speedType2;
+                                var s = this.speedType2 * tempo;
+                                offsetY -= s;
+                                moveY += s;
+                                lineY += s;
                             }
                         }
                         else {
-                            offsetY -= this.speed;
-                            moveY += this.speed;
-                            lineY += this.speed;
+                            s = this.speed * tempo;
+                            offsetY -= s;
+                            moveY += s;
+                            lineY += s;
                         }
                     }
                     else {
@@ -1433,9 +1439,10 @@ LyricShow = new function (Style) {
 
                 if (movable) {
                     if (lineY < this.p.DrawStyle[this.i - 1].height) { // 移動許可範囲の設定
-                        offsetY -= this.speedType3;
-                        moveY += this.speedType3;
-                        lineY += this.speedType3;
+                        var s = this.speedType3 * tempo;
+                        offsetY -= s;
+                        moveY += s;
+                        lineY += s;
                     }
 
                     if (time >= this.p.lineList[this.i + 1]) {
@@ -1816,6 +1823,13 @@ LyricShow = new function (Style) {
 
     this.pauseTimer = function (state) {
 
+        if (prop.Panel.GuessPlaybackTempo) {
+            if (state)
+                this.guessPlaybackTempo.clearInterval();
+            else
+                this.guessPlaybackTempo.interval(1000);
+        }
+
         if (state) {
             for (var i = 0; ; i++)
                 if (this.hasOwnProperty("scroll_" + i))
@@ -1826,6 +1840,19 @@ LyricShow = new function (Style) {
             this.scroll_0.interval(prop.Panel.Interval);
         else
             this["scroll_" + prop.Panel.ScrollType].interval(prop.Panel.Interval);
+    };
+
+    this.guessPlaybackTempo = function () { // for Timer // every second
+
+        var fn = arguments.callee;
+        var t = fb.PlaybackTime;
+        var c = t - fn.time;
+        if (!c)
+            tempo = 1;
+        else if (c > 0)
+            tempo = Math.round(c * 100) / 100;
+
+        fn.time = t;
     };
 
     this.repaintRect = function () {
@@ -3978,9 +4005,11 @@ function on_playback_new_track(metadb) {
 }
 
 function on_playback_seek(time) {
-    if (!prop.Edit.Start) {
-        lyric && LyricShow.searchLine(time);
-    }
+    if (prop.Panel.GuessPlaybackTempo)
+        LyricShow.guessPlaybackTempo.time = time;
+
+    if (!prop.Edit.Start && lyric)
+        LyricShow.searchLine(time);
     else if (prop.Edit.View)
         Edit.View.searchLine(time);
 }
