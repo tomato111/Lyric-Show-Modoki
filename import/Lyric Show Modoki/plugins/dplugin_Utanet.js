@@ -45,7 +45,7 @@
             if (id)
                 return 'http://www.uta-net.com/user/phplib/svg/showkasi.php?ID=' + id + '&WIDTH=560&HEIGHT=1092&FONTSIZE=15&t=1437802371';
             else
-                return 'http://www.uta-net.com/search/?Keyword=' + EscapeSJIS(word).replace(/\+/g, '%2B').replace(/%20/g, '+') + '&x=' + Math.floor((Math.random() * 45 + 1)) + '&y=' + Math.floor((Math.random() * 23 + 1)) + '&Aselect=2&Bselect=1';
+                return 'http://www.uta-net.com/search/?Aselect=2&Keyword=' + encodeURIComponent(word).replaceEach("'", '%27', '\\(', '%28', '\\)', '%29', '!', '%21', '%20', '+', 'g') + '&Bselect=1' + '&x=' + Math.floor((Math.random() * 45 + 1)) + '&y=' + Math.floor((Math.random() * 23 + 1));
         }
 
         function onLoaded(request, depth, file) {
@@ -53,14 +53,8 @@
             StatusBar.show();
             debug_html && fb.trace('\nOpen#' + depth + ': ' + file + '\n');
 
-            if (depth === 0) {
-                var res = request.responseBody;
-                res = responseBodyToCharset(res, 'Shift_JIS'); // fix character corruption
-            }
-            else {
-                res = request.responseBody;
-                res = responseBodyToCharset(res, 'UTF-8'); // fix character corruption
-            }
+            var res = request.responseBody;
+            res = responseBodyToCharset(res, 'UTF-8'); // fix character corruption
 
             debug_html && fb.trace(res);
             var resArray = res.split('\n');
