@@ -60,8 +60,7 @@
             var res = request.responseText;
 
             debug_html && fb.trace(res);
-            var resArray = res.split('\n');
-            var Page = new AnalyzePage(resArray, depth);
+            var Page = new AnalyzePage(res, depth);
 
             if (Page.id) {
                 getHTML(null, 'GET', createQuery(null, null, Page.id), async, ++depth, onLoaded);
@@ -113,14 +112,16 @@
 		              		"&diams;", '♦',
 		              		"&#039;", "'",
 		              		"&quot;", '"',
+                            "&ldquo;", '“',
+                            "&rdquo;", '”',
 		              		"&#064;", "@",
 		              		"g");
         }
 
-        function AnalyzePage(resArray, depth) {
+        function AnalyzePage(res, depth) {
             var tmpti, id, pageTitle;
 
-            var SearchRE = /<h3 class="r"><a href=.+?www.kasi-time.com\/item-(\d+)\.html.+?>(.+?)<\/a>/ig; // $1:id, $2:pageTitle
+            var SearchRE = /<h3 class="r"><a href=.+?www.kasi-time.com\/item-(\d+)\.html.+?>(?:<b>)?(.+?)<\/a>/ig; // $1:id, $2:pageTitle
             var FuzzyRE = /[-.'&＆～・*＊+＋/／!！。,、 　]/g;
 
             var InfoRE = /<meta name="description" content="歌手:(.*?) 作詞:(.*?) 作曲:(.*?) +(?:.+に関連している曲です|歌い出し)/i; // $1:歌手, $2:作詞, $3:作曲
@@ -129,6 +130,7 @@
 
             if (depth === 1) { // lyric
                 onLoaded.info = title + LineFeedCode + LineFeedCode;
+                var resArray = res.split('\n');
                 for (var i = 0; i < resArray.length; i++) {
                     if (InfoRE.test(resArray[i])) {
                         onLoaded.info += '作詞  ' + RegExp.$2 + LineFeedCode
@@ -150,19 +152,14 @@
                     .trim();
             } else { // search
                 tmpti = title.toLowerCase().replace(FuzzyRE, '');
-                for (i = 0; i < resArray.length; i++) {
+                while (SearchRE.exec(res) !== null) {
+                    id = RegExp.$1;
+                    pageTitle = RegExp.$2.decNumRefToString().toLowerCase().replace(FuzzyRE, '');
 
-                    while (SearchRE.exec(resArray[i]) !== null) {
-                        id = RegExp.$1;
-                        pageTitle = RegExp.$2.decNumRefToString().toLowerCase().replace(FuzzyRE, '');
-
-                        if (pageTitle.indexOf(tmpti) === 0) { // Google検索結果はページタイトルが一定の文字数で省略されるため、アーティスト名が途切れやすい。なので曲名が前方一致した時点で取得するようにする
-                            this.id = id;
-                            return;
-                        }
+                    if (pageTitle.indexOf(tmpti) === 0) { // Google検索結果はページタイトルが一定の文字数で省略されるため、アーティスト名が途切れやすい。なので曲名が前方一致した時点で取得するようにする
+                        this.id = id;
+                        return;
                     }
-                    if (id)
-                        break;
                 }
             }
         }
