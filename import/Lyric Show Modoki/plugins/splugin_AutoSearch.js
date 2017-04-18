@@ -43,13 +43,12 @@
                 status += " (Press 'Enter' to switch)";
                 results.push(results.shift());
             }
-            StatusBar.setText(status);
-            StatusBar.show();
-            if (AutoSaveTo)
-                if (/^Tag$/i.test(AutoSaveTo))
-                    saveToTag(getFieldName(), status + '\n');
-                else if (/^File$/i.test(AutoSaveTo))
-                    saveToFile(parse_path + (filetype === 'lrc' ? '.lrc' : '.txt'), status + '\n');
+            StatusBar.showText(status);
+
+            if (/^Tag$/i.test(AutoSaveTo))
+                saveToTag(getFieldName(), status + '\n');
+            else if (/^File$/i.test(AutoSaveTo))
+                saveToFile(parse_path + (filetype === 'lrc' ? '.lrc' : '.txt'), status + '\n');
         };
 
         this.setAutoSearchPluginName = function (pname) {
@@ -61,7 +60,7 @@
             for (var i = 0; i < PluginNames.length;) {
                 if (PluginNames[i] === pname) {
                     PluginNames.splice(i, 1);
-                    StatusBar.setText('OFF : ' + pname);
+                    StatusBar.showText('OFF : ' + pname);
                     del = true;
                 }
                 else
@@ -69,10 +68,9 @@
             }
             if (!del) {
                 PluginNames.push(pname);
-                StatusBar.setText('ON : ' + pname);
+                StatusBar.showText('ON : ' + pname);
             }
 
-            StatusBar.show();
             window.SetProperty('Plugin.Search.AutoSearch', PluginNames.join(', '));
             this.onStartUp();
             if (this.onCommand.AutoSearch) {
@@ -101,8 +99,7 @@
     onCommand: function () { // プラグインのメニューをクリックすると呼び出される関数
         var thisFunc = this.onCommand;
         thisFunc.AutoSearch = !thisFunc.AutoSearch;
-        StatusBar.setText(thisFunc.AutoSearch ? 'AutoSearch: ON' : 'AutoSearch: OFF');
-        StatusBar.show();
+        StatusBar.showText(thisFunc.AutoSearch ? 'AutoSearch: ON' : 'AutoSearch: OFF');
         var flag = thisFunc.AutoSearch ? MF_CHECKED : MF_UNCHECKED;
         this.menuitem.Flag = flag;
         for (var i = 0; i < this.AvailablePluginNames.length; i++) {

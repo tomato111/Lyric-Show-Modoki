@@ -2,7 +2,7 @@
     name: 'splugin_SaveAsImage',
     label: prop.Panel.Lang == 'ja' ? '保存: 画像として保存' : 'Save: Save As Image',
     author: 'tomato111',
-    onStartUp: function () { // 最初に一度だけ呼び出される関数
+    onStartUp: function () { // 最初に一度だけ呼び出される
         this.isAvailable = 'SaveAs' in gdi.CreateImage(1, 1);
         if (!this.isAvailable)
             return;
@@ -36,15 +36,13 @@
         this.fd = new FileDialog(commondir + 'FileDialog.exe -s "' + filter + '" jpg');
         this.fd.setOnReady(saveAsImage);
     },
-    onCommand: function () { // プラグインのメニューをクリックすると呼び出される関数
+    onCommand: function () { // プラグインのメニューをクリックすると呼び出される
         if (!this.isAvailable) {
-            StatusBar.setText(prop.Panel.Lang == 'ja' ? 'このプラグインは JScript Panel 専用です。' : 'JScript Panel Only.');
-            StatusBar.show();
+            StatusBar.showText(prop.Panel.Lang == 'ja' ? 'このプラグインは JScript Panel 専用です。' : 'JScript Panel Only.');
             return;
         }
         if (!lyric) {
-            StatusBar.setText(prop.Panel.Lang == 'ja' ? '歌詞がありません。' : 'Lyric is not found.');
-            StatusBar.show();
+            StatusBar.showText(prop.Panel.Lang == 'ja' ? '歌詞がありません。' : 'Lyric is not found.');
             return;
         }
 

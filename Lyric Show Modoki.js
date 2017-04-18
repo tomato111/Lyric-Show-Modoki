@@ -48,6 +48,7 @@ var MF_CHECKED = 0x00000008;
 var MF_STRING = 0x00000000;
 var VK_SHIFT = 0x10;
 var VK_CONTROL = 0x11;
+var ASYNC = true;
 var alltagsRE = /\[\d\d\d?:\d\d[.:]\d\d\]/g;
 var tagTimeRE = /^\[(\d\d\d?):(\d\d)[.:](\d\d)\]/;
 var isSyncRE = /^\[\d\d\d?:\d\d[.:]\d\d\]/m;
@@ -368,7 +369,7 @@ prop = new function () {
     // ==Plugin====
     this.Plugin = {
         Disable: window.GetProperty("Plugin.Disable", ""), // set plugin's names. (e.g. dplugin_Utamap, oplugin_NewFile_TXT
-        FunctionKey: window.GetProperty("Plugin.FunctionKey", ",,,,,,,,uplugin_Lyric_Show_Modoki").split(",") // set plugin's names. (e.g. ,,dplugin_AZLyrics,,,,,,uplugin_Lyric_Show_Modoki
+        FunctionKey: window.GetProperty("Plugin.FunctionKey", "splugin_AutoSearch,,,,,,,,uplugin_Lyric_Show_Modoki").split(",") // set plugin's names. (e.g. ,,dplugin_AZLyrics,,,,,,uplugin_Lyric_Show_Modoki
     };
 
     this.Plugin.FunctionKey.length = 9;
@@ -621,9 +622,7 @@ function putTime(n, i) { // add timetag to i line
 
 function doubleFig(num) { // 桁合わせ
 
-    if (num < 10)
-        num = "0" + num;
-    return num;
+    return (num < 10) ? "0" + num : num;
 }
 
 function copyLyric(withoutTag) { // copy lyric to clipboad
@@ -1227,7 +1226,7 @@ LyricShow = new function (Style) {
                     n = Math.floor(t / interval); // 更新可能回数
                     t = n * interval || 1; // 次の行までの時間を更新可能回数を考慮した時間に変換する // 変換した時間を基準に移動量を計算
                     scrollSpeedList[i] = h / t * interval; // 1回の更新での移動量(行ごとに変化する)
-                    scrollSpeedType2List[i] = t >= prop.Panel.ScrollDurationTime * 10 ? h / (prop.Panel.ScrollDurationTime * 9.7) * interval : null; // Panel.ScrollType === 2 での1回の更新の移動量. スクロール開始は(prop.Panel.ScrollDurationTime*10)ミリ秒前.
+                    scrollSpeedType2List[i] = t >= prop.Panel.ScrollDurationTime * 10 ? h / (prop.Panel.ScrollDurationTime * 9.75) * interval : null; // Panel.ScrollType === 2 での1回の更新の移動量. スクロール開始は(prop.Panel.ScrollDurationTime*10)ミリ秒前.
                     if (scrollSpeedList[i] > h) // 1回の更新で行の高さを超える移動量となった場合はスキップ
                         scrollSpeedList[i] = h;
                 }
@@ -1260,7 +1259,7 @@ LyricShow = new function (Style) {
             function DrawString(i) {
                 this.i = i;
 
-                this.text = prop.Edit.Start ? lyric.text[i] : p.wordbreakText[i];
+                this.text = p.wordbreakText[i];
                 this.y = DrawStyle[i - 1].nextY;
                 this.height = Math.ceil(p.wordbreakList[i] * TextHeightWithoutLPadding + Style.LPadding);
                 this.nextY = this.y + this.height;
@@ -1589,11 +1588,17 @@ LyricShow = new function (Style) {
                 else
                     offsetY = Math.round(offsetY + n);
             };
-            DrawString.prototype.draw_Edit = function (gr, text, color, x, w, align) {
-                gr.GdiDrawText(text, Style.Font, color, x, this.cy + offsetY, w, this.height, align);
+            DrawString.prototype.draw_Edit = function (gr, color) {
+                var text = lyric.text[this.i];
+                if (tagTimeRE.test(text))
+                    text = RegExp.lastMatch + " " + text.replace(alltagsRE, "");
+                else
+                    text = text.replace(alltagsRE, "");
+
+                gr.GdiDrawText(text, Style.Font, color, g_x, this.cy + offsetY, ww, this.height, prop.Edit.Align);
             };
-            DrawString.prototype.draw = function (gr, text, color, x, w) {
-                if (color === null) {
+            DrawString.prototype.draw = function (gr) {
+                if (filetype === "lrc") {
                     if (Style.FadeInPlayingColor)
                         color = (this.i === lyric.i - 1) ? LyricShow.on_paintInfo.dpc : Style.Color.Text;
                     else
@@ -1602,8 +1607,12 @@ LyricShow = new function (Style) {
                     if (Style.KeepPlayingColor && this.i < lyric.i - 1)
                         color = Style.Color.PlayingText;
                 }
+                else
+                    color = Style.Highline ? Style.Color.PlayingText : Style.Color.Text;
 
+                var x = LyricShow.on_paintInfo.x;
                 var y = this.cy + Math.ceil(offsetY);
+                var w = LyricShow.on_paintInfo.w;
                 var alpha = 255;
                 if (Style.Fading)
                     if (y + this.height - g_y <= Style.FadingHeight[0])
@@ -1613,10 +1622,10 @@ LyricShow = new function (Style) {
 
                 switch (Style.DrawingMethod) {
                     case 0:
-                        gr.GdiDrawText(text, Style.Font, color, x, y, w, this.height, Style.Align);
+                        gr.GdiDrawText(this.text, Style.Font, color, x, y, w, this.height, Style.Align);
                         break;
                     case 1:
-                        gr.DrawString(text, Style.Font, setAlpha(color, alpha), x, y, w, this.height, Style.Align);
+                        gr.DrawString(this.text, Style.Font, setAlpha(color, alpha), x, y, w, this.height, Style.Align);
                         break;
                     case 2:
                         !useLazyTextRender && !this.textImg && (this.textImg = this.buildTextImg());
@@ -1634,8 +1643,8 @@ LyricShow = new function (Style) {
                         break;
                 }
             };
-            DrawString.prototype.draw_withShadow = function (gr, text, color, x, w) {
-                if (color === null) {
+            DrawString.prototype.draw_withShadow = function (gr) {
+                if (filetype === "lrc") {
                     if (Style.FadeInPlayingColor)
                         color = this.i === lyric.i - 1 ? LyricShow.on_paintInfo.dpc : Style.Color.Text;
                     else
@@ -1644,8 +1653,12 @@ LyricShow = new function (Style) {
                     if (Style.KeepPlayingColor && this.i < lyric.i - 1)
                         color = Style.Color.PlayingText;
                 }
+                else
+                    color = Style.Highline ? Style.Color.PlayingText : Style.Color.Text;
 
+                var x = LyricShow.on_paintInfo.x;
                 var y = this.cy + Math.ceil(offsetY);
+                var w = LyricShow.on_paintInfo.w;
                 var alpha = 255;
                 if (Style.Fading) {
                     if (y + this.height - g_y <= Style.FadingHeight[0])
@@ -1657,12 +1670,12 @@ LyricShow = new function (Style) {
 
                 switch (Style.DrawingMethod) {
                     case 0:
-                        gr.GdiDrawText(text, Style.Font, Style.Color.TextShadow, x + Style.ShadowPosition[0], this.sy + Math.ceil(offsetY), w, this.height, Style.Align);
-                        gr.GdiDrawText(text, Style.Font, color, x, y, w, this.height, Style.Align);
+                        gr.GdiDrawText(this.text, Style.Font, Style.Color.TextShadow, x + Style.ShadowPosition[0], this.sy + Math.ceil(offsetY), w, this.height, Style.Align);
+                        gr.GdiDrawText(this.text, Style.Font, color, x, y, w, this.height, Style.Align);
                         break;
                     case 1:
-                        gr.DrawString(text, Style.Font, setAlpha(Style.Color.TextShadow, alpha), x + Style.ShadowPosition[0], this.sy + Math.ceil(offsetY), w, this.height, Style.Align);
-                        gr.DrawString(text, Style.Font, setAlpha(color, alpha), x, y, w, this.height, Style.Align);
+                        gr.DrawString(this.text, Style.Font, setAlpha(Style.Color.TextShadow, alpha), x + Style.ShadowPosition[0], this.sy + Math.ceil(offsetY), w, this.height, Style.Align);
+                        gr.DrawString(this.text, Style.Font, setAlpha(color, alpha), x, y, w, this.height, Style.Align);
                         break;
                     case 2:
                         !useLazyTextRender && !this.textImg && (this.textImg = this.buildTextImg());
@@ -1680,30 +1693,34 @@ LyricShow = new function (Style) {
                         break;
                 }
             };
-            DrawString.prototype.draw_OneLine = function (gr, text, x, y, w) {
+            DrawString.prototype.draw_OneLine = function (gr, y) {
                 var color = this.i === lyric.i - 1 ? LyricShow.on_paintInfo.dpc : Style.Color.Text;
                 var alpha = this.i === lyric.i - 1 ? LyricShow.on_paintInfo.pl_alpha : LyricShow.on_paintInfo.l_alpha;
+                var x = LyricShow.on_paintInfo.x;
+                var w = LyricShow.on_paintInfo.w;
                 switch (Style.DrawingMethod) { // Only GDI+
                     case 1:
-                        gr.DrawString(text, Style.Font, setAlpha(color, alpha), x, y, w, this.height, Style.Align);
+                        gr.DrawString(this.text, Style.Font, setAlpha(color, alpha), x, y, w, this.height, Style.Align);
                         break;
                     case 2:
                         TextRender.OutLineText(setAlpha(color, alpha), setAlpha(Style.Color.TextRound, alpha), 0);
-                        TextRender.RenderStringRect(gr, text, Style.Font, x, y, w, this.height, Style.Align);
+                        TextRender.RenderStringRect(gr, this.text, Style.Font, x, y, w, this.height, Style.Align);
                         break;
                 }
             };
-            DrawString.prototype.draw_OneLine_withShadow = function (gr, text, x, y, w) {
+            DrawString.prototype.draw_OneLine_withShadow = function (gr, y) {
                 var color = this.i === lyric.i - 1 ? LyricShow.on_paintInfo.dpc : Style.Color.Text;
                 var alpha = this.i === lyric.i - 1 ? LyricShow.on_paintInfo.pl_alpha : LyricShow.on_paintInfo.l_alpha;
+                var x = LyricShow.on_paintInfo.x;
+                var w = LyricShow.on_paintInfo.w;
                 switch (Style.DrawingMethod) { // Only GDI+
                     case 1:
-                        gr.DrawString(text, Style.Font, setAlpha(Style.Color.TextShadow, alpha), x + Style.ShadowPosition[0], y + Style.ShadowPosition[1], w, this.height, Style.Align);
-                        gr.DrawString(text, Style.Font, setAlpha(color, alpha), x, y, w, this.height, Style.Align);
+                        gr.DrawString(this.text, Style.Font, setAlpha(Style.Color.TextShadow, alpha), x + Style.ShadowPosition[0], y + Style.ShadowPosition[1], w, this.height, Style.Align);
+                        gr.DrawString(this.text, Style.Font, setAlpha(color, alpha), x, y, w, this.height, Style.Align);
                         break;
                     case 2:
                         TextRender.OutLineText(setAlpha(color, alpha), setAlpha(Style.Color.TextRound, alpha), Style.TextRoundSize);
-                        TextRender.RenderStringRect(gr, text, Style.Font, x, y, w, this.height, Style.Align);
+                        TextRender.RenderStringRect(gr, this.text, Style.Font, x, y, w, this.height, Style.Align);
                         break;
                 }
             };
@@ -2267,7 +2284,6 @@ LyricShow = new function (Style) {
             this.on_paintInfo.di[i] = (tc[i] - bc[i]) / this.on_paintInfo.dpi_max; // scroll_4や5でdpi_max回足す
         this.on_paintInfo.dpc = Style.Color.Text;
         this.on_paintInfo.dpi = 0;
-
     };
 
     this.set_on_paintInfo_x_w = function () {
@@ -2312,19 +2328,19 @@ LyricShow = new function (Style) {
                 if (prop.Panel.ScrollType === 4) {
                     if (Style.Shadow)
                         for (i = lyric.i - 1, j = 0; j < 3 && i !== lyric.text.length; i++, j++) {
-                            var yy = offsetY;
+                            var y = offsetY;
                             if (DrawStyle[i].isEvenNum)
-                                yy += this.calcOddNumHeight(DrawStyle, i);
-                            DrawStyle[i].draw_OneLine_withShadow(gr, DrawStyle[i].text, this.on_paintInfo.x, yy, this.on_paintInfo.w);
+                                y += this.calcOddNumHeight(DrawStyle, i);
+                            DrawStyle[i].draw_OneLine_withShadow(gr, y);
                             if (j === 1 && typeof DrawStyle[i].isEvenNum !== "undefined")
                                 break;
                         }
                     else
                         for (i = lyric.i - 1, j = 0; j < 3 && i !== lyric.text.length; i++, j++) {
-                            yy = offsetY;
+                            y = offsetY;
                             if (DrawStyle[i].isEvenNum)
-                                yy += this.calcOddNumHeight(DrawStyle, i);
-                            DrawStyle[i].draw_OneLine(gr, DrawStyle[i].text, this.on_paintInfo.x, yy, this.on_paintInfo.w);
+                                y += this.calcOddNumHeight(DrawStyle, i);
+                            DrawStyle[i].draw_OneLine(gr, y);
                             if (j === 1 && typeof DrawStyle[i].isEvenNum !== "undefined")
                                 break;
                         }
@@ -2332,13 +2348,13 @@ LyricShow = new function (Style) {
                 else if (prop.Panel.ScrollType === 5) {
                     if (Style.Shadow)
                         for (i = lyric.i - 1, j = 0; j < 3 && i !== lyric.text.length; i++, j++) {
-                            DrawStyle[i].draw_OneLine_withShadow(gr, DrawStyle[i].text, this.on_paintInfo.x, offsetY, this.on_paintInfo.w);
+                            DrawStyle[i].draw_OneLine_withShadow(gr, offsetY);
                             if (j === 1 && typeof DrawStyle[i].isEvenNum !== "undefined")
                                 break;
                         }
                     else
                         for (i = lyric.i - 1, j = 0; j < 3 && i !== lyric.text.length; i++, j++) {
-                            DrawStyle[i].draw_OneLine(gr, DrawStyle[i].text, this.on_paintInfo.x, offsetY, this.on_paintInfo.w);
+                            DrawStyle[i].draw_OneLine(gr, offsetY);
                             if (j === 1 && typeof DrawStyle[i].isEvenNum !== "undefined")
                                 break;
                         }
@@ -2349,14 +2365,14 @@ LyricShow = new function (Style) {
                             var c = offsetY + DrawStyle[i].y;
                             if (c > wh) { disp.bottom = i - 1; break; } // do not draw text outside the screen. CPU utilization rises
                             else if (c < -DrawStyle[i].height) { disp.top = i + 1; continue; } // ditto
-                            else DrawStyle[i].draw_withShadow(gr, DrawStyle[i].text, null, this.on_paintInfo.x, this.on_paintInfo.w);
+                            else DrawStyle[i].draw_withShadow(gr);
                         }
                     else
                         for (i = 0; i < lyric.text.length; i++) {
                             c = offsetY + DrawStyle[i].y;
                             if (c > wh) { disp.bottom = i - 1; break; } // do not draw text outside the screen. CPU utilization rises
                             else if (c < -DrawStyle[i].height) { disp.top = i + 1; continue; } // ditto
-                            else DrawStyle[i].draw(gr, DrawStyle[i].text, null, this.on_paintInfo.x, this.on_paintInfo.w);
+                            else DrawStyle[i].draw(gr);
                         }
             else
                 if (Style.Shadow)
@@ -2364,14 +2380,14 @@ LyricShow = new function (Style) {
                         c = offsetY + DrawStyle[i].y;
                         if (c > wh) { disp.bottom = i - 1; break; }
                         else if (c < -DrawStyle[i].height) { disp.top = i + 1; continue; }
-                        else DrawStyle[i].draw_withShadow(gr, DrawStyle[i].text, Style.Highline ? Style.Color.PlayingText : Style.Color.Text, this.on_paintInfo.x, this.on_paintInfo.w);
+                        else DrawStyle[i].draw_withShadow(gr);
                     }
                 else
                     for (i = 0; i < lyric.text.length; i++) {
                         c = offsetY + DrawStyle[i].y;
                         if (c > wh) { disp.bottom = i - 1; break; }
                         else if (c < -DrawStyle[i].height) { disp.top = i + 1; continue; }
-                        else DrawStyle[i].draw(gr, DrawStyle[i].text, Style.Highline ? Style.Color.PlayingText : Style.Color.Text, this.on_paintInfo.x, this.on_paintInfo.w);
+                        else DrawStyle[i].draw(gr);
                     }
         }
         else if (!main.IsVisible) {
@@ -2789,16 +2805,16 @@ Edit = new function (Style, p) {
         if (getAlpha(bg) !== 0xff)
             bg = RGBAtoRGB(bg); // parse alpha value
         var b = getRGB(Style.Color.Text); // base color
-        var t = getRGB(di[3] = bg); // target color
+        var t = getRGB(bg); // target color
         for (var i = 0; i < 3; i++) // [R_diff, G_diff, B_diff]
-            di[i] = Math.floor(prop.Edit.Step === 0 ? 0 : (t[i] - b[i]) / prop.Edit.Step);
+            di[i] = prop.Edit.Step === 0 ? 0 : (t[i] - b[i]) / prop.Edit.Step;
     };
 
     this.on_paint = function (gr) {
 
+        var ci, color;
         var p = lyric.i - 1; // playing line
-        var n, str, ci, c;
-        disp.top = 0;
+        disp.top = Math.max(p - 2, 0);
         disp.bottom = lyric.text.length - 1;
 
         // background color
@@ -2809,26 +2825,20 @@ Edit = new function (Style, p) {
         } catch (e) { }
 
         // lyrics
-        for (var i = -2; i < lyric.text.length - 2; i++) {
-            n = p + i;
-            if (i === -2 && n >= 0) { disp.top = n; }
-            if (n < 0) continue;
-            else if (n === lyric.text.length || offsetY + DrawStyle[n].y > wh) { disp.bottom = n - 1; break; }
+        for (var i = disp.top; i < lyric.text.length; i++) {
+            if (offsetY + DrawStyle[i].y > wh) { disp.bottom = i - 1; break; }
             else {
-                if (tagTimeRE.test(lyric.text[n]))
-                    str = RegExp.lastMatch + " " + lyric.text[n].replace(alltagsRE, "");
-                else
-                    str = lyric.text[n].replace(alltagsRE, "");
-                ci = (i < prop.Edit.Step) ? (i < 0) ? (i >= -prop.Edit.Step) ? -i : null : i : null;
-                c = ci === null ? di[3] : setRGBdiff(Style.Color.Text, di[0] * ci, di[1] * ci, di[2] * ci);
-                // fb.trace(str + "::" + Style.Font + "::" + Style.Color.Text + "::" + g_x + "::" + g_y + "::" + offsetY + "::" + DrawStyle[n].y + "::" + ww + "::" + wh + "::" + Style.Align);
-                DrawStyle[n].draw_Edit(gr, str, c, g_x, ww, prop.Edit.Align);
+                ci = Math.abs(i - p);
+                ci = Math.min(ci, prop.Edit.Step);
+                color = setRGBdiff(Style.Color.Text, di[0] * ci, di[1] * ci, di[2] * ci);
+                // fb.trace(lyric.text[i] + "::" + getRGB(color));
+                DrawStyle[i].draw_Edit(gr, color);
             }
         }
 
         if (prop.Edit.Rule) // rule
-            for (var j = 1; j <= i + 3; j++)
-                gr.DrawLine(ww - 4 + g_x, g_y + TextHeight * j, 4 + g_x, g_y + TextHeight * j, 1, Style.Color.Rule);
+            for (i = 1; i <= disp.bottom - disp.top + 2; i++)
+                gr.DrawLine(ww - 4 + g_x, g_y + TextHeight * i, 4 + g_x, g_y + TextHeight * i, 1, Style.Color.Rule);
 
         // length
         gr.gdiDrawText("[" + lyric.i + " / " + lyric.text.length + "]", Style.Font, Style.Color.Length, g_x, window.Height - TextHeight + prop.Style.LPadding, window.Width, TextHeight, 0);
@@ -3015,6 +3025,11 @@ StatusBar = new function (Style) {
     this.hide = function () { // mainly for timer
         StatusBar.TIMER = false;
         window.Repaint();
+    };
+
+    this.showText = function (Text, time) {
+        this.setText(Text);
+        this.show(time);
     };
 
     this.on_paint = function (gr) {

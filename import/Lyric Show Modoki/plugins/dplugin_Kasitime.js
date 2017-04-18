@@ -2,27 +2,22 @@
     name: 'dplugin_Kasitime',
     label: prop.Panel.Lang == 'ja' ? '歌詞検索: 歌詞タイム' : 'Download Lyrics: Kasi Time',
     author: 'tomato111,Junya Renno',
-    onStartUp: function () { // 最初に一度だけ呼び出される関数
+    onStartUp: function () { // 最初に一度だけ呼び出される
     },
-    onCommand: function (isAutoSearch) { // プラグインのメニューをクリックすると呼び出される関数
+    onCommand: function (isAutoSearch) { // プラグインのメニューをクリックすると呼び出される
 
-        if (!isAutoSearch && utils.IsKeyPressed(0x11)) { // VK_CONTROL
+        if (!isAutoSearch && utils.IsKeyPressed(VK_CONTROL)) {
             plugins['splugin_AutoSearch'].setAutoSearchPluginName(this.name);
             return;
         }
 
         if (!fb.IsPlaying) {
-            StatusBar.setText(prop.Panel.Lang == 'ja' ? '再生していません。' : 'Not Playing');
-            StatusBar.show();
+            StatusBar.showText(prop.Panel.Lang == 'ja' ? '再生していません。' : 'Not Playing');
             return;
         }
 
         var debug_html = false; // for debug
-        var async = true;
-        var depth = 0;
-        var LineFeedCode = prop.Save.LineFeedCode;
-        var AutoSaveTo = window.GetProperty('Plugin.Search.AutoSaveTo');
-        var label = this.label.replace(/^.+?: /, '');
+        var label = this.label.replace(/^.+?: ?/, '');
 
         // title, artist for search
         var title = fb.TitleFormat('%title%').Eval();
@@ -35,9 +30,8 @@
             if (!artist) return;
         }
 
-        StatusBar.setText((prop.Panel.Lang == 'ja' ? '検索中......' : 'Searching......') + label);
-        StatusBar.show();
-        getHTML(null, 'GET', createQuery(title, artist), async, depth, onLoaded);
+        StatusBar.showText((prop.Panel.Lang == 'ja' ? '検索中......' : 'Searching......') + label);
+        getHTML(null, 'GET', createQuery(title, artist), ASYNC, 0, onLoaded);
 
         //------------------------------------
 
@@ -53,8 +47,7 @@
         }
 
         function onLoaded(request, depth, file) {
-            StatusBar.setText((prop.Panel.Lang == 'ja' ? '検索中......' : 'Searching......') + label);
-            StatusBar.show();
+            StatusBar.showText((prop.Panel.Lang == 'ja' ? '検索中......' : 'Searching......') + label);
             debug_html && fb.trace('\nOpen#' + depth + ': ' + file + '\n');
 
             var res = request.responseText;
@@ -63,7 +56,7 @@
             var Page = new AnalyzePage(res, depth);
 
             if (Page.id) {
-                getHTML(null, 'GET', createQuery(null, null, Page.id), async, ++depth, onLoaded);
+                getHTML(null, 'GET', createQuery(null, null, Page.id), ASYNC, ++depth, onLoaded);
             }
             else if (Page.lyrics) {
                 var text = onLoaded.info + Page.lyrics;
@@ -74,13 +67,13 @@
                 }
                 else {
                     main(text);
-                    StatusBar.setText(prop.Panel.Lang == 'ja' ? '検索終了。歌詞を取得しました。' : 'Search completed.');
-                    StatusBar.show();
-                    if (AutoSaveTo)
-                        if (/^Tag$/i.test(AutoSaveTo))
-                            saveToTag(getFieldName());
-                        else if (/^File$/i.test(AutoSaveTo))
-                            saveToFile(parse_path + (filetype === 'lrc' ? '.lrc' : '.txt'));
+                    StatusBar.showText(prop.Panel.Lang == 'ja' ? '検索終了。歌詞を取得しました。' : 'Search completed.');
+                    var AutoSaveTo = window.GetProperty('Plugin.Search.AutoSaveTo');
+
+                    if (/^Tag$/i.test(AutoSaveTo))
+                        saveToTag(getFieldName());
+                    else if (/^File$/i.test(AutoSaveTo))
+                        saveToFile(parse_path + (filetype === 'lrc' ? '.lrc' : '.txt'));
                 }
             }
             else {
@@ -127,6 +120,7 @@
             var InfoRE = /<meta name="description" content="歌手:(.*?) 作詞:(.*?) 作曲:(.*?) +(?:.+に関連している曲です|歌い出し)/i; // $1:歌手, $2:作詞, $3:作曲
             var StartLyricRE = /var lyrics = '/i;
             var LineBreakRE = /<br>/ig;
+            var LineFeedCode = prop.Save.LineFeedCode;
 
             if (depth === 1) { // lyric
                 onLoaded.info = title + LineFeedCode + LineFeedCode;

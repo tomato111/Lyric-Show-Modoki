@@ -2,28 +2,22 @@
     name: 'dplugin_AZLyrics',
     label: prop.Panel.Lang == 'ja' ? '歌詞検索: AZLyrics' : 'Download Lyrics: AZLyrics',
     author: 'tomato111',
-    onStartUp: function () { // 最初に一度だけ呼び出される関数
+    onStartUp: function () { // 最初に一度だけ呼び出される
     },
-    onCommand: function (isAutoSearch) { // プラグインのメニューをクリックすると呼び出される関数
+    onCommand: function (isAutoSearch) { // プラグインのメニューをクリックすると呼び出される
 
-        if (!isAutoSearch && utils.IsKeyPressed(0x11)) { // VK_CONTROL
+        if (!isAutoSearch && utils.IsKeyPressed(VK_CONTROL)) {
             plugins['splugin_AutoSearch'].setAutoSearchPluginName(this.name);
             return;
         }
 
         if (!fb.IsPlaying) {
-            StatusBar.setText(prop.Panel.Lang == 'ja' ? '再生していません。' : 'Not Playing');
-            StatusBar.show();
+            StatusBar.showText(prop.Panel.Lang == 'ja' ? '再生していません。' : 'Not Playing');
             return;
         }
 
         var debug_html = false; // for debug
-        var async = true;
-        var depth = 0;
-        var LineFeedCode = prop.Save.LineFeedCode;
-        var AutoSaveTo = window.GetProperty('Plugin.Search.AutoSaveTo');
-        var label = this.label.replace(/^.+?: /, '');
-        var NotAlphaNumericRE = /[^a-z0-9]/g;
+        var label = this.label.replace(/^.+?: ?/, '');
 
         // title, artist for search
         var title = fb.TitleFormat('%title%').Eval();
@@ -36,26 +30,25 @@
             if (!artist) return;
         }
 
-        StatusBar.setText((prop.Panel.Lang == 'ja' ? '検索中......' : 'Searching......') + label);
-        StatusBar.show();
-        getHTML(null, 'GET', createQuery(title, artist), async, depth, onLoaded);
+        StatusBar.showText((prop.Panel.Lang == 'ja' ? '検索中......' : 'Searching......') + label);
+        getHTML(null, 'GET', createQuery(title, artist), ASYNC, 0, onLoaded);
 
         //------------------------------------
 
         function createQuery(title, artist) {
+            var NotAlphaNumericRE = /[^a-z0-9]/ig;
             return 'http://www.azlyrics.com/lyrics/' + artist.toLowerCase().replace(NotAlphaNumericRE, '') + '/' + title.toLowerCase().replace(NotAlphaNumericRE, '') + '.html';
         }
 
         function onLoaded(request, depth, file) {
-            StatusBar.setText((prop.Panel.Lang == 'ja' ? '検索中......' : 'Searching......') + label);
-            StatusBar.show();
+            StatusBar.showText((prop.Panel.Lang == 'ja' ? '検索中......' : 'Searching......') + label);
             debug_html && fb.trace('\nOpen#' + depth + ': ' + file + '\n');
 
             var res = request.responseText;
 
             debug_html && fb.trace(res);
             var resArray = res.split(getLineFeedCode(res));
-            var Page = new AnalyzePage(resArray, depth);
+            var Page = new AnalyzePage(resArray);
 
             if (Page.lyrics) {
                 var text = onLoaded.info + Page.lyrics;
@@ -66,13 +59,13 @@
                 }
                 else {
                     main(text);
-                    StatusBar.setText(prop.Panel.Lang == 'ja' ? '検索終了。歌詞を取得しました。' : 'Search completed.');
-                    StatusBar.show();
-                    if (AutoSaveTo)
-                        if (/^Tag$/i.test(AutoSaveTo))
-                            saveToTag(getFieldName());
-                        else if (/^File$/i.test(AutoSaveTo))
-                            saveToFile(parse_path + (filetype === 'lrc' ? '.lrc' : '.txt'));
+                    StatusBar.showText(prop.Panel.Lang == 'ja' ? '検索終了。歌詞を取得しました。' : 'Search completed.');
+                    var AutoSaveTo = window.GetProperty('Plugin.Search.AutoSaveTo');
+
+                    if (/^Tag$/i.test(AutoSaveTo))
+                        saveToTag(getFieldName());
+                    else if (/^File$/i.test(AutoSaveTo))
+                        saveToFile(parse_path + (filetype === 'lrc' ? '.lrc' : '.txt'));
                 }
             }
             else {
@@ -88,18 +81,19 @@
 
         }
 
-        function AnalyzePage(resArray, depth) {
+        function AnalyzePage(resArray) {
             var isLyric;
 
             var StartLyricRE = /<!-- Usage of azlyrics/i;
             var EndLyricRE = /<\/div>/i;
             var LineBreakRE = /<br>/ig;
             var IgnoreRE = /<i>|<\/i>/ig;
+            var LineFeedCode = prop.Save.LineFeedCode;
 
             onLoaded.info = title + LineFeedCode + LineFeedCode;
             this.lyrics = '';
 
-            for (var i = 0; i < resArray.length; i++){
+            for (var i = 0; i < resArray.length; i++) {
                 if (StartLyricRE.test(resArray[i])) {
                     isLyric = true; continue;
                 }
