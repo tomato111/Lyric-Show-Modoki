@@ -49,22 +49,6 @@ String.prototype.trim = function (s) {
     return this.replace(/^[\s　]*|[\s　]*$/g, "");
 };
 
-//-- Print --
-String.prototype.console = function (s) {
-    fb.trace(this + (s ? s : ""));
-    return this;
-};
-
-Number.prototype.console = function (s) {
-    fb.trace(this.toString() + (s ? s : ""));
-    return this;
-};
-
-Boolean.prototype.console = function (s) {
-    fb.trace(this + (s ? s : ""));
-    return this;
-};
-
 //-- Timer --
 Function.prototype.interval = function (time, callback) {
     var __method = this;
@@ -159,8 +143,8 @@ scVB.Language = "VBScript";
 scVB.AddCode("Function vbBinary_getSize(text) : vbBinary_getSize = LenB(text) : End Function");
 scVB.AddCode("Function vbBinary_At(text, index) : vbBinary_At = AscB(MidB(text, index + 1, 1)) : End Function");
 
-function Binary(data) { // Binary クラスで VBScript を隠蔽
-    this.data = data;
+function Binary(bin) { // Binary クラスで VBScript を隠蔽
+    this.data = bin;
     this.size = scVB.Run("vbBinary_getSize", this.data);
 }
 Binary.prototype.At = function (index) {
@@ -178,6 +162,133 @@ Binary.prototype.getArray = function (n) {
         this[i] = this.At(i);
 };
 
+//-- Binary Stream -- reference http://hp.vector.co.jp/authors/VA033015/fsjs.html
+// customized by tomato111
+function BinaryStream() {
+    var stm = new ActiveXObject("ADODB.Stream");
+    this.position = 0;
+    this.open = function () {
+        stm.Open();
+    };
+    this.close = function () {
+        stm.Close();
+        this.position = 0;
+    };
+    this.clear = function () {
+        this.position = 0;
+        stm.Position = 0;
+        stm.SetEOS();
+    };
+    this.size = function () {
+        return stm.Size;
+    };
+    this.loadFromFile = function (filename) {
+        stm.Position = 0;
+        stm.Type = 1; //adTypeBinary
+        stm.loadFromFile(filename); // stm.position -> 0
+    };
+    this.saveToFile = function (filename, option) {
+        var option = option || 2; //adSaveCreateOverWrite
+        stm.Position = 0;
+        stm.Type = 1; //adTypeBinary
+        stm.SaveToFile(filename, option); // stm.position -> 0
+    };
+    this.readToBinary = function (size) {
+        stm.Position = 0;
+        stm.Type = 1; //adTypeBinary
+        stm.Position = this.position;
+        var bin = stm.Read(size || -1);
+        this.position = stm.Position;
+        return bin;
+    };
+    this.readToHexString = function (size) {
+        var str = '';
+        stm.Position = 0; //Positionが0の時にのみTypeとCharsetを変更可
+        stm.Type = 2; //adTypeText
+        stm.Charset = 'ascii';
+        stm.Position = this.position;
+        var s1 = stm.ReadText(size || -1);
+        stm.Position = 0;
+        stm.Charset = 'iso-8859-1';
+        stm.Position = this.position;
+        var s2 = stm.ReadText(size || -1);
+        this.position = stm.Position;
+        for (var i = 0; i < s1.length; i++) {
+            str += ('0' + (s1.charCodeAt(i) | (s2.charCodeAt(i) < 0x80 ? 0 : 0x80))
+              .toString(16)).slice(-2);
+        }
+        s1 = s2 = null;
+        return str;
+    };
+    this.readToIntArray = function (size, option, isLittleEndian) {
+        var arr = [];
+        var option = option || [];
+        var s = this.readToHexString(size);
+        for (var i = 0; i < s.length;) {
+            var sz = (option.length > 0) ? option.shift() * 2 : 2;
+            var st = s.substr(i, sz).match(/(\w{2})/g);
+            if (isLittleEndian) st.reverse();
+            arr.push(parseInt(st.join(''), 16));
+            i += sz;
+        }
+        s = null;
+        return arr;
+    };
+    this.readToString_UTF8 = function (size) {
+        stm.Position = 0;
+        stm.Type = 2; //adTypeText
+        stm.Charset = 'UTF-8';
+        stm.Position = this.position;
+        var str = stm.ReadText(size || -1);
+        this.position = stm.Position;
+        return str;
+    };
+    this.writeFromBinary = function (bin) {
+        stm.Position = 0;
+        stm.Type = 1; //adTypeBinary
+        stm.Position = this.position;
+        stm.Write(bin);
+        this.position = stm.Position;
+    };
+    this.writeFromHexString = function (str) {
+        stm.Position = 0;
+        stm.Type = 2; //adTypeText
+        stm.Charset = 'iso-8859-1';
+        stm.Position = this.position;
+        for (var i = 0; i < str.length; i += 2) {
+            stm.WriteText(String.fromCharCode(
+              parseInt(str.substr(i, 2), 16)));
+        }
+        this.position = stm.Position;
+    };
+    this.writeFromIntArray = function (arr) {
+        stm.Position = 0;
+        stm.Type = 2; //adTypeText
+        stm.Charset = 'iso-8859-1';
+        stm.Position = this.position;
+        for (var i = 0; i < arr.length; i++) {
+            stm.WriteText(String.fromCharCode(arr[i] & 0xFF));
+        }
+        this.position = stm.Position;
+    };
+    this.writeFromString_UTF8 = function (str) {
+        stm.Position = 0;
+        stm.Type = 2; //adTypeText
+        stm.Charset = 'UTF-8';
+        stm.Position = this.position;
+        stm.WriteText(str);
+        if (this.position === 0) { // BOMは削除
+            stm.Position = 0;
+            stm.Type = 1; //adTypeBinary
+            stm.Position = 3;
+            var bin = stm.Read(-1);
+            stm.Position = 0;
+            stm.SetEOS();
+            stm.Write(bin);
+        }
+        this.position = stm.Position;
+    };
+}
 
 //-- ini file reader (UTF-8 with BOM)-- reference http://shoji.blog1.fc2.com/blog-entry-130.html
 function Ini() {
@@ -409,7 +520,7 @@ function createFolder(objFSO, strFolder) {
 function writeTextFile(text, file, charset) {
     var bin;
     var UTF8N = /^UTF-8N$/i.test(charset);
-    var setEOS = function (pos, buf) {
+    var setEOS = function (buf, pos) {
         stm.Position = pos;
         stm.SetEOS();
         stm.Write(buf);
@@ -427,29 +538,28 @@ function writeTextFile(text, file, charset) {
             bin = new Binary(stm.read(6)); // stm.Position -> 6
             bin.getArray();
             if (bin[3] == 0xEF && bin[4] == 0xBB && bin[5] == 0xBF) // UTF-8
-                setEOS(3, stm.Read(-1));
+                setEOS(stm.Read(-1), 3);
             else if (bin[2] == 0xFF && bin[3] == 0xFE || bin[2] == 0xFE && bin[3] == 0xFF) { // UTF-16LE & UTF-16BE
                 stm.Position = 4;
-                setEOS(2, stm.Read(-1));
+                setEOS(stm.Read(-1), 2);
             }
         }
         else { // 設定した文字コードには不要であるBOMが付いているなら削除
             bin = new Binary(stm.read(3)); // stm.Position -> 3
             bin.getArray();
             if (bin[0] == 0xEF && bin[1] == 0xBB && bin[2] == 0xBF) // UTF-8
-                setEOS(0, stm.Read(-1));
+                setEOS(stm.Read(-1), 0);
             else if (bin[0] == 0xFF && bin[1] == 0xFE || bin[0] == 0xFE && bin[1] == 0xFF) { // UTF-16LE & UTF-16BE
                 stm.Position = 2;
-                setEOS(0, stm.Read(-1));
+                setEOS(stm.Read(-1), 0);
             }
         }
 
         if (UTF8N) { // UTF-8Nの保存に対応
             stm.Position = 3;
-            setEOS(0, stm.Read(-1));
+            setEOS(stm.Read(-1), 0);
         }
 
-        stm.position = 0;
         stm.saveToFile(file, 2);
     } catch (e) {
         throw new Error("Couldn't save text to a file.");
@@ -461,7 +571,7 @@ function writeTextFile(text, file, charset) {
     return file;
 }
 
-// バイナリモードでstreamへ流して_autodetect_allでテキスト取得した際に、BOMが文字として取り込まれるバグがある
+// バイナリモードでstreamへ流して_autodetect_allでテキスト取得した際に、BOMが文字として取り込まれてしまう（バグ？）
 // そのようにADODB.Streamを扱う場合は、Unicode体系において_autodetect_allを回避する必要がある
 function readTextFile(file, charset) {
     var str;
@@ -501,13 +611,11 @@ function responseBodyToCharset(bin, charset) { // Mozilla: overrideMimeType, IE:
 }
 
 function responseBodyToFile(bin, file) {
-    var str;
     var stm = new ActiveXObject("ADODB.Stream");
     try {
         stm.open();
         stm.type = 1; // write once in binary mode
         stm.write(bin); // stm.position -> eos
-        stm.position = 0;
         stm.saveToFile(file, 2);
     } finally {
         stm.close();
@@ -516,7 +624,7 @@ function responseBodyToFile(bin, file) {
     return file;
 }
 
-function getHTML(data, method, file, async, depth, onLoaded) {
+function getHTML(data, method, file, async, depth, onLoaded, header) {
     try {
         var request = new ActiveXObject("Msxml2.XMLHTTP.6.0");
     } catch (e) {
@@ -539,8 +647,14 @@ function getHTML(data, method, file, async, depth, onLoaded) {
         }
     }
 
-    request.setRequestHeader("Cache-Control", "max-age=0");
-    request.setRequestHeader("content-type", "application/x-www-form-urlencoded");
+    if (header)
+        for (var name in header) {
+            request.setRequestHeader(name, header[name]);
+        }
+    else {
+        request.setRequestHeader("Cache-Control", "max-age=0");
+        request.setRequestHeader("content-type", "application/x-www-form-urlencoded");
+    }
     request.send(data);
 }
 
