@@ -137,34 +137,10 @@ function FileDialog(exe) {
     this.setOnReady = function (f) { onReady = f; };
 }
 
-//-- Binary Access -- reference http://www2.wbs.ne.jp/~kanegon/doc/code.txt
-var scVB = new ActiveXObject("ScriptControl"); // VBScript でサイズ取得と要素アクセスの関数を用意
-scVB.Language = "VBScript";
-scVB.AddCode("Function vbBinary_getSize(text) : vbBinary_getSize = LenB(text) : End Function");
-scVB.AddCode("Function vbBinary_At(text, index) : vbBinary_At = AscB(MidB(text, index + 1, 1)) : End Function");
-
-function Binary(bin) { // Binary クラスで VBScript を隠蔽
-    this.data = bin;
-    this.size = scVB.Run("vbBinary_getSize", this.data);
-}
-Binary.prototype.At = function (index) {
-    if (index < 0 || index >= this.size) return 0;
-    return scVB.Run("vbBinary_At", this.data, index);
-};
-Binary.prototype.charAt = function (index) {
-    if (index < 0 || index >= this.size) return "";
-    return String.fromCharCode(scVB.Run("vbBinary_At", this.data, index));
-};
-Binary.prototype.getArray = function (n) {
-    if (!n || n < 0)
-        n = this.size;
-    for (var i = 0; i < n; i++)
-        this[i] = this.At(i);
-};
-
 //-- Binary Stream -- reference http://hp.vector.co.jp/authors/VA033015/fsjs.html
 // customized by tomato111
 function BinaryStream() {
+    var doc = new ActiveXObject("Msxml2.DOMDocument.3.0");
     var stm = new ActiveXObject("ADODB.Stream");
     this.position = 0;
     this.open = function () {
@@ -183,15 +159,16 @@ function BinaryStream() {
         return stm.Size;
     };
     this.loadFromFile = function (filename) {
+        this.position = 0;
         stm.Position = 0;
-        stm.Type = 1; //adTypeBinary
-        stm.loadFromFile(filename); // stm.position -> 0
+        stm.Type = 1; //adTypeBinary //バイナリモードにしないとCharsetによってはBOMが付加される
+        stm.LoadFromFile(filename); // stm.Position -> 0
     };
     this.saveToFile = function (filename, option) {
         var option = option || 2; //adSaveCreateOverWrite
         stm.Position = 0;
-        stm.Type = 1; //adTypeBinary
-        stm.SaveToFile(filename, option); // stm.position -> 0
+        stm.Type = 1; //adTypeBinary //バイナリモードにしないとCharsetによってはBOMが付加される
+        stm.SaveToFile(filename, option); // stm.Position -> 0
     };
     this.readToBinary = function (size) {
         stm.Position = 0;
@@ -202,23 +179,12 @@ function BinaryStream() {
         return bin;
     };
     this.readToHexString = function (size) {
-        var str = '';
-        stm.Position = 0; //Positionが0の時にのみTypeとCharsetを変更可
-        stm.Type = 2; //adTypeText
-        stm.Charset = 'ascii';
-        stm.Position = this.position;
-        var s1 = stm.ReadText(size || -1);
-        stm.Position = 0;
-        stm.Charset = 'iso-8859-1';
-        stm.Position = this.position;
-        var s2 = stm.ReadText(size || -1);
-        this.position = stm.Position;
-        for (var i = 0; i < s1.length; i++) {
-            str += ('0' + (s1.charCodeAt(i) | (s2.charCodeAt(i) < 0x80 ? 0 : 0x80))
-              .toString(16)).slice(-2);
-        }
-        s1 = s2 = null;
-        return str;
+        // iso-8859-1の読み取りでは 80-9f のバイト値が正しく取得できないのでMsxml2.DOMDocumentを用いる
+        var bin = this.readToBinary(size);
+        var element = doc.createElement("temp");
+        element.dataType = "bin.hex";
+        element.nodeTypedValue = bin;
+        return element.text;
     };
     this.readToIntArray = function (size, option, isLittleEndian) {
         var arr = [];
@@ -231,11 +197,10 @@ function BinaryStream() {
             arr.push(parseInt(st.join(''), 16));
             i += sz;
         }
-        s = null;
         return arr;
     };
     this.readToString_UTF8 = function (size) {
-        stm.Position = 0;
+        stm.Position = 0; //Positionが0の時にのみTypeとCharsetを変更可
         stm.Type = 2; //adTypeText
         stm.Charset = 'UTF-8';
         stm.Position = this.position;
@@ -311,17 +276,17 @@ Ini.prototype = {
     open: function (filename, charset) {
         try {
             var stm = new ActiveXObject('ADODB.Stream');
-            stm.type = 2;
-            stm.charset = charset || GetCharsetFromCodepage(utils.FileTest(file, "chardet"));
-            stm.open();
-            stm.loadFromFile(filename); // stm.position -> 0
+            stm.Type = 2; //adTypeText
+            stm.Charset = charset || GetCharsetFromCodepage(utils.FileTest(file, "chardet"));
+            stm.Open();
+            stm.LoadFromFile(filename); // stm.Position -> 0
 
             this.clear();
             var sectionname = null;
             var p = -1;
 
             while (!stm.EOS) {
-                var line = stm.readText(-2);
+                var line = stm.ReadText(-2);
 
                 line = line.replace(/^[ \t]+/, "");  // 先頭の空白は削除
                 if (!line.match(/^(?:;|[ \t]*$)/))    // ;で開始しない, 空行ではない
@@ -342,7 +307,7 @@ Ini.prototype = {
 
             this.filename = filename;
 
-            stm.close();
+            stm.Close();
             stm = null; delete stm;
             fso = null; delete fso;
 
@@ -360,7 +325,7 @@ Ini.prototype = {
 
         try {
             var fso = new ActiveXObject("Scripting.FileSystemObject");  // FileSystemObjectを作成
-            var ini = fso.OpenTextFile(this.filename, 2, true)
+            var ini = fso.OpenTextFile(this.filename, 2, true);
 
             for (var sectionname in this.items) {
                 ini.WriteLine('[' + sectionname + ']');
@@ -414,7 +379,7 @@ function traceInterceptor(target) {
             };
         }
     }
-};
+}
 
 //-- Print --
 function console(s) {
@@ -458,7 +423,7 @@ function prompt(text, title, defaultText) {
     var sc = new ActiveXObject("ScriptControl");
     var code = 'Function fn(text, title, defaultText)\n'
     + 'fn = InputBox(text, title, defaultText)\n'
-    + 'End Function'
+    + 'End Function';
     sc.Language = "VBScript";
     sc.AddCode(code);
     return sc.Run("fn", text, title, defaultText);
@@ -518,74 +483,64 @@ function createFolder(objFSO, strFolder) {
 }
 
 function writeTextFile(text, file, charset) {
-    var bin;
     var UTF8N = /^UTF-8N$/i.test(charset);
-    var setEOS = function (buf, pos) {
-        stm.Position = pos;
-        stm.SetEOS();
-        stm.Write(buf);
-    }
     var stm = new ActiveXObject('ADODB.Stream');
-    stm.type = 2;
-    stm.charset = UTF8N ? "UTF-8" : charset;
-    stm.open();
-    stm.writeText(text); // この地点でBOMが付加される。まず問題ないが、読み取ったファイルがBOMの重複を起こしていた場合を考えて重複チェックを入れる
+    stm.Type = 2; //adTypeText
+    stm.Charset = UTF8N ? "UTF-8" : charset;
+    stm.Open();
+    stm.WriteText(text); // この地点でUnicode系はBOMが付加される
     try {
-        stm.position = 0;
-        stm.type = 1;
-
-        if (/^UTF-8|Unicode$/i.test(charset)) { // BOMが重複しているなら既存のBOMをスキップ
-            bin = new Binary(stm.read(6)); // stm.Position -> 6
-            bin.getArray();
-            if (bin[3] == 0xEF && bin[4] == 0xBB && bin[5] == 0xBF) // UTF-8
-                setEOS(stm.Read(-1), 3);
-            else if (bin[2] == 0xFF && bin[3] == 0xFE || bin[2] == 0xFE && bin[3] == 0xFF) { // UTF-16LE & UTF-16BE
-                stm.Position = 4;
-                setEOS(stm.Read(-1), 2);
-            }
-        }
-        else { // 設定した文字コードには不要であるBOMが付いているなら削除
-            bin = new Binary(stm.read(3)); // stm.Position -> 3
-            bin.getArray();
-            if (bin[0] == 0xEF && bin[1] == 0xBB && bin[2] == 0xBF) // UTF-8
-                setEOS(stm.Read(-1), 0);
-            else if (bin[0] == 0xFF && bin[1] == 0xFE || bin[0] == 0xFE && bin[1] == 0xFF) { // UTF-16LE & UTF-16BE
-                stm.Position = 2;
-                setEOS(stm.Read(-1), 0);
-            }
-        }
-
+        stm.Position = 0;
+        stm.Type = 1; //adTypeBinary
         if (UTF8N) { // UTF-8Nの保存に対応
             stm.Position = 3;
-            setEOS(stm.Read(-1), 0);
+            var bin = stm.Read(-1);
+            stm.Position = 0;
+            stm.SetEOS();
+            stm.Write(bin)
         }
-
-        stm.saveToFile(file, 2);
+        stm.SaveToFile(file, 2); // バイナリモードにしないとBOMがない場合はここでもBOMが付加される
     } catch (e) {
         throw new Error("Couldn't save text to a file.");
     } finally {
-        stm.close();
+        stm.Close();
         stm = null;
     }
 
     return file;
 }
 
-// バイナリモードでstreamへ流して_autodetect_allでテキスト取得した際に、BOMが文字として取り込まれてしまう（バグ？）
+// バイナリモードでstreamへ流して_autodetect_allでテキスト取得した際に、BOMが文字として取り込まれてしまう
 // そのようにADODB.Streamを扱う場合は、Unicode体系において_autodetect_allを回避する必要がある
 function readTextFile(file, charset) {
-    var str;
+    var str, bs, b;
     var stm = new ActiveXObject('ADODB.Stream');
-    stm.type = 2;
-    stm.charset = arguments.callee.lastCharset = charset || GetCharsetFromCodepage(utils.FileTest(file, "chardet"));
-    stm.open();
+    stm.Type = 1; //adTypeBinary
+    stm.Open();
     try {
-        stm.loadFromFile(file); // stm.position -> 0
-        str = stm.readText(-1); // _autodetect_allでの一行ごとの取得はまともに動かない
+        stm.LoadFromFile(file); // stm.Position -> 0
+        if (!charset) { // 先頭3バイトを調べてBOMであったなら文字コードをそれに決定する
+            bs = new BinaryStream();
+            bs.open();
+            bs.writeFromBinary(stm.Read(3));
+            bs.position = 0;
+            b = bs.readToIntArray();
+            bs.close();
+            if (b[0] === 0xEF && b[1] === 0xBB && b[2] === 0xBF)
+                charset = "UTF-8";
+            else if (b[0] === 0xFF && b[1] === 0xFE)
+                charset = "Unicode"; // UTF-16LE
+            else if (b[0] === 0xFE && b[1] === 0xFF)
+                charset = "UnicodeFEFF"; // UTF-16BE
+        }
+        stm.Position = 0;
+        stm.Type = 2; //adTypeText
+        stm.Charset = arguments.callee.lastCharset = charset || GetCharsetFromCodepage(utils.FileTest(file, "chardet"));
+        str = stm.ReadText(-1); // _autodetect_allでの一行ごとの取得はまともに動かない
     } catch (e) {
         throw new Error("Couldn't open a file.\nIt has most likely been moved, renamed, or deleted.");
     } finally {
-        stm.close();
+        stm.Close();
         stm = null;
     }
 
@@ -596,15 +551,15 @@ function responseBodyToCharset(bin, charset) { // Mozilla: overrideMimeType, IE:
     var str;
     var stm = new ActiveXObject("ADODB.Stream");
     try {
-        stm.open();
-        stm.type = 1; // write once in binary mode
-        stm.write(bin); // stm.position -> eos
-        stm.position = 0;
-        stm.type = 2; // change the mode to text mode
-        stm.charset = charset;
-        str = stm.readText(-1);
+        stm.Open();
+        stm.Type = 1; // write once in binary mode
+        stm.Write(bin); // stm.Position -> eos
+        stm.Position = 0;
+        stm.Type = 2; // change the mode to text mode
+        stm.Charset = charset;
+        str = stm.ReadText(-1);
     } finally {
-        stm.close();
+        stm.Close();
     }
 
     return str;
@@ -613,12 +568,12 @@ function responseBodyToCharset(bin, charset) { // Mozilla: overrideMimeType, IE:
 function responseBodyToFile(bin, file) {
     var stm = new ActiveXObject("ADODB.Stream");
     try {
-        stm.open();
-        stm.type = 1; // write once in binary mode
-        stm.write(bin); // stm.position -> eos
-        stm.saveToFile(file, 2);
+        stm.Open();
+        stm.Type = 1; //adTypeBinary
+        stm.Write(bin);
+        stm.SaveToFile(file, 2);
     } finally {
-        stm.close();
+        stm.Close();
     }
 
     return file;

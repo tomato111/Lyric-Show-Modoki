@@ -69,12 +69,8 @@
                 else {
                     main(text);
                     StatusBar.showText(prop.Panel.Lang == 'ja' ? '検索終了。歌詞を取得しました。' : 'Search completed.');
-                    var AutoSaveTo = window.GetProperty('Plugin.Search.AutoSaveTo');
 
-                    if (/^Tag$/i.test(AutoSaveTo))
-                        saveToTag(getFieldName());
-                    else if (/^File$/i.test(AutoSaveTo))
-                        saveToFile(parse_path + (filetype === 'lrc' ? '.lrc' : '.txt'));
+                    plugin_auto_save();
                 }
             }
             else {

@@ -3,18 +3,27 @@
     label: prop.Panel.Lang == 'ja' ? '設定: 再生時に検索' : 'Setting: Auto Search',
     author: 'tomato111',
     onStartUp: function () { // 最初に一度だけ呼び出される
-        var temp = window.GetProperty('Plugin.Search.AutoSaveTo', '');
-        if (!/^(?:File|Tag)$/i.test(temp))
-            window.SetProperty('Plugin.Search.AutoSaveTo', '');
 
         var _this = this;
         var timeout_millisecond = 8000;
+        var ResultsListNames = [this.name];
 
         this.AvailablePluginNames = window.GetProperty('Plugin.Search.AutoSearch', 'dplugin_Miku_Hatsune_wiki, dplugin_Utamap, dplugin_Utanet, dplugin_Kashiget, dplugin_Kasitime, dplugin_AZLyrics, dplugin_Kashinavi, dplugin_Tube365, dplugin_ViewLyrics').split(/[ 　]*,[ 　]*/);
         for (var i = 0; i < this.AvailablePluginNames.length;) {
-            if (plugins[this.AvailablePluginNames[i]]) i++;
-            else this.AvailablePluginNames.splice(i, 1);
+            var name = this.AvailablePluginNames[i];
+            if (plugins[name]) {
+                i++;
+                if (plugins[name].resultType === "List")
+                    if (plugins[name].highPriority)
+                        ResultsListNames.unshift(name);
+                    else
+                        ResultsListNames.push(name);
+            }
+            else
+                this.AvailablePluginNames.splice(i, 1);
         }
+
+        this.list_i = 0;
         this.i = 0;
         this.results = []; // 各検索プラグインが結果をオブジェクトで格納する。{ name : plugin_name, lyric : plugin_result }  // プラグインが処理を中止した場合にも plugin_result = null で格納すべき（処理が終わったことを明示しないとtimeout_millisecondの待機時間が生じる）
         this.timer = function () { // 進捗チェック
@@ -27,36 +36,45 @@
                     if (_this.results[i].lyric) i++;
                     else _this.results.splice(i, 1);
                 }
-                _this.showResults();
+                Keybind.LyricShow_keyup[221]();
             }
         };
 
         this.showResults = function () {
-            var status;
+            var status, key_s = [];
             var results = _this.results;
-            var VL = plugins['dplugin_ViewLyrics'];
-            if (!results.length && VL.results.length) {
-                VL.showResults();
+            if (!results.length) {
                 return;
             }
-            var AutoSaveTo = window.GetProperty('Plugin.Search.AutoSaveTo');
 
             main(results[0].lyric);
             status = 'src: ' + results[0].name;
             if (results.length !== 1) {
-                status += ' (' + ++_this.i + '/' + results.length + ')' + " (Press 'Enter' to switch)";
+                key_s.push("'Enter'");
+                status += ' (' + ++_this.i + '/' + results.length + ')';
                 results.push(results.shift());
                 if (_this.i === results.length) _this.i = 0;
             }
-            if (VL.results.length) {
-                status += "\n (Press ']' to switch to ViewLyrics)";
+            if (_this.checkOtherList()) {
+                key_s.push("']'");
+            }
+            if (key_s.length) {
+                status += "  <key: " + key_s.join(" or ") + ">";
             }
             StatusBar.showText(status);
 
-            if (/^Tag$/i.test(AutoSaveTo))
-                saveToTag(getFieldName(), status + '\n');
-            else if (/^File$/i.test(AutoSaveTo))
-                saveToFile(parse_path + (filetype === 'lrc' ? '.lrc' : '.txt'), status + '\n');
+            plugin_auto_save(status + '\n');
+        };
+
+        this.checkOtherList = function () {
+            var name;
+            var n = 0;
+            for (var i = 0; i < ResultsListNames.length; i++) {
+                name = ResultsListNames[i];
+                if (plugins[name].results.length)
+                    n++;
+            }
+            return n > 1;
         };
 
         this.setAutoSearchPluginName = function (pname) {
@@ -89,25 +107,33 @@
 
         Keybind.LyricShow_keyup[221] = function () {
 
-            var VL = plugins['dplugin_ViewLyrics'];
+            var name;
             var f = Keybind.LyricShow_keyup[13];
-            if (f === _this.showResults && VL.results.length) {
-                f = VL.showResults;
-                f();
-            }
-            else if (f === VL.showResults && _this.results.length) {
-                f = _this.showResults;
-                f();
-            }
+            var start = _this.list_i;
 
-            Keybind.LyricShow_keyup[13] = f;
+            var i = start;
+            do {
+                name = ResultsListNames[i++];
+                if (i === ResultsListNames.length)
+                    i = 0;
+
+                if (plugins[name].results.length && f !== plugins[name].showResults) {
+                    f = plugins[name].showResults;
+                    f();
+                    Keybind.LyricShow_keyup[13] = f;
+                    _this.list_i = i;
+                    break;
+                }
+            } while (i !== start);
         };
 
     },
     onPlay: function () { // 新たに曲が再生された時に呼び出される
         this.timer.clearInterval();
+        this.list_i = 0;
         this.i = 0;
         this.results.length = 0;
+        Keybind.LyricShow_keyup[13] = function () { };
         if (!this.onCommand.AutoSearch || !this.AvailablePluginNames.length || !main.IsVisible || lyric) {
             return;
         }
@@ -119,7 +145,6 @@
         }
 
         this.timer.interval(1000);
-        Keybind.LyricShow_keyup[13] = this.showResults;
 
     },
     onCommand: function () { // プラグインのメニューをクリックすると呼び出される
