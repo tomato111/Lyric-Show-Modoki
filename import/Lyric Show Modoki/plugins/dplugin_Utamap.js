@@ -59,8 +59,10 @@
             var Page = new AnalyzePage(resArray, depth);
 
             if (Page.id) {
-                getHTML(null, 'GET', Page.url, !ASYNC, false, onLoaded);
-                getHTML(null, 'GET', createQuery(null, null, Page.id), ASYNC, true, onLoaded);
+                getHTML(null, 'GET', Page.url, ASYNC, false, function () {
+                    onLoaded.apply(null, arguments);
+                    getHTML(null, 'GET', createQuery(null, null, Page.id), ASYNC, true, onLoaded);
+                });
             }
             else if (Page.next) {
                 getHTML(null, 'GET', createQuery(title, ++depth), ASYNC, depth, onLoaded);

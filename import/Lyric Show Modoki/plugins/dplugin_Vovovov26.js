@@ -87,7 +87,7 @@
             var tmp, tmpti;
 
             var IdSearchRE = /<h3><a href="blog-entry-(\d+?)\.html">(.+?)<\/a><\/h3>/i; // $1:id, $2:title
-            var ContentsSearchRE = /<div class="contents_body">(.+)/i; // $1:contents
+            var ContentsSearchRE = /<div class="contents_body">([^<].+)/i; // $1:contents
             var LineFeedCode = prop.Save.LineFeedCode;
 
             if (depth === 1) { // lyric

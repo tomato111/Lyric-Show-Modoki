@@ -56,8 +56,10 @@
             var Page = new AnalyzePage(resArray, depth);
 
             if (Page.id) {
-                getHTML(null, 'GET', createQuery(null, Page.id), !ASYNC, ++depth, onLoaded);
-                getHTML(null, 'GET', createQuery(null, null, Page.id), ASYNC, ++depth, onLoaded);
+                getHTML(null, 'GET', createQuery(null, Page.id), ASYNC, ++depth, function () {
+                    onLoaded.apply(null, arguments);
+                    getHTML(null, 'GET', createQuery(null, null, Page.id), ASYNC, ++depth, onLoaded);
+                });
             }
             else if (Page.lyrics) {
                 var text = onLoaded.info + Page.lyrics;
