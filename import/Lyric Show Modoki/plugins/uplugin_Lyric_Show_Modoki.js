@@ -1,6 +1,6 @@
 ﻿pl = {
     name: 'uplugin_Lyric_Show_Modoki',
-    label: prop.Panel.Lang == 'ja' ? '更新チェック: Lyric Show Modoki' : 'Check Update: Lyric Show Modoki',
+    label: prop.Panel.Lang === 'ja' ? '更新チェック: Lyric Show Modoki' : 'Check Update: Lyric Show Modoki',
     author: 'tomato111',
     onStartUp: function () { // 最初に一度だけ呼び出される
         window.GetProperty('Plugin.CheckUpdateOnStartUp', false) && this.onCommand(true);
@@ -10,13 +10,13 @@
         var debug_html = false; // for debug
         var onCommand = arguments.callee;
 
-        !isStartUp && StatusBar.showText(prop.Panel.Lang == 'ja' ? '更新チェック中......' : 'checking update......');
+        !isStartUp && StatusBar.showText(prop.Panel.Lang === 'ja' ? '更新チェック中......' : 'checking update......');
         getHTML(null, 'GET', 'http://ashiato1.blog62.fc2.com/blog-entry-64.html', ASYNC, 0, onLoaded);
 
         //------------------------------------
 
         function onLoaded(request, depth, file) {
-            !isStartUp && StatusBar.showText(prop.Panel.Lang == 'ja' ? '更新チェック中......' : 'checking update......');
+            !isStartUp && StatusBar.showText(prop.Panel.Lang === 'ja' ? '更新チェック中......' : 'checking update......');
             debug_html && fb.trace('\nOpen#' + ': ' + file + '\n');
 
             var res = request.responseText;
@@ -50,22 +50,24 @@
 
                     do {
                         diff = latestVersion[n] - currentVersion[n];
-                    } while (diff === 0 && n++ < 2)
+                    } while (diff === 0 && n++ < 2);
 
 
                     if (diff > 0) // there is a new version.
                         this.result = function () {
                             if (isStartUp) {
-                                Menu.addToMenu_LyricShow(
+                                Menu.insertItems(
+                                    'LyricShow',
+                                    -3,
                                     [
                                         {
-                                            Flag: 0x00000000,
-                                            Caption: prop.Panel.Lang == 'ja' ? '## 新しいバージョンが利用可能です ##' : '## New version is available ##',
+                                            Flag: MF_STRING,
+                                            Caption: prop.Panel.Lang === 'ja' ? '## 新しいバージョンが利用可能です ##' : '## New version is available ##',
                                             Func: onCommand
                                         }
                                     ]
                                 );
-                                Menu.build(prop.Edit.Start ? Menu.Edit : '');
+                                Menu.build();
                             }
                             else {
                                 getHTML(null, 'GET', 'https://raw.githubusercontent.com/tomato111/Lyric-Show-Modoki/master/README.md', !ASYNC, 0,
@@ -74,22 +76,22 @@
                                         var historyRE = new RegExp('(--v[\\S\\s]+)--v' + scriptVersion);
                                         var asteriskRE = /\* /g;
                                         var hyphenRE = /-{3,}/g;
-                                        var spaceRE = /  $/mg;
+                                        var spaceRE = / {2}$/mg;
                                         if (historyRE.test(res))
                                             fb.ShowPopupMessage(RegExp.$1.replace(asteriskRE, '- ').replace(hyphenRE, '--------------------------------').replace(spaceRE, '').trim(), 'Lyric Show Modoki');
                                     });
                                 StatusBar.hide();
-                                var intButton = ws.Popup(prop.Panel.Lang == 'ja'
+                                var intButton = ws.Popup(prop.Panel.Lang === 'ja'
                                     ? '新しいバージョンがあります。\n現在: v' + scriptVersion + '  最新: v' + latestVersion.join('.') + '\n\nダウンロードしますか？（デスクトップに保存）'
                                     : 'There is a new version.\nCurrent: v' + scriptVersion + '  Latest: v' + latestVersion.join('.') + '\n\nDownload it? (Save to desktop)', 0, 'Lyric Show Modoki', 36);
                                 if (intButton === 6) {
-                                    StatusBar.showText(prop.Panel.Lang == 'ja' ? 'ダウンロード中......' : 'Downloading......');
+                                    StatusBar.showText(prop.Panel.Lang === 'ja' ? 'ダウンロード中......' : 'Downloading......');
                                     getHTML(null, 'GET', latestFilePath, ASYNC, 0,
                                         function (request, depth, file) {
                                             if (request.status === 200) {
                                                 var res = request.responseBody;
                                                 responseBodyToFile(res, ws.SpecialFolders.item('Desktop') + '\\' + file.match(/^.+\/(.+)$/)[1]);
-                                                StatusBar.showText(prop.Panel.Lang == 'ja' ? 'デスクトップにダウンロードしました。' : 'Downloaded to desktop.');
+                                                StatusBar.showText(prop.Panel.Lang === 'ja' ? 'デスクトップにダウンロードしました。' : 'Downloaded to desktop.');
                                             }
                                             else {
                                                 fb.ShowPopupMessage('download error: ' + request.status, 'Lyric Show Modoki');
@@ -100,7 +102,7 @@
                         };
                     else // up-to-date.
                         this.result = function () {
-                            !isStartUp && StatusBar.showText(prop.Panel.Lang == 'ja' ? '新しいバージョンはありません。 v' + scriptVersion : 'This script is up-to-date.  v' + scriptVersion);
+                            !isStartUp && StatusBar.showText(prop.Panel.Lang === 'ja' ? '新しいバージョンはありません。 v' + scriptVersion : 'This script is up-to-date.  v' + scriptVersion);
                         };
 
                     return;
@@ -108,7 +110,7 @@
             } // END for
 
             this.result = function () {
-                !isStartUp && StatusBar.showText(prop.Panel.Lang == 'ja' ? 'バージョンチェックに失敗しました。' : 'Faild to check version.');
+                !isStartUp && StatusBar.showText(prop.Panel.Lang === 'ja' ? 'バージョンチェックに失敗しました。' : 'Faild to check version.');
             };
         }
 

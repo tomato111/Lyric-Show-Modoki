@@ -1,6 +1,6 @@
 ﻿pl = {
     name: 'dplugin_Miku_Hatsune_wiki',
-    label: prop.Panel.Lang == 'ja' ? '歌詞検索: 初音ミクWiki' : 'Download Lyrics: Miku Hatsune wiki',
+    label: prop.Panel.Lang === 'ja' ? '歌詞検索: 初音ミクWiki' : 'Download Lyrics: Miku Hatsune wiki',
     author: 'tomato111',
     onStartUp: function () { // 最初に一度だけ呼び出される
     },
@@ -12,7 +12,7 @@
         }
 
         if (!fb.IsPlaying) {
-            StatusBar.showText(prop.Panel.Lang == 'ja' ? '再生していません。' : 'Not Playing');
+            StatusBar.showText(prop.Panel.Lang === 'ja' ? '再生していません。' : 'Not Playing');
             return;
         }
 
@@ -30,7 +30,7 @@
             if (!artist) return;
         }
 
-        StatusBar.showText((prop.Panel.Lang == 'ja' ? '検索中......' : 'Searching......') + label);
+        StatusBar.showText((prop.Panel.Lang === 'ja' ? '検索中......' : 'Searching......') + label);
         getHTML(null, 'GET', createQuery(title), ASYNC, 0, onLoaded);
 
         //------------------------------------
@@ -43,7 +43,7 @@
         }
 
         function onLoaded(request, depth, file) {
-            StatusBar.showText((prop.Panel.Lang == 'ja' ? '検索中......' : 'Searching......') + label);
+            StatusBar.showText((prop.Panel.Lang === 'ja' ? '検索中......' : 'Searching......') + label);
             debug_html && fb.trace('\nOpen#' + depth + ': ' + file + '\n');
 
             var res = request.responseText;
@@ -66,7 +66,7 @@
                 }
                 else {
                     main(text);
-                    StatusBar.showText(prop.Panel.Lang == 'ja' ? '検索終了。歌詞を取得しました。' : 'Search completed.');
+                    StatusBar.showText(prop.Panel.Lang === 'ja' ? '検索終了。歌詞を取得しました。' : 'Search completed.');
 
                     plugin_auto_save();
                 }
@@ -77,7 +77,7 @@
                     return;
                 }
                 StatusBar.hide();
-                var intButton = ws.Popup(prop.Panel.Lang == 'ja' ? 'ページが見つかりませんでした。\nブラウザで開きますか？' : 'Page not found.\nOpen the URL in browser?', 0, 'Confirm', 36);
+                var intButton = ws.Popup(prop.Panel.Lang === 'ja' ? 'ページが見つかりませんでした。\nブラウザで開きますか？' : 'Page not found.\nOpen the URL in browser?', 0, label, 36);
                 if (intButton === 6)
                     FuncCommand('"' + file + '"');
             }
@@ -115,12 +115,12 @@
                 }
 
                 onLoaded.info = title + LineFeedCode + LineFeedCode
-                    + onLoaded.info.replace(Ignore1RE, '').replace(/&amp;/g, '&')
+                    + onLoaded.info.replace(Ignore1RE, '').decodeHTMLEntities()
                     + LineFeedCode;
                 this.lyrics = this.lyrics
                     .replace(LineBreakRE, LineFeedCode)
                     .replace(Ignore2RE, '')
-                    .replace(/&amp;/g, '&')
+                    .decodeHTMLEntities()
                     .trim();
             }
 
@@ -129,8 +129,7 @@
                 tmpar = artist.toLowerCase();
                 for (i = 0; i < resArray.length; i++) {
                     if (backref = resArray[i].match(IdSearchRE)) {
-                        backref[1] = backref[1].replace(/&amp;/g, '&');
-                        backref[2] = backref[2].decNumRefToString().toLowerCase();
+                        backref[2] = backref[2].decodeHTMLEntities().toLowerCase();
                         debug_html && fb.trace('title: ' + backref[2] + ' id: ' + backref[1]);
                         if (backref[2] === tmpti)
                             id = backref[1];

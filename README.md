@@ -1,6 +1,20 @@
 ﻿## Installation
 <http://ashiato1.blog62.fc2.com/blog-entry-64.html>
 ## History
+--v1.8.0(2017/09/30)-------------------------------------------------
+
+* コード整理 (グローバル変数を含む)  
+* no lyrics 時の列揃えに関する不具合を修正  
+* Style.CenterPosition は Vartical-Padding を考慮するように変更  
+* Save.LineFeedCode でCR単体を指定不可に変更  
+* メニューを閉じた時のクリックイベントを無視するように変更  
+* 編集画面での折り返し表示をword wrap維持に変更  
+* 検索プラグインにおける文字実体参照のデコード処理を強化  
+* Blur のメソッドを変更 (BlurValueにも影響)  
+* 設定 Panel.FollowExternalSeek を追加  
+　(false: シークバー等でシークした際に位置を追従しない)  
+* JScript Panel v1.3.0 の仕様変更に対応  
+
 --v1.7.2(2017/06/24)-------------------------------------------------
 
 * 4つの検索プラグインを修正  

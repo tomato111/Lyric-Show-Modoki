@@ -3,30 +3,29 @@
 
 // ==PREPROCESSOR==
 // @name "Lyric Show Modoki"
-// @version "1.7.2"
+// @version "1.8.0"
 // @author "tomato111"
 // @import "%fb2k_profile_path%import\common\lib.js"
 // ==/PREPROCESSOR==
-/// <reference path="lib.js"/>
 
 
 //============================================
 //== Global Variable and Function ============
 //============================================
 // user reserved words
-var plugins, lyric, parse_path, path, directory, fieldname, filetype, dataSize, charset, offsetinfo, backalpha, infoPath
-, offsetY, fixY, drag, drag_y, g_x, g_y, ww, wh, larea_seek, rarea_seek, seek_width, rarea_seek_x, arc_w, arc_h, ignore_remainder, Lock, Lock_MiddleButton, movable, jumpY
-, Left_Center, Center_Left, Center_Right, Right_Center, centerleftX, TextHeight, BackgroundImg
-, prop, LyricShow, Edit, Buttons, StatusBar, Keybind, Menu, Messages, Label;
+var plugins, lyric, parse_path, directory, filetype, infoPath, Messages, Label
+    , offsetY, fixY, fromY, g_x, g_y, ww, wh, seek_width, arc_w, arc_h, centerleftX
+    , isAnim, isExternalSeek, ignore_remainder, movable, textHeight;
 
 var fs = new ActiveXObject("Scripting.FileSystemObject"); // File System Object
 var ws = new ActiveXObject("WScript.Shell"); // WScript Shell Object
 var Trace = new TraceLog();
 var scriptName = "Lyric Show Modoki";
-var scriptVersion = "1.7.2";
+var scriptVersion = "1.8.0";
 var scriptdir = fb.ProfilePath + "import\\" + scriptName + "\\";
 var commondir = fb.ProfilePath + "import\\common\\";
-var down_pos = {};
+var align = {};
+var mouse = {};
 var disp = {};
 var backupLyric = [];
 var TextRender = gdi.CreateStyleTextRender();
@@ -57,7 +56,7 @@ var repeatRes = getRepeatRes(scriptdir + "repeat.txt", scriptdir + "repeat-defau
 //========
 // properties
 //========
-prop = new function () {
+var prop = new function () {
     // ---- Removed Property
     window.SetProperty("Panel.Interval", null);
     window.SetProperty("Panel.Interval2", null);
@@ -77,8 +76,7 @@ prop = new function () {
 
     // ==Panel====
     this.Panel = {
-        // Lyrics Folder
-        Path: window.GetProperty("Panel.Path", defaultpath),
+        Path: window.GetProperty("Panel.Path", defaultpath), // Lyrics Folder
         PathFuzzyLevel: window.GetProperty("Panel.Path.FuzzyLevel", 0),
         Lang: window.GetProperty("Panel.Language", ""),
         HideConf: window.GetProperty("Panel.HideConfigureMenu", false),
@@ -87,11 +85,11 @@ prop = new function () {
         NoLyric: window.GetProperty("Panel.NoLyricsFound", "Title: %title%\\nArtist: %artist%\\nAlbum: %album%\\n\\n-no lyrics-"),
         Priority: window.GetProperty("Panel.Priority", "Sync_Tag,Sync_File,Unsync_Tag,Unsync_File"),
         Contain: window.GetProperty("Panel.LRC.ContainNormalLines", false),
-        ScrollType: window.getProperty("Panel.LRC.ScrollType", 1),
+        ScrollType: window.GetProperty("Panel.LRC.ScrollType", 1),
         SkipEmptyLine: window.GetProperty("Panel.LRC.SkipEmptyLine", true),
         AlphaDurationTime: 30,
-        ScrollDurationTime: window.getProperty("Panel.LRC.ScrollDurationTime", 141), // value*10 [ms]前からスクロール開始 // 3の倍数を推奨
-        ScrollToCenter: window.getProperty("Panel.LRC.ScrollToCenter", false),
+        ScrollDurationTime: window.GetProperty("Panel.LRC.ScrollDurationTime", 141), // value*10 [ms]前からスクロール開始 // 3の倍数を推奨
+        ScrollToCenter: window.GetProperty("Panel.LRC.ScrollToCenter", false),
         BackgroundAlpha: window.GetProperty("Panel.Background.Alpha", 50),
         BackgroundAngle: window.GetProperty("Panel.Background.Angle", 20),
         BackgroundEnable: window.GetProperty("Panel.Background.Enable", true),
@@ -99,7 +97,7 @@ prop = new function () {
         BackgroundKAR: window.GetProperty("Panel.Background.KeepAspectRatio", true),
         BackgroundStretch: window.GetProperty("Panel.Background.Stretch", true),
         BackgroundBlur: window.GetProperty("Panel.Background.Blur", false),
-        BackgroundBlurValue: window.GetProperty("Panel.Background.BlurValue", 1.1),
+        BackgroundBlurValue: window.GetProperty("Panel.Background.BlurValue", 50),
         BackgroundBlurAlpha: window.GetProperty("Panel.Background.BlurAlpha", 76),
         ExpandRepetition: window.GetProperty("Panel.ExpandRepetition", false),
         AdjustScrolling: window.GetProperty("Panel.AdjustScrolling", 100),
@@ -111,6 +109,7 @@ prop = new function () {
         RefreshOnPanelResize: window.GetProperty("Panel.RefreshOnPanelResize", false),
         InfoPath: window.GetProperty("Panel.InfoPath", ""),
         GuessPlaybackTempo: window.GetProperty("Panel.GuessPlaybackTempo", false),
+        FollowExternalSeek: window.GetProperty("Panel.FollowExternalSeek", true),
         Keybind:
         {
             SeekToNextLine: window.GetProperty("Panel.Keybind.SeekToNextLine", 88), // Default is 'X' Key
@@ -141,8 +140,8 @@ prop = new function () {
     if (typeof this.Panel.BackgroundAngle !== "number")
         window.SetProperty("Panel.Background.Angle", this.Panel.BackgroundAngle = 20);
 
-    if (typeof this.Panel.BackgroundBlurValue !== "number" || this.Panel.BackgroundBlurValue < 0.1 || this.Panel.BackgroundBlurValue > 100)
-        window.SetProperty("Panel.Background.BlurValue", this.Panel.BackgroundBlurValue = 1.1);
+    if (typeof this.Panel.BackgroundBlurValue !== "number" || this.Panel.BackgroundBlurValue < 1 || this.Panel.BackgroundBlurValue > 100 || this.Panel.BackgroundBlurValue % 1) //v1.8.0で型が整数に変わったので%1でチェック
+        window.SetProperty("Panel.Background.BlurValue", this.Panel.BackgroundBlurValue = 50);
 
     if (typeof this.Panel.BackgroundBlurAlpha !== "number" || this.Panel.BackgroundBlurAlpha < 0 || this.Panel.BackgroundBlurAlpha > 255)
         window.SetProperty("Panel.Background.BlurAlpha", this.Panel.BackgroundBlurAlpha = 76);
@@ -161,8 +160,8 @@ prop = new function () {
 
     // ==Style====
     this.Style = {
-        CSLS: window.GetProperty("Style.ColorStyle.LyricShow", "black"),
-        CSE: window.GetProperty("Style.ColorStyle.Edit", "white"),
+        CS_LS: window.GetProperty("Style.ColorStyle.LyricShow", "black"),
+        CS_E: window.GetProperty("Style.ColorStyle.Edit", "white"),
         Font_Family: window.GetProperty("Style.Font-Family", ""),
         Font_Size: window.GetProperty("Style.Font-Size", 13),
         Font_Bold: window.GetProperty("Style.Font-Bold", true),
@@ -185,12 +184,12 @@ prop = new function () {
         KeepPlayingColor: window.GetProperty("Style.KeepPlayingColor", false)
     };
 
-    this.Style.CLS = { // define color of LyricShow
+    this.Style.C_LS = { // define color of LyricShow
         white: {
-            Text: RGB(70, 70, 70),                  // Normal Text color
+            Text: RGB(80, 80, 80),                  // Normal Text color
             TextShadow: RGB(225, 225, 225),         // Text Shadow color
-            TextRound: RGB(235, 235, 235),    // Text Round color (for StyleTextRender)
-            Background: RGBA(245, 245, 245, 255),   // Background color
+            TextRound: RGB(240, 240, 240),          // Text Round color (for StyleTextRender)
+            Background: RGBA(248, 248, 248, 255),   // Background color
             PlayingText: RGB(215, 65, 100)          // Playing Text color
         },
         black: {
@@ -209,11 +208,11 @@ prop = new function () {
         }
     };
 
-    this.Style.CE = { // define color of Edit
+    this.Style.C_E = { // define color of Edit
         white: {
             Text: RGB(80, 80, 80),                          // Text color
             Background: RGBA(255, 255, 255, 255),           // Background color
-            ViewBackground: RGBA(236, 244, 254, 255),        // Bacground color of ViewMode
+            ViewBackground: RGBA(236, 244, 254, 255),       // Bacground color of ViewMode
             Line: RGBA(193, 219, 252, 200),                 // Bacground color of playing line
             Rule: RGBA(0, 0, 0, 40),                        // Ruled line color
             Length: RGB(100, 100, 100),                     // Number of line
@@ -223,7 +222,7 @@ prop = new function () {
         black: {
             Text: RGB(210, 210, 210),
             Background: RGBA(0, 0, 0, 210),
-            ViewBackground: RGBA(0, 0, 0, 195),
+            ViewBackground: RGBA(0, 3, 3, 195),
             Line: RGBA(153, 255, 20, 70),
             Rule: RGBA(255, 255, 205, 40),
             Length: RGB(180, 180, 180),
@@ -232,8 +231,8 @@ prop = new function () {
         },
         user: {
             Text: eval(window.GetProperty("Style.User.Edit.Text", "RGB(210, 210, 210)")),
-            Background: eval(window.GetProperty("Style.User.Edit.Background", "RGBA(0,0,0,210)")),
-            ViewBackground: eval(window.GetProperty("Style.User.Edit.ViewBackground", "RGBA(0,0,0,195)")),
+            Background: eval(window.GetProperty("Style.User.Edit.Background", "RGBA(0, 0, 0, 210)")),
+            ViewBackground: eval(window.GetProperty("Style.User.Edit.ViewBackground", "RGBA(0, 3, 3, 195)")),
             Line: eval(window.GetProperty("Style.User.Edit.PlayingLine", "RGBA(153, 255, 20, 70)")),
             Rule: eval(window.GetProperty("Style.User.Edit.RuledLine", "RGBA(255, 255, 205, 40)")),
             Length: eval(window.GetProperty("Style.User.Edit.LineNumber", "RGB(180, 180, 180)")),
@@ -242,14 +241,14 @@ prop = new function () {
         }
     };
 
-    // check CSLS and Set Style.Color
-    if (!(this.Style.CSLS in this.Style.CLS))
-        window.SetProperty("Style.ColorStyle.LyricShow", this.Style.CSLS = "black");
-    this.Style.Color = this.Style.CLS[this.Style.CSLS];
+    // check CS_LS and Set Style.Color
+    if (!(this.Style.CS_LS in this.Style.C_LS))
+        window.SetProperty("Style.ColorStyle.LyricShow", this.Style.CS_LS = "black");
+    this.Style.Color = this.Style.C_LS[this.Style.CS_LS];
 
-    // check CSE
-    if (!(this.Style.CSE in this.Style.CE))
-        window.SetProperty("Style.ColorStyle.Edit", this.Style.CSE = "white");
+    // check CS_E
+    if (!(this.Style.CS_E in this.Style.C_E))
+        window.SetProperty("Style.ColorStyle.Edit", this.Style.CS_E = "white");
 
     // check Align
     if (typeof this.Style.Align !== "number" || this.Style.Align < 0x00000000 || this.Style.Align > 0x00000006)
@@ -325,8 +324,6 @@ prop = new function () {
     this.Edit = {
         Rule: window.GetProperty("Edit.ShowRuledLine", true),
         Step: window.GetProperty("Edit.Step", 14),
-        Start: false,
-        View: false,
         Keybind:
         {
             AheadBy3Seconds: window.GetProperty("Edit.Keybind.AheadBy3Seconds", 39), // Default is 'Right' Key
@@ -351,9 +348,9 @@ prop = new function () {
         iTunesMode: window.GetProperty("Save.iTunesMode", false)
     };
 
-    if (!this.Save.CharacterCode || !/^(?:Unicode|Shift_JIS|EUC-JP|UTF-8|UTF-8N)$/i.test(this.Save.CharacterCode))
+    if (!/^(?:Unicode|Shift_JIS|EUC-JP|UTF-8|UTF-8N)$/i.test(this.Save.CharacterCode))
         window.SetProperty("Save.CharacterCode", this.Save.CharacterCode = "UTF-8");
-    if (!this.Save.LineFeedCode || !/^(?:CR\+LF|CR|LF)$/i.test(this.Save.LineFeedCode))
+    if (!/^(?:CR\+LF|LF)$/i.test(this.Save.LineFeedCode))
         window.SetProperty("Save.LineFeedCode", this.Save.LineFeedCode = "CR+LF");
 
     this.Save.LineFeedCode = this.Save.LineFeedCode.replaceEach("CR", "\r", "LF", "\n", "\\+", "", "i"); // Set converted code
@@ -362,7 +359,7 @@ prop = new function () {
 
     this.Save.TimetagSign = this.Save.TimetagSign ? ":" : ".";
 
-    if (!this.Save.ClipbordAutoSaveTo || !/^(?:File|Tag)$/i.test(this.Save.ClipbordAutoSaveTo))
+    if (!/^(?:File|Tag)$/i.test(this.Save.ClipbordAutoSaveTo))
         window.SetProperty("Save.GetClipbord.AutoSaveTo", this.Save.ClipbordAutoSaveTo = "");
 
 
@@ -380,7 +377,7 @@ prop = new function () {
         window.SetProperty("Plugin.Search.AutoSaveTo", this.Plugin.AutoSaveTo = "");
     if (!/^(?:File|Tag)?$/i.test(this.Plugin.AutoSaveLrcTo))
         window.SetProperty("Plugin.Search.AutoSaveLrcTo", this.Plugin.AutoSaveLrcTo = "");
-};
+}();
 
 //========
 // load language
@@ -391,7 +388,7 @@ LanguageLoader = {
     Messages: {},
     Label: {},
 
-    Load: function (objFSO, path) {
+    Load: function (path) {
 
         function checkLang(lang) {
             for (var i = 0; i < definedLanguage.length; i++)
@@ -404,7 +401,7 @@ LanguageLoader = {
         var languages = utils.Glob(path + "*.ini").toArray();
 
         for (var i = 0; i < languages.length; i++) {
-            definedLanguage.push(objFSO.GetBaseName(languages[i]));
+            definedLanguage.push(fs.GetBaseName(languages[i]));
         }
 
         if (!prop.Panel.Lang || !checkLang(prop.Panel.Lang)) { // get lang from environment variable. show propmt if it cannot get a available language,  
@@ -451,11 +448,10 @@ LanguageLoader = {
         for (var name in lang0) {
             this.Label[name] = lang1[name] || lang0[name];
         }
-    },
-    Dispose: function () { delete LanguageLoader; }
+    }
 };
 
-LanguageLoader.Load(fs, scriptdir + "language\\");
+LanguageLoader.Load(scriptdir + "language\\");
 Messages = LanguageLoader.Messages;
 Label = LanguageLoader.Label;
 
@@ -467,19 +463,19 @@ PluginLoader = {
 
     Plugins: {},
 
-    Load: function (objFSO, path) {
+    Load: function (path) {
         var f, fc, str, pl;
         var jsRE = /\.js$/i;
         var asgRE = /^[^{]*/;
         var disableRE = new RegExp("^(?:" + prop.Plugin.Disable.trim().replace(/[ 　]*,[ 　]*/g, "|") + ")$");
 
         try {
-            f = objFSO.GetFolder(path);
+            f = fs.GetFolder(path);
         } catch (e) { throw new Error("The path to a plugins folder is wrong. (" + scriptName + ")"); }
 
         fc = new Enumerator(f.Files);
 
-        for (; !fc.atEnd() ; fc.moveNext()) {
+        for (; !fc.atEnd(); fc.moveNext()) {
             if (!jsRE.test(fc.item().Name)) continue;
             try {
                 str = readTextFile(fc.item().Path);
@@ -493,19 +489,11 @@ PluginLoader = {
             if (!disableRE.test(pl.name))
                 this.Plugins[pl.name] = pl;
         }
-    },
-    Dispose: function () { delete PluginLoader; }
+    }
 };
 
-PluginLoader.Load(fs, scriptdir + "plugins\\");
+PluginLoader.Load(scriptdir + "plugins\\");
 plugins = PluginLoader.Plugins;
-
-//=======
-// release Object
-//=======
-
-LanguageLoader.Dispose();
-PluginLoader.Dispose();
 
 //=======
 // function
@@ -542,7 +530,7 @@ function setDrawingMethod() {
 
 function setAlign() {
 
-    Left_Center = Center_Left = Center_Right = Right_Center = false;
+    align.Left_Center = align.Center_Left = align.Center_Right = align.Right_Center = false;
 
     switch (window.GetProperty("Style.Align")) {
         case 0x00000000:
@@ -559,25 +547,27 @@ function setAlign() {
             break;
         case 0x00000003:
             prop.Style.Align = prop.Style.DrawingMethod === 0 ? DT_LEFT | DT_NOPREFIX : GDIPlus_LEFT;
-            Left_Center = true;
+            align.Left_Center = true;
             prop.Edit.Align = DT_LEFT | DT_NOPREFIX | DT_WORDBREAK;
             break;
         case 0x00000004:
             prop.Style.Align = prop.Style.DrawingMethod === 0 ? DT_LEFT | DT_NOPREFIX : GDIPlus_LEFT;
-            Center_Left = true;
+            align.Center_Left = true;
             prop.Edit.Align = DT_LEFT | DT_NOPREFIX | DT_WORDBREAK;
             break;
         case 0x00000005:
             prop.Style.Align = prop.Style.DrawingMethod === 0 ? DT_RIGHT | DT_NOPREFIX : GDIPlus_RIGHT;
-            Center_Right = true;
+            align.Center_Right = true;
             prop.Edit.Align = DT_RIGHT | DT_NOPREFIX | DT_WORDBREAK;
             break;
         case 0x00000006:
             prop.Style.Align = prop.Style.DrawingMethod === 0 ? DT_RIGHT | DT_NOPREFIX : GDIPlus_RIGHT;
-            Right_Center = true;
+            align.Right_Center = true;
             prop.Edit.Align = DT_RIGHT | DT_NOPREFIX | DT_WORDBREAK;
             break;
     }
+
+    align.Left_Center_NL = align.Center_Left_NL = align.Center_Right_NL = align.Right_Center_NL = false;
 
     switch (window.GetProperty("Style.AlignNoLyric")) {
         case 0x00000000:
@@ -589,17 +579,21 @@ function setAlign() {
         case 0x00000002:
             prop.Style.AlignNoLyric = prop.Style.DrawingMethod === 0 ? DT_RIGHT | DT_NOPREFIX | DT_WORDBREAK : GDIPlus_RIGHT;
             break;
-        case 0x00000003: // Left_Center
+        case 0x00000003:
             prop.Style.AlignNoLyric = prop.Style.DrawingMethod === 0 ? DT_LEFT | DT_NOPREFIX | DT_WORDBREAK : GDIPlus_LEFT;
+            align.Left_Center_NL = true;
             break;
-        case 0x00000004: // Center_Left
+        case 0x00000004:
             prop.Style.AlignNoLyric = prop.Style.DrawingMethod === 0 ? DT_LEFT | DT_NOPREFIX | DT_WORDBREAK : GDIPlus_LEFT;
+            align.Center_Left_NL = true;
             break;
-        case 0x00000005: // Center_Right
+        case 0x00000005:
             prop.Style.AlignNoLyric = prop.Style.DrawingMethod === 0 ? DT_RIGHT | DT_NOPREFIX | DT_WORDBREAK : GDIPlus_RIGHT;
+            align.Center_Right_NL = true;
             break;
-        case 0x00000006: // Right_Center
+        case 0x00000006:
             prop.Style.AlignNoLyric = prop.Style.DrawingMethod === 0 ? DT_RIGHT | DT_NOPREFIX | DT_WORDBREAK : GDIPlus_RIGHT;
+            align.Right_Center_NL = true;
             break;
     }
 
@@ -609,12 +603,12 @@ function setAlign() {
 function refreshDrawStyle() {
 
     if (lyric) {
-        LyricShow.setProperties.setWordbreakList();
-        LyricShow.setProperties.setScrollSpeedList();
-        LyricShow.set_on_paintInfo_x_w();
-        LyricShow.setProperties.buildDrawStyle();
+        LyricShow.Properties.setWordbreakList();
+        LyricShow.Properties.setScrollSpeedList();
+        LyricShow.Properties.setPaintInfo();
+        LyricShow.Properties.buildDrawStyle();
         ignore_remainder = true;
-        !prop.Edit.Start && LyricShow.searchLine(fb.PlaybackTime);
+        !Edit.isStarted && LyricShow.searchLine(fb.PlaybackTime);
     }
 }
 
@@ -654,8 +648,7 @@ function getLyricFromClipboard() {
     var text = getClipboard();
     if (text) {
         main(text);
-        StatusBar.setText(Messages.GetClipboard.ret());
-        StatusBar.show(3000);
+        StatusBar.showText(Messages.GetClipboard.ret(), 3000);
     }
     else
         Messages.FailedToReadText.popup();
@@ -668,34 +661,30 @@ function getFieldName() {
         var field = isM4A ? "LYRICS" : "UNSYNCED LYRICS";
     }
     else
-        field = (filetype === "lrc" || prop.Edit.Start) ? "LYRICS" : "UNSYNCED LYRICS";
+        field = (filetype === "lrc" || Edit.isStarted) ? "LYRICS" : "UNSYNCED LYRICS";
     return field;
 }
 
 function saveToTag(fieldname, status, silent) {
 
     if (lyric && fieldname) {
-        Lock = true;
         var meta = fb.GetNowPlaying();
         var LineFeedCode = prop.Save.LineFeedCode;
         var text = (lyric.info.length ? lyric.info.join(LineFeedCode) + LineFeedCode : "") + lyric.text.join(LineFeedCode).trim();
         try {
             writeTagField(text, fieldname, meta);
-            StatusBar.setText((status ? status : "") + Messages.SavedToTag.ret('"' + fieldname + '"'));
-            StatusBar.show();
+            StatusBar.showText((status ? status : "") + Messages.SavedToTag.ret('"' + fieldname + '"'));
             !silent && playSoundSimple(commondir + "finished.wav");
         } catch (e) {
             Messages.FailedToSaveLyricsToTag.popup("\n" + e.message);
         }
         meta.Dispose();
-        Lock = false;
     }
 }
 
 function saveToFile(file, status, silent) {
 
     if (lyric && file) {
-        Lock = true;
         var meta = fb.GetNowPlaying();
         var folder = fs.GetParentFolderName(file);
         var LineFeedCode = prop.Save.LineFeedCode;
@@ -704,15 +693,13 @@ function saveToFile(file, status, silent) {
             if (!fs.FolderExists(folder))
                 createFolder(fs, folder);
             writeTextFile(text, file, prop.Save.CharacterCode);
-            StatusBar.setText((status ? status : "") + Messages.Saved.ret(file));
-            StatusBar.show();
+            StatusBar.showText((status ? status : "") + Messages.Saved.ret(file));
             !silent && playSoundSimple(commondir + "finished.wav");
             FuncCommands(prop.Save.RunAfterSave, meta);
         } catch (e) {
             Messages.FailedToSaveLyricsToFile.popup("\n" + e.message);
         }
         meta.Dispose();
-        Lock = false;
     }
 }
 
@@ -727,7 +714,7 @@ function plugin_auto_save(status, silent) {
     if (/^Tag$/i.test(to))
         saveToTag(getFieldName(), status, silent);
     else if (/^File$/i.test(to))
-        saveToFile(parse_path + (filetype === "lrc" ? ".lrc" : ".txt"), status, silent);
+        saveToFile(parse_path + "." + filetype, status, silent);
 }
 
 function applyDelta(delta, isMouseMove) {
@@ -739,13 +726,13 @@ function applyDelta(delta, isMouseMove) {
         applyDelta.applySimple(offsetY + delta);
     }
     else {
-        if (Lock) {
+        if (isAnim) {
             applyDelta.AnmDelta += delta;
             applyDelta.ElapsedTime = 75;
 
         }
         else {
-            Lock = true;
+            isAnim = true;
             applyDelta.AnmDelta = delta;
             applyDelta.ElapsedTime = 0;
             applyDelta.applyAnimation.interval(15);
@@ -760,9 +747,9 @@ applyDelta.applySimple = function (n) {
             LyricShow.repaintRect();
         }
     }
-    else if (n <= LyricShow.setProperties.minOffsetY) {
-        if (offsetY !== LyricShow.setProperties.minOffsetY) {
-            offsetY = LyricShow.setProperties.minOffsetY;
+    else if (n <= LyricShow.Properties.minOffsetY) {
+        if (offsetY !== LyricShow.Properties.minOffsetY) {
+            offsetY = LyricShow.Properties.minOffsetY;
             LyricShow.repaintRect();
         }
         movable = false;
@@ -774,7 +761,7 @@ applyDelta.applySimple = function (n) {
         LyricShow.repaintRect();
     }
 };
-applyDelta.applyAnimation = function () {
+applyDelta.applyAnimation = function () { // for Timer
     if (applyDelta.ElapsedTime < 75) {
         applyDelta.applySimple(offsetY + applyDelta.AnmDelta / 20);
     }
@@ -785,24 +772,21 @@ applyDelta.applyAnimation = function () {
     applyDelta.ElapsedTime += 15;
     if (applyDelta.ElapsedTime >= 300) { // 更新回数 20
         arguments.callee.clearInterval();
-        Lock = false;
+        isAnim = false;
     }
 };
 
 function seekLineTo(i) {
 
-    if (prop.Edit.View || (!prop.Edit.Start && filetype === "lrc")) {
+    if (Edit.View.isStarted || (!Edit.isStarted && filetype === "lrc")) {
 
         var n = lyric.i + i;
         if (n > lyric.text.length)
-            n = lyric.i;
+            n = lyric.text.length;
         else if (n < 1)
             n = 1;
 
-        if (!prop.Edit.Start)
-            jumpY = offsetY;
-
-        LyricShow.setProperties.DrawStyle[n - 1].doCommand(); // lyric.i は対象行なのでn-1がシーク先の行
+        LyricShow.Properties.DrawStyle[n - 1].doCommand(); // lyric.i は対象行なのでn-1がシーク先の行
     }
 }
 
@@ -811,7 +795,7 @@ function seekLineTo(i) {
 //== Create "LyricShow" Object ==============
 //===========================================
 
-LyricShow = new function (Style) {
+var LyricShow = new function (Style) {
 
     var Files_Collection = {};
     var directoryRE = /.+\\/;
@@ -819,73 +803,74 @@ LyricShow = new function (Style) {
     var zeroTagRE = /^\[00:00[.:]00\]$/;
     var FuzzyRE = ["", /[ 　]/g, /\(.*?\)/g];
     var tempo = 1;
-    var moveY, lineY, TextHeightWithoutLPadding;
-    var BackgroundPath, BackgroundSize;
+    var moveY, lineY, textHeightWithoutLPadding;
+    var BGImg, BGColorScheme, BGSize, BGAlpha;
 
     this.init = function () {
 
-        prop.Edit.Start && Edit.end();
+        Edit.isStarted && Edit.end();
         this.end();
         offsetY = fixY;
     };
 
-    this.initWithFile = function (file, IsSpecifiedPath) {
+    this.initWithFile = function (file, keepDefaultPath) {
 
-        var str, arr, exp;
+        var str, dir, f, arr, exp;
 
         L:
-            {
-                for (var i = 0; i < prop.Panel.PathFuzzyLevel + 1; i++) { // Fuzzy Search
-                    switch (i) {
-                        case 0:
-                            try {
-                                var f = fs.GetFile(file);
-                                break L;
-                            } catch (e) { }
-                            break;
-                        case 1:
-                            try {
-                                // create File Collection
-                                if (!Files_Collection[directory] || Files_Collection[directory].DateLastModified !== String(fs.GetFolder(directory).DateLastModified)) {
-                                    Files_Collection[directory] = [];
-                                    Files_Collection[directory].DateLastModified = String(fs.GetFolder(directory).DateLastModified);
-                                    arr = utils.Glob(directory + "*.*").toArray(); // fs.GetFolder(directory).Files でのコレクション処理は各アイテムのプロパティアクセスが遅すぎる. 代わりにutils.Glob()を使う
-                                    for (var j = 0; j < arr.length; j++) {
-                                        if (extensionRE.test(fs.GetExtensionName(arr[j]))) {
-                                            exp = fs.GetFileName(arr[j]).replace(FuzzyRE[i], "").toLowerCase();
-                                            Files_Collection[directory].push({ Name1: exp, Name2: exp.replace(FuzzyRE[i + 1], ""), Path: arr[j] });
-                                        }
-                                    }
-                                } // create File Collection END
-
-                                exp = fs.GetFileName(file).replace(FuzzyRE[i], "").toLowerCase();
-
-                                for (j = 0; j < Files_Collection[directory].length; j++) {
-                                    if (Files_Collection[directory][j].Name1 === exp) {
-                                        file = Files_Collection[directory][j].Path;
-                                        f = fs.GetFile(file);
-                                        break L;
+        {
+            for (var i = 0; i <= prop.Panel.PathFuzzyLevel; i++) { // Fuzzy Search
+                switch (i) {
+                    case 0:
+                        try {
+                            f = fs.GetFile(file);
+                            break L;
+                        } catch (e) { }
+                        break;
+                    case 1:
+                        try {
+                            // create File Collection
+                            dir = parse_path.match(directoryRE)[0];
+                            if (!Files_Collection[dir] || Files_Collection[dir].DateLastModified !== String(fs.GetFolder(dir).DateLastModified)) {
+                                Files_Collection[dir] = [];
+                                Files_Collection[dir].DateLastModified = String(fs.GetFolder(dir).DateLastModified);
+                                arr = utils.Glob(dir + "*.*").toArray(); // fs.GetFolder(dir).Files でのコレクション処理は各アイテムのプロパティアクセスが遅すぎる. 代わりにutils.Glob()を使う
+                                for (var j = 0; j < arr.length; j++) {
+                                    if (extensionRE.test(fs.GetExtensionName(arr[j]))) {
+                                        exp = fs.GetFileName(arr[j]).replace(FuzzyRE[i], "").toLowerCase();
+                                        Files_Collection[dir].push({ Name1: exp, Name2: exp.replace(FuzzyRE[i + 1], ""), Path: arr[j] });
                                     }
                                 }
-                            } catch (e) { }
-                            break;
-                        case 2:
-                            try {
-                                exp = exp.replace(FuzzyRE[i], "");
+                            } // create File Collection END
 
-                                for (j = 0; j < Files_Collection[directory].length; j++) {
-                                    if (Files_Collection[directory][j].Name2 === exp) {
-                                        file = Files_Collection[directory][j].Path;
-                                        f = fs.GetFile(file);
-                                        break L;
-                                    }
+                            exp = fs.GetFileName(file).replace(FuzzyRE[i], "").toLowerCase();
+
+                            for (j = 0; j < Files_Collection[dir].length; j++) {
+                                if (Files_Collection[dir][j].Name1 === exp) {
+                                    file = Files_Collection[dir][j].Path;
+                                    f = fs.GetFile(file);
+                                    break L;
                                 }
-                            } catch (e) { }
-                            break;
-                    } // switch END
+                            }
+                        } catch (e) { }
+                        break;
+                    case 2:
+                        try {
+                            exp = exp.replace(FuzzyRE[i], "");
 
-                } // for END
-            } // Label END
+                            for (j = 0; j < Files_Collection[dir].length; j++) {
+                                if (Files_Collection[dir][j].Name2 === exp) {
+                                    file = Files_Collection[dir][j].Path;
+                                    f = fs.GetFile(file);
+                                    break L;
+                                }
+                            }
+                        } catch (e) { }
+                        break;
+                } // switch END
+
+            } // for END
+        } // Label END
 
         if (!f) return;
 
@@ -896,13 +881,21 @@ LyricShow = new function (Style) {
             return;
         }
 
-        path = f.Path;
+        if (!str) return;
+
         directory = f.ParentFolder;
-        dataSize = f.Size;
-        charset = readTextFile.lastCharset;
-        if (!IsSpecifiedPath)
-            parse_path = directory + "\\" + fs.GetBaseName(path);
-        return str;
+        filetype = isSyncRE.test(str) ? "lrc" : "txt";
+        lyric = {
+            text: str.trim().split(getLineFeedCode(str)),
+            path: f.Path,
+            dataSize: f.Size,
+            charset: readTextFile.lastCharset
+        };
+
+        if (!keepDefaultPath)
+            parse_path = directory + "\\" + fs.GetBaseName(lyric.path);
+
+        return true;
     };
 
     this.initWithTag = function (tag) {
@@ -921,38 +914,34 @@ LyricShow = new function (Style) {
         if (str === ".")
             Messages.LargeFieldsConfig.fbpopup();
 
-        if (/^LYRICS$/.test(tag)) {
-            fieldname = "LYRICS";
-        } else {
-            fieldname = "UNSYNCED LYRICS";
-        }
-        directory = parse_path.match(directoryRE)[0];
+        filetype = isSyncRE.test(str) ? "lrc" : "txt";
+        lyric = {
+            text: str.trim().split(getLineFeedCode(str)),
+            fieldname: /^LYRICS$/.test(tag) ? "LYRICS" : "UNSYNCED LYRICS"
+        };
 
-        return str;
+        return true;
     };
 
-    this.readLyric = function (file, IsSpecifiedPath) {
-
-        var str;
+    this.readLyric = function (file, keepDefaultPath) {
 
         if (/^(?:LYRICS|UNSYNCED LYRICS)$/.test(file)) {
-            if (!(str = this.initWithTag(file))) return;
+            if (!this.initWithTag(file)) return;
         }
         else if (/^(?:[a-z]:|\\)\\.+\.(?:lrc|txt)$/i.test(file)) {
-            if (!(str = this.initWithFile(file, IsSpecifiedPath))) return;
+            if (!this.initWithFile(file, keepDefaultPath)) return;
         }
         else {
             if (!file || !parse_path) return; // 条件を満たす曲をスキップするようなコンポを入れているとparse_pathがなぜか空になってエラーを起こすので回避
-            str = file;
-            fieldname = "Temporary Text";
-            directory = parse_path.match(directoryRE)[0];
+            filetype = isSyncRE.test(file) ? "lrc" : "txt";
+            lyric = {
+                text: file.trim().split(getLineFeedCode(file)),
+                fieldname: "Temporary Text"
+            };
         }
 
-
-        filetype = isSyncRE.test(str) ? "lrc" : "txt";
-
-        lyric = { text: str.trim().split(getLineFeedCode(str)), i: 1, info: [] };
-
+        lyric.i = 1;
+        lyric.info = [];
 
         if (filetype === "lrc") { // analyze lrc
             var value, key, tmp, tagstart, tmpkey, tmptext, dublicate;
@@ -967,7 +956,7 @@ LyricShow = new function (Style) {
             for (var i = 0; i < lyric.text.length; i++) {
                 if (!tagstart)
                     if (offsetRe.test(lyric.text[i]))
-                        offsetinfo = Number(RegExp.$1);
+                        lyric.offset = Number(RegExp.$1);
 
                 tmp = lyric.text[i].match(isTagRe);
                 if (!tmp) {
@@ -1004,8 +993,8 @@ LyricShow = new function (Style) {
                 dublicate = tmptext.split("$$dublicate$$");
                 m = Math.floor(timeArray[i] / 10000);
                 ms = m * 6000 + timeArray[i] % 10000;
-                if (offsetinfo && ms !== 0) {
-                    ms -= Math.round(offsetinfo / 10);
+                if (lyric.offset && ms !== 0) {
+                    ms -= Math.round(lyric.offset / 10);
                     ms = Math.max(ms, 0);
                 }
                 // fb.trace(i + " :: " + tmpArray[timeArray[i]] + " :: " + timeArray[i] + " :: " + ms);
@@ -1021,46 +1010,45 @@ LyricShow = new function (Style) {
             if (prop.Panel.ExpandRepetition && repeatRes) { // Expand Repetition
                 var temp;
                 for (i = 0; i < lyric.text.length; i++) {
-                    Li:
-                        { // start label
-                            for (j = 0; j < repeatRes.length; j++) {
-                                if (!repeatRes[j].e.length && repeatRes[j].a.test(lyric.text[i])) { // put lyrics for repeats
-                                    // console("put i:" + i + ", " + lyric.text[i]);
-                                    for (k = i; k < lyric.text.length; k++) {
-                                        if (k === i && repeatRes[j].d > 0)
-                                            repeatRes[j].e.push(lyric.text[k].slice(repeatRes[j].d));
-                                        else
-                                            repeatRes[j].e.push(lyric.text[k]);
 
-                                        if (repeatRes[j].b.test(lyric.text[k]))
-                                            break;
-                                    }
+                    for (j = 0; j < repeatRes.length; j++) {
+                        if (!repeatRes[j].e.length && repeatRes[j].a.test(lyric.text[i])) { // put lyric
+                            // console("put i:" + i + ", " + lyric.text[i]);
+                            for (k = i; k < lyric.text.length; k++) {
+                                if (k === i && repeatRes[j].d > 0)
+                                    repeatRes[j].e.push(lyric.text[k].slice(repeatRes[j].d));
+                                else
+                                    repeatRes[j].e.push(lyric.text[k]);
 
-                                    // console("fin k:" + k + ", " + lyric.text[k]);
-                                    for (; ;) // trim
-                                        if (repeatRes[j].e[0] === "")
-                                            repeatRes[j].e.shift();
-                                        else if (repeatRes[j].e[repeatRes[j].e.length - 1] === "")
-                                            repeatRes[j].e.pop();
-                                        else
-                                            break;
-                                    i = k;
-                                    break Li;
-                                }
-                                else if (repeatRes[j].c.test(lyric.text[i])) { // replace lyric for repeats
-                                    // console("before i:" + i + ", " + lyric.text[i]);
-                                    repeatRes[j].e.unshift(lyric.text.length - i);
-                                    repeatRes[j].e.unshift(i);
-                                    temp = Array.prototype.splice.apply(lyric.text, repeatRes[j].e); // splice は配列を展開しないで挿入するので、範囲を含めた配列にし(上2行)、applyで展開させて渡す
-                                    temp.shift();
-                                    lyric.text = lyric.text.concat(temp);
-                                    // console("after i:" + i + ", " + lyric.text[i]);
-                                    repeatRes[j].e.shift();
-                                    repeatRes[j].e.shift();
-                                    i += repeatRes[j].e.length - 1;
-                                }
+                                if (repeatRes[j].b.test(lyric.text[k]))
+                                    break;
                             }
-                        } // label END 
+
+                            // console("fin k:" + k + ", " + lyric.text[k]);
+                            for (; ;) // trim
+                                if (repeatRes[j].e[0] === "")
+                                    repeatRes[j].e.shift();
+                                else if (repeatRes[j].e[repeatRes[j].e.length - 1] === "")
+                                    repeatRes[j].e.pop();
+                                else
+                                    break;
+                            i = k;
+                            break;
+                        }
+                        if (repeatRes[j].e.length && repeatRes[j].c.test(lyric.text[i])) { // replace lyric
+                            // console("before i:" + i + ", " + lyric.text[i]);
+                            repeatRes[j].e.unshift(lyric.text.length - i);
+                            repeatRes[j].e.unshift(i);
+                            temp = Array.prototype.splice.apply(lyric.text, repeatRes[j].e); // splice は配列を展開しないで挿入するので、範囲を含めた配列にし(上2行)、applyで展開させて渡す
+                            temp.shift();
+                            lyric.text = lyric.text.concat(temp);
+                            // console("after i:" + i + ", " + lyric.text[i]);
+                            repeatRes[j].e.shift();
+                            repeatRes[j].e.shift();
+                            i += repeatRes[j].e.length - 1;
+                        }
+                    }
+
                 }
             }
         }
@@ -1105,34 +1093,25 @@ LyricShow = new function (Style) {
         }
     };
 
-    this.setProperties = {
-        setLineList: function (View) {
+    this.Properties = {
+        setLineList: function () {
 
-            if (filetype === "lrc" || View) {
-                var lineList = [""];
-                var text = lyric.text;
-                for (var i = 0; i < text.length; i++) {
-                    if (tagTimeRE.test(text[i]))
-                        lineList[i] = (RegExp.$1 * 60 + Number(RegExp.$2)) * 100 + Number(RegExp.$3); // key=line number, value=start time [ms*1/10]
-                }
-
-                this.lineList = lineList; // Set Line List
+            var lineList = [];
+            var text = lyric.text;
+            for (var i = 0; i < text.length; i++) {
+                if (tagTimeRE.test(text[i]))
+                    lineList[i] = (RegExp.$1 * 60 + Number(RegExp.$2)) * 100 + Number(RegExp.$3); // key=line number, value=start time [ms*1/10]
             }
-            else
-                this.lineList = null;
+
+            this.lineList = lineList.length ? lineList : null; // Set Line List
         },
 
-        setWordbreakList: function (View) {
+        setWordbreakList: function () {
 
-            var isLRC = filetype === "lrc";
-            var isContain = isLRC && prop.Panel.Contain;
-            var wRE = new RegExp(prop.Save.LineFeedCode, "g");
             var leftcenterX = ww;
-            var c_ww = Center_Left || Center_Right ? ww - centerleftX + g_x : ww;
-            var wRE_res;
-            var line_arr, space, str, gdi_diff;
+            var c_ww = (align.Center_Left || align.Center_Right) ? ww - centerleftX + g_x : ww;
+            var line_arr, str, gdi_diff;
 
-            var numOfWordbreak = 0;
             var wordbreakList = [];
             var wordbreakText = [];
 
@@ -1141,70 +1120,44 @@ LyricShow = new function (Style) {
             var temp_gr = temp_bmp.GetGraphics();
 
             ///// GDI /////
-            if (Style.DrawingMethod === 0 || View) {
+            if (Style.DrawingMethod === 0 || Edit.isStarted) {
 
-                TextHeightWithoutLPadding = temp_gr.CalcTextHeight("Test", Style.Font);
-                TextHeight = TextHeightWithoutLPadding + Style.LPadding;
+                textHeightWithoutLPadding = temp_gr.CalcTextHeight("Test", Style.Font);
+                textHeight = textHeightWithoutLPadding + Style.LPadding;
 
-                if (View) {
-                    for (var i = 0; i < lyric.text.length; i++) {
-                        wordbreakList[i] = Math.floor(temp_gr.CalcTextWidth(lyric.text[i].replace(alltagsRE, "") + "[00:00.00] ", Style.Font) / (ww || 1)) + 1;
-                        if (isContain) {
-                            wRE_res = lyric.text[i].match(wRE);
-                            if (wRE_res) wordbreakList[i] += wRE_res.length;
-                        }
-                        numOfWordbreak += wordbreakList[i] - 1;
-                    }
-                }
-                else {
-                    for (i = 0; i < lyric.text.length; i++) {
-                        line_arr = temp_gr.EstimateLineWrap(isLRC ? lyric.text[i].replace(alltagsRE, "") : lyric.text[i], Style.Font, c_ww).toArray();
-                        wordbreakList[i] = line_arr.length / 2;
-                        numOfWordbreak += wordbreakList[i] - 1;
+                for (var i = 0; i < lyric.text.length; i++) {
+                    temp_text = (Edit.isStarted ? "[00:00.00] " : "") + lyric.text[i].replace(alltagsRE, "");
 
-                        for (var j = 0; j < line_arr.length; j += 2) {
-                            if ((Left_Center || Right_Center) && leftcenterX) {
-                                if ((space = ww - line_arr[j + 1]) <= 0)
-                                    leftcenterX = 0;
-                                else if (space / 2 < leftcenterX)
-                                    leftcenterX = space / 2;
-                            }
+                    line_arr = temp_gr.EstimateLineWrap(temp_text, Style.Font, Edit.isStarted ? ww : c_ww).toArray();
+                    wordbreakList[i] = line_arr.length / 2;
 
-                            if (j === 0) str = line_arr[j];
-                            else str += prop.Save.LineFeedCode + line_arr[j];
-                        }
+                    for (var j = 0; j < line_arr.length; j += 2) {
+                        leftcenterX = Math.min((ww - line_arr[j + 1]) / 2, leftcenterX);
 
-                        wordbreakText[i] = str;
+                        if (j === 0) str = line_arr[j];
+                        else str += prop.Save.LineFeedCode + line_arr[j];
                     }
 
-                    this.leftcenterX = Math.floor(leftcenterX) + g_x; // Set offsetX for left-center
+                    wordbreakText[i] = Edit.isStarted ? str.replace("[00:00.00] ", "") : str;
                 }
+
             }
-                ///// GDI+ /////
+            ///// GDI+ /////
             else {
 
-                TextHeightWithoutLPadding = temp_gr.MeasureString("Test", Style.Font, 0, 0, ww * 10, wh, 0).Height;
-                TextHeight = TextHeightWithoutLPadding + Style.LPadding;
+                textHeightWithoutLPadding = temp_gr.MeasureString("Test", Style.Font, 0, 0, ww * 10, wh, 0).Height;
+                textHeight = textHeightWithoutLPadding + Style.LPadding;
 
                 for (i = 0; i < lyric.text.length; i++) {
-                    temp_text = isLRC ? lyric.text[i].replace(alltagsRE, "") : lyric.text[i];
+                    temp_text = lyric.text[i].replace(alltagsRE, "");
 
-                    if (temp_text)
-                        gdi_diff = temp_gr.CalcTextWidth(temp_text, Style.Font) - Math.ceil(temp_gr.MeasureString(temp_text, Style.Font, 0, 0, ww * 10, wh, 0).Width); // gr.EstimateLineWrap() はGDI用なのでGDI+とのサイズ差を補正して利用する
-                    else
-                        gdi_diff = 0;
+                    gdi_diff = temp_gr.CalcTextWidth(temp_text, Style.Font) - Math.ceil(temp_gr.MeasureString(temp_text, Style.Font, 0, 0, ww * 10, wh, 0).Width); // gr.EstimateLineWrap() はGDI用なのでGDI+とのサイズ差を補正して利用する
 
                     line_arr = temp_gr.EstimateLineWrap(temp_text, Style.Font, c_ww + gdi_diff).toArray();
                     wordbreakList[i] = line_arr.length / 2;
-                    numOfWordbreak += wordbreakList[i] - 1;
 
                     for (j = 0; j < line_arr.length; j += 2) {
-                        if ((Left_Center || Right_Center) && leftcenterX) {
-                            if ((space = ww - line_arr[j + 1]) <= 0)
-                                leftcenterX = 0;
-                            else if (space / 2 < leftcenterX)
-                                leftcenterX = space / 2;
-                        }
+                        leftcenterX = Math.min((ww - line_arr[j + 1]) / 2, leftcenterX);
 
                         if (j === 0) str = line_arr[j];
                         else str += prop.Save.LineFeedCode + line_arr[j];
@@ -1213,28 +1166,28 @@ LyricShow = new function (Style) {
                     wordbreakText[i] = str;
                 }
 
-                this.leftcenterX = Math.floor(leftcenterX) + g_x; // Set offsetX for left-center
             }
-
-            this.numOfWordbreak = numOfWordbreak; // Set number Of wordbreak
-            this.wordbreakList = wordbreakList; // Set Wordbreak List
-            this.wordbreakText = wordbreakText; // Set Wordbreak Text
 
             temp_bmp.ReleaseGraphics(temp_gr);
             temp_bmp.Dispose();
             temp_gr = null;
             temp_bmp = null;
+
+            this.wordbreakList = wordbreakList; // Set Wordbreak List
+            this.wordbreakText = wordbreakText; // Set Wordbreak Text
+
+            this.leftcenterX = Math.floor(Math.max(leftcenterX, 0)) + g_x; // Set offsetX for left-center
         },
 
         setScrollSpeedList: function () {
 
-            var scrollSpeedList = [], scrollSpeedType2List = [];
+            var scrollSpeedList = [], scrollSpeedType2List = [], scrollSpeedType3List = [];
             var lineList = this.lineList;
             var h, t, n, interval;
 
             this.h = 0; // 1ファイルの高さ // ワードブレイク時の行間にLPaddingは入らないのでwordbreakListを参照して計算した後に足し込んでいく
             for (var i = 0; i < lyric.text.length - 1; i++) { // 条件の-1は最後の行の高さを無視するため
-                this.h += Math.ceil(this.wordbreakList[i] * TextHeightWithoutLPadding + Style.LPadding); // 行の高さ
+                this.h += Math.ceil(this.wordbreakList[i] * textHeightWithoutLPadding + Style.LPadding); // 行の高さ
             }
 
             this.minOffsetY = fixY - this.h; // オフセットYの最小値
@@ -1242,17 +1195,28 @@ LyricShow = new function (Style) {
             if (lineList) {
                 interval = prop.Panel.Interval;
                 for (i = 0; i < lineList.length; i++) {
-                    h = Math.ceil(this.wordbreakList[i] * TextHeightWithoutLPadding + Style.LPadding); // 行の高さ
-                    t = (lineList[i + 1] - lineList[i]) * 10 || 1; // 次の行までの時間[ms] // Infinity 対策で最小値を1にする
-                    n = Math.floor(t / interval); // 更新可能回数
-                    t = n * interval || 1; // 次の行までの時間を更新可能回数を考慮した時間に変換する // 変換した時間を基準に移動量を計算
-                    scrollSpeedList[i] = h / t * interval; // 1回の更新での移動量(行ごとに変化する)
-                    scrollSpeedType2List[i] = t >= prop.Panel.ScrollDurationTime * 10 ? h / (prop.Panel.ScrollDurationTime * 9.75) * interval : null; // Panel.ScrollType === 2 での1回の更新の移動量. スクロール開始は(prop.Panel.ScrollDurationTime*10)ミリ秒前.
-                    if (scrollSpeedList[i] > h) // 1回の更新で行の高さを超える移動量となった場合はスキップ
-                        scrollSpeedList[i] = h;
+                    h = Math.ceil(this.wordbreakList[i] * textHeightWithoutLPadding + Style.LPadding); // 行の高さ
+                    t = (lineList[i + 1] - lineList[i]) * 10; // 次の行までの時間[ms]
+                    n = Math.floor(t / interval) || 1; // 更新可能回数. 最低でも1
+                    t = n * interval; // 次の行までの時間を更新可能回数を考慮した時間に変換する // 変換した時間を基準に移動量を計算
+                    scrollSpeedList[i] = h / t * interval; // 1回の更新での移動量(行ごとに変化)
+
+                    //Type2
+                    if (t >= prop.Panel.ScrollDurationTime * 10)
+                        scrollSpeedType2List[i] = h / (prop.Panel.ScrollDurationTime * 9.75) * interval; // スクロール開始は(prop.Panel.ScrollDurationTime*10)ミリ秒前.
+                    else
+                        /*NOP*/; //scrollSpeedList の値を使用
+
+                    //Type3
+                    h = Math.ceil(this.wordbreakList[i - 1] * textHeightWithoutLPadding + Style.LPadding) || 0; // 前の行の高さ
+                    if (t >= prop.Panel.ScrollDurationTime * 10 || i === lineList.length - 1) // 最終行もこちらに分岐
+                        scrollSpeedType3List[i] = h / (prop.Panel.ScrollDurationTime * 9.75) * interval;
+                    else
+                        scrollSpeedType3List[i] = h / t * interval;
                 }
-                scrollSpeedList[i - 1] = scrollSpeedType2List[i - 1] = 0; // 最後の行の移動量は0
-            } else {
+                scrollSpeedList[i - 1] = scrollSpeedType2List[i - 1] = 0; // 最後の行の移動量は0 (Type3は除く)
+            }
+            else {
                 t = fb.PlaybackLength * 1000 / prop.Panel.Interval; // 1ファイルで更新する回数
                 scrollSpeedList = { degree: this.h / t }; // 1回の更新での移動量(行に依らず一定)
                 scrollSpeedList.degree *= prop.Panel.AdjustScrolling / 100;
@@ -1260,12 +1224,34 @@ LyricShow = new function (Style) {
 
             this.scrollSpeedList = scrollSpeedList; // Set ScrollSpeed List
             this.scrollSpeedType2List = scrollSpeedType2List; // Set ScrollSpeed Type2 List
+            this.scrollSpeedType3List = scrollSpeedType3List; // Set ScrollSpeed Type3 List
+        },
+
+        setPaintInfo: function () {
+
+            this.x = 0;
+            this.w = 0;
+            this.n = Math.ceil(Style.TextRoundSize / 2);
+            this.di = [];
+            this.dpc = Style.Color.Text;
+            this.dpi = 0;
+            this.dpi_max = 48;
+            this.pl_alpha = 252;
+            this.l_alpha = 252;
+
+            this.x = align.Left_Center ? this.leftcenterX : align.Center_Left ? centerleftX : g_x;
+            this.w = align.Left_Center || align.Right_Center ? ww - this.leftcenterX + g_x : align.Center_Left || align.Center_Right ? ww - centerleftX + g_x : ww;
+
+            var bc = getRGB(Style.Color.Text); // base color
+            var tc = getRGB(Style.Color.PlayingText); // target color
+            for (var i = 0; i < 3; i++) // [R_diff, G_diff, B_diff]
+                this.di[i] = (tc[i] - bc[i]) / this.dpi_max; // 徐々に着色する時にdpi_max回足す
         },
 
         buildDrawStyle: function () {
 
-            var p = LyricShow.setProperties;
-            var Count_ContainString = 0;
+            var p = LyricShow.Properties;
+            var count_ContainString = 0;
 
             try {
                 // XXX:
@@ -1282,38 +1268,23 @@ LyricShow = new function (Style) {
 
                 this.text = p.wordbreakText[i];
                 this.y = DrawStyle[i - 1].nextY;
-                this.height = Math.ceil(p.wordbreakList[i] * TextHeightWithoutLPadding + Style.LPadding);
+                this.height = Math.ceil(p.wordbreakList[i] * textHeightWithoutLPadding + Style.LPadding);
                 this.nextY = this.y + this.height;
+                this.sy = this.y + prop.Style.ShadowPosition[1]; // shadow y position
                 this.time = p.lineList ? p.lineList[i] / 100 : null;
 
                 if (filetype === "lrc") {
-                    if (!prop.Panel.SkipEmptyLine || this.text !== "")
-                        this.isEvenNum = Count_ContainString++ % 2 === 0;
+                    if (this.text !== "" || !prop.Panel.SkipEmptyLine) // 空文字の場合、プロパティ値はundefined
+                        this.isEvenNum = count_ContainString++ % 2 === 0;
 
                     this.speed = p.scrollSpeedList[i];
                     this.speedType2 = p.scrollSpeedType2List[i];
-
-                    if (!this.speedType2 && i !== lyric.text.length - 1) { // 現在の行が prop.Panel.ScrollDurationTime * 10 以上の時間を持つか判別して speedType3 を作成 // 前の行の高さを移動するので再計算している
-                        var h = DrawStyle[i - 1].height;
-                        var t = (p.lineList[i + 1] - p.lineList[i]) * 10 || 1; // Infinity 対策で最小値を1にする
-                        this.speedType3 = h / t * prop.Panel.Interval;
-                    }
-                    else { // 最終行もこちらに分岐 // 前の行の高さを移動するので再計算している
-                        h = DrawStyle[i - 1].height;
-                        t = prop.Panel.ScrollDurationTime * 10;
-                        this.speedType3 = h / t * prop.Panel.Interval;
-                        if (i === lyric.text.length - 1)
-                            this.speedType3EOL = this.speedType3;
-                    }
+                    this.speedType3 = p.scrollSpeedType3List[i];
                 } else
                     this.speed = p.scrollSpeedList.degree;
 
-                this.cy = this.y + g_y; // Coordinate including Vartical-Padding
-                this.sy = this.cy + prop.Style.ShadowPosition[1]; // shadow y position // Coordinate including Vartical-Padding
-                this.nextCY = this.nextY + g_y; // Coordinate including Vartical-Padding
-
                 // textHighlineImg はここで作成。textImg は遅延評価し、初期化時間の短縮を図る
-                if (!prop.Edit.Start && Style.DrawingMethod === 2 && (prop.Panel.ScrollType <= 3 || filetype === "txt"))
+                if (!Edit.isStarted && Style.DrawingMethod === 2 && (prop.Panel.ScrollType <= 3 || filetype === "txt"))
                     !this.textHighlineImg && (this.textHighlineImg = this.buildTextHighlineImg());
             }
             function defineLazyPrototypeGetter(fn, name, lambda) {
@@ -1330,27 +1301,27 @@ LyricShow = new function (Style) {
                 });
             }
             DrawString.prototype.buildTextImg = function buildTextImg() {
-                var w = LyricShow.on_paintInfo.w;
+                var w = LyricShow.Properties.w;
                 // --normal----
-                var textImg = gdi.CreateImage(w + LyricShow.on_paintInfo.n * 2, this.height);
+                var textImg = gdi.CreateImage(w + LyricShow.Properties.n * 2, this.height);
                 var canvas = textImg.GetGraphics();
                 canvas.SetTextRenderingHint(5);
                 canvas.SetSmoothingMode(2);
                 TextRender.OutLineText(Style.Color.Text, Style.Color.TextRound, Style.Shadow ? Style.TextRoundSize : 0);
-                TextRender.RenderStringRect(canvas, this.text, Style.Font, LyricShow.on_paintInfo.n, 0, w, this.height, Style.Align);
+                TextRender.RenderStringRect(canvas, this.text, Style.Font, LyricShow.Properties.n, 0, w, this.height, Style.Align);
                 textImg.ReleaseGraphics(canvas);
 
                 return textImg;
             };
             DrawString.prototype.buildTextHighlineImg = function buildTextHighlineImg() {
-                var w = LyricShow.on_paintInfo.w;
+                var w = LyricShow.Properties.w;
                 // --highline----
-                var textHighlineImg = gdi.CreateImage(w + LyricShow.on_paintInfo.n * 2, this.height);
+                var textHighlineImg = gdi.CreateImage(w + LyricShow.Properties.n * 2, this.height);
                 var canvas = textHighlineImg.GetGraphics();
                 canvas.SetTextRenderingHint(5);
                 canvas.SetSmoothingMode(2);
                 TextRender.OutLineText(Style.Color.PlayingText, Style.Color.TextRound, Style.Shadow ? Style.TextRoundSize : 0);
-                TextRender.RenderStringRect(canvas, this.text, Style.Font, LyricShow.on_paintInfo.n, 0, w, this.height, Style.Align);
+                TextRender.RenderStringRect(canvas, this.text, Style.Font, LyricShow.Properties.n, 0, w, this.height, Style.Align);
                 textHighlineImg.ReleaseGraphics(canvas);
 
                 return textHighlineImg;
@@ -1385,9 +1356,9 @@ LyricShow = new function (Style) {
             };
             DrawString.prototype.scroll_1 = function (time) { // for synced lyrics
                 //--color--
-                if (Style.FadeInPlayingColor && (LyricShow.on_paintInfo.dpi < LyricShow.on_paintInfo.dpi_max)) {
-                    LyricShow.on_paintInfo.dpi++;
-                    LyricShow.on_paintInfo.dpc = setRGBdiff(prop.Style.Color.Text, LyricShow.on_paintInfo.di[0] * LyricShow.on_paintInfo.dpi, LyricShow.on_paintInfo.di[1] * LyricShow.on_paintInfo.dpi, LyricShow.on_paintInfo.di[2] * LyricShow.on_paintInfo.dpi);
+                if (Style.FadeInPlayingColor && (LyricShow.Properties.dpi < LyricShow.Properties.dpi_max)) {
+                    LyricShow.Properties.dpi++;
+                    LyricShow.Properties.dpc = setRGBdiff(prop.Style.Color.Text, LyricShow.Properties.di[0] * LyricShow.Properties.dpi, LyricShow.Properties.di[1] * LyricShow.Properties.dpi, LyricShow.Properties.di[2] * LyricShow.Properties.dpi);
                     var refresh = true;
                 }
                 //----
@@ -1404,8 +1375,8 @@ LyricShow = new function (Style) {
                         !ignore_remainder && this.fix_offset(this.height, lineY);
                         ignore_remainder = false; // 誤差補正の無効は一度だけ
                         moveY = lineY = 0;
-                        LyricShow.on_paintInfo.dpi = 0;
-                        LyricShow.on_paintInfo.dpc = prop.Style.Color.Text;
+                        LyricShow.Properties.dpi = 0;
+                        LyricShow.Properties.dpc = prop.Style.Color.Text;
                         lyric.i++;
                         return true; // refresh flag
                     }
@@ -1416,12 +1387,12 @@ LyricShow = new function (Style) {
                 }
                 else if (time >= p.lineList[this.i + 1]) {
                     moveY = lineY = 0;
-                    LyricShow.on_paintInfo.dpi = 0;
-                    LyricShow.on_paintInfo.dpc = prop.Style.Color.Text;
+                    LyricShow.Properties.dpi = 0;
+                    LyricShow.Properties.dpc = prop.Style.Color.Text;
                     lyric.i++;
                     return true; // refresh flag
                 }
-                // fb.trace(this.i + " :: " + this.height + " :: " + this.speed + " :: " + offsetY + " :: " + lyric.text.length + " :: " + time + " > " + LyricShow.setProperties.DrawStyle[this.i + 1].time * 100)
+                // fb.trace(this.i + " :: " + this.height + " :: " + this.speed + " :: " + offsetY + " :: " + lyric.text.length + " :: " + time + " > " + p.DrawStyle[this.i + 1].time * 100)
 
                 if (refresh) {
                     return true; // refresh flag
@@ -1429,9 +1400,9 @@ LyricShow = new function (Style) {
             };
             DrawString.prototype.scroll_2 = function (time) { // for synced lyrics
                 //--color--
-                if (Style.FadeInPlayingColor && (LyricShow.on_paintInfo.dpi < LyricShow.on_paintInfo.dpi_max)) {
-                    LyricShow.on_paintInfo.dpi++;
-                    LyricShow.on_paintInfo.dpc = setRGBdiff(prop.Style.Color.Text, LyricShow.on_paintInfo.di[0] * LyricShow.on_paintInfo.dpi, LyricShow.on_paintInfo.di[1] * LyricShow.on_paintInfo.dpi, LyricShow.on_paintInfo.di[2] * LyricShow.on_paintInfo.dpi);
+                if (Style.FadeInPlayingColor && (LyricShow.Properties.dpi < LyricShow.Properties.dpi_max)) {
+                    LyricShow.Properties.dpi++;
+                    LyricShow.Properties.dpc = setRGBdiff(prop.Style.Color.Text, LyricShow.Properties.di[0] * LyricShow.Properties.dpi, LyricShow.Properties.di[1] * LyricShow.Properties.dpi, LyricShow.Properties.di[2] * LyricShow.Properties.dpi);
                     var refresh = true;
                 }
                 //----
@@ -1463,8 +1434,8 @@ LyricShow = new function (Style) {
                         !ignore_remainder && this.fix_offset(this.height, lineY);
                         ignore_remainder = false;
                         moveY = lineY = 0;
-                        LyricShow.on_paintInfo.dpi = 0;
-                        LyricShow.on_paintInfo.dpc = prop.Style.Color.Text;
+                        LyricShow.Properties.dpi = 0;
+                        LyricShow.Properties.dpc = prop.Style.Color.Text;
                         lyric.i++;
                         return true; // refresh flag
                     }
@@ -1475,12 +1446,12 @@ LyricShow = new function (Style) {
                 }
                 else if (time >= p.lineList[this.i + 1]) {
                     moveY = lineY = 0;
-                    LyricShow.on_paintInfo.dpi = 0;
-                    LyricShow.on_paintInfo.dpc = prop.Style.Color.Text;
+                    LyricShow.Properties.dpi = 0;
+                    LyricShow.Properties.dpc = prop.Style.Color.Text;
                     lyric.i++;
                     return true; // refresh flag
                 }
-                // fb.trace(this.i + " :: " + this.height + " :: " + this.speed + " :: " + offsetY + " :: " + lyric.text.length + " :: " + time + " > " + LyricShow.setProperties.DrawStyle[this.i + 1].time * 100)
+                // fb.trace(this.i + " :: " + this.height + " :: " + this.speed + " :: " + offsetY + " :: " + lyric.text.length + " :: " + time + " > " + p.DrawStyle[this.i + 1].time * 100)
 
                 if (refresh) {
                     return true; // refresh flag
@@ -1488,9 +1459,9 @@ LyricShow = new function (Style) {
             };
             DrawString.prototype.scroll_3 = function (time) { // for synced lyrics
                 //--color--
-                if (Style.FadeInPlayingColor && (LyricShow.on_paintInfo.dpi < LyricShow.on_paintInfo.dpi_max)) {
-                    LyricShow.on_paintInfo.dpi++;
-                    LyricShow.on_paintInfo.dpc = setRGBdiff(prop.Style.Color.Text, LyricShow.on_paintInfo.di[0] * LyricShow.on_paintInfo.dpi, LyricShow.on_paintInfo.di[1] * LyricShow.on_paintInfo.dpi, LyricShow.on_paintInfo.di[2] * LyricShow.on_paintInfo.dpi);
+                if (Style.FadeInPlayingColor && (LyricShow.Properties.dpi < LyricShow.Properties.dpi_max)) {
+                    LyricShow.Properties.dpi++;
+                    LyricShow.Properties.dpc = setRGBdiff(prop.Style.Color.Text, LyricShow.Properties.di[0] * LyricShow.Properties.dpi, LyricShow.Properties.di[1] * LyricShow.Properties.dpi, LyricShow.Properties.di[2] * LyricShow.Properties.dpi);
                     var refresh = true;
                 }
                 //----
@@ -1508,8 +1479,8 @@ LyricShow = new function (Style) {
                         !ignore_remainder && this.fix_offset(p.DrawStyle[this.i - 1].height, lineY);
                         ignore_remainder = false;
                         moveY = lineY = 0;
-                        LyricShow.on_paintInfo.dpi = 0;
-                        LyricShow.on_paintInfo.dpc = prop.Style.Color.Text;
+                        LyricShow.Properties.dpi = 0;
+                        LyricShow.Properties.dpc = prop.Style.Color.Text;
                         lyric.i++;
                         return true; // refresh flag
                     }
@@ -1520,8 +1491,8 @@ LyricShow = new function (Style) {
                 }
                 else if (time >= p.lineList[this.i + 1]) {
                     moveY = lineY = 0;
-                    LyricShow.on_paintInfo.dpi = 0;
-                    LyricShow.on_paintInfo.dpc = prop.Style.Color.Text;
+                    LyricShow.Properties.dpi = 0;
+                    LyricShow.Properties.dpc = prop.Style.Color.Text;
                     lyric.i++;
                     return true; // refresh flag
                 }
@@ -1532,31 +1503,31 @@ LyricShow = new function (Style) {
             };
             DrawString.prototype.scroll_4 = function (time) { // for synced lyrics
                 var refresh;
-                if (LyricShow.on_paintInfo.pl_alpha > 0)
+                if (LyricShow.Properties.pl_alpha > 0)
                     if (p.lineList[this.i + 1] - time <= prop.Panel.AlphaDurationTime) {
-                        LyricShow.on_paintInfo.pl_alpha -= 14; // 252の約数
+                        LyricShow.Properties.pl_alpha -= 14; // 252の約数
                         refresh = true;
                     }
 
                 if (this.i + 1 !== lyric.text.length)
-                    if (LyricShow.on_paintInfo.l_alpha < 252 && time > p.lineList[this.i] + (p.lineList[this.i + 1] - p.lineList[this.i]) / 2.2) {
-                        LyricShow.on_paintInfo.l_alpha += 14; // 252の約数
+                    if (LyricShow.Properties.l_alpha < 252 && time > p.lineList[this.i] + (p.lineList[this.i + 1] - p.lineList[this.i]) / 2.2) {
+                        LyricShow.Properties.l_alpha += 14; // 252の約数
                         refresh = true;
                     }
 
                 //--color--
-                if (LyricShow.on_paintInfo.dpi < LyricShow.on_paintInfo.dpi_max) {
-                    LyricShow.on_paintInfo.dpi++;
-                    LyricShow.on_paintInfo.dpc = setRGBdiff(prop.Style.Color.Text, LyricShow.on_paintInfo.di[0] * LyricShow.on_paintInfo.dpi, LyricShow.on_paintInfo.di[1] * LyricShow.on_paintInfo.dpi, LyricShow.on_paintInfo.di[2] * LyricShow.on_paintInfo.dpi);
+                if (LyricShow.Properties.dpi < LyricShow.Properties.dpi_max) {
+                    LyricShow.Properties.dpi++;
+                    LyricShow.Properties.dpc = setRGBdiff(prop.Style.Color.Text, LyricShow.Properties.di[0] * LyricShow.Properties.dpi, LyricShow.Properties.di[1] * LyricShow.Properties.dpi, LyricShow.Properties.di[2] * LyricShow.Properties.dpi);
                     refresh = true;
                 }
                 //----
 
                 if (time >= p.lineList[this.i + 1]) {
-                    LyricShow.on_paintInfo.l_alpha = typeof p.DrawStyle[this.i + 1].isEvenNum === "undefined" ? 252 : 0;
-                    LyricShow.on_paintInfo.pl_alpha = 252;
-                    LyricShow.on_paintInfo.dpi = 0;
-                    LyricShow.on_paintInfo.dpc = prop.Style.Color.Text;
+                    LyricShow.Properties.l_alpha = typeof p.DrawStyle[this.i + 1].isEvenNum === "undefined" ? 252 : 0;
+                    LyricShow.Properties.pl_alpha = 252;
+                    LyricShow.Properties.dpi = 0;
+                    LyricShow.Properties.dpc = prop.Style.Color.Text;
                     lyric.i++;
                     return true; // refresh flag
                 }
@@ -1566,31 +1537,31 @@ LyricShow = new function (Style) {
             };
             DrawString.prototype.scroll_5 = function (time) { // for synced lyrics
                 var refresh;
-                if (LyricShow.on_paintInfo.pl_alpha > 0)
+                if (LyricShow.Properties.pl_alpha > 0)
                     if (p.lineList[this.i + 1] - time <= prop.Panel.AlphaDurationTime * 3) {
-                        LyricShow.on_paintInfo.pl_alpha -= 21; // 252の約数
+                        LyricShow.Properties.pl_alpha -= 21; // 252の約数
                         refresh = true;
                     }
 
                 if (this.i + 1 !== lyric.text.length)
-                    if (LyricShow.on_paintInfo.l_alpha < 252 && p.lineList[this.i + 1] - time <= prop.Panel.AlphaDurationTime * 3) {
-                        LyricShow.on_paintInfo.l_alpha += 21; // 252の約数
+                    if (LyricShow.Properties.l_alpha < 252 && p.lineList[this.i + 1] - time <= prop.Panel.AlphaDurationTime * 3) {
+                        LyricShow.Properties.l_alpha += 21; // 252の約数
                         refresh = true;
                     }
 
                 //--color--
-                if (LyricShow.on_paintInfo.dpi < LyricShow.on_paintInfo.dpi_max) {
-                    LyricShow.on_paintInfo.dpi++;
-                    LyricShow.on_paintInfo.dpc = setRGBdiff(prop.Style.Color.Text, LyricShow.on_paintInfo.di[0] * LyricShow.on_paintInfo.dpi, LyricShow.on_paintInfo.di[1] * LyricShow.on_paintInfo.dpi, LyricShow.on_paintInfo.di[2] * LyricShow.on_paintInfo.dpi);
+                if (LyricShow.Properties.dpi < LyricShow.Properties.dpi_max) {
+                    LyricShow.Properties.dpi++;
+                    LyricShow.Properties.dpc = setRGBdiff(prop.Style.Color.Text, LyricShow.Properties.di[0] * LyricShow.Properties.dpi, LyricShow.Properties.di[1] * LyricShow.Properties.dpi, LyricShow.Properties.di[2] * LyricShow.Properties.dpi);
                     refresh = true;
                 }
                 //----
 
                 if (time >= p.lineList[this.i + 1]) {
-                    LyricShow.on_paintInfo.l_alpha = typeof p.DrawStyle[this.i + 1].isEvenNum === "undefined" ? 252 : 0;
-                    LyricShow.on_paintInfo.pl_alpha = 252;
-                    LyricShow.on_paintInfo.dpi = 0;
-                    LyricShow.on_paintInfo.dpc = prop.Style.Color.Text;
+                    LyricShow.Properties.l_alpha = typeof p.DrawStyle[this.i + 1].isEvenNum === "undefined" ? 252 : 0;
+                    LyricShow.Properties.pl_alpha = 252;
+                    LyricShow.Properties.dpi = 0;
+                    LyricShow.Properties.dpc = prop.Style.Color.Text;
                     lyric.i++;
                     return true; // refresh flag
                 }
@@ -1610,18 +1581,18 @@ LyricShow = new function (Style) {
                     offsetY = Math.round(offsetY + n);
             };
             DrawString.prototype.draw_Edit = function (gr, color) {
-                var text = lyric.text[this.i];
-                if (tagTimeRE.test(text))
-                    text = RegExp.lastMatch + " " + text.replace(alltagsRE, "");
+                var text = this.text;
+                if (tagTimeRE.test(lyric.text[this.i]))
+                    text = RegExp.lastMatch + " " + text;
                 else
-                    text = text.replace(alltagsRE, "");
+                    text = text.trim();
 
-                gr.GdiDrawText(text, Style.Font, color, g_x, this.cy + offsetY, ww, this.height, prop.Edit.Align);
+                gr.GdiDrawText(text, Style.Font, color, g_x, this.y + offsetY, ww, this.height, prop.Edit.Align);
             };
             DrawString.prototype.draw = function (gr) {
                 if (filetype === "lrc") {
                     if (Style.FadeInPlayingColor)
-                        color = (this.i === lyric.i - 1) ? LyricShow.on_paintInfo.dpc : Style.Color.Text;
+                        var color = (this.i === lyric.i - 1) ? LyricShow.Properties.dpc : Style.Color.Text;
                     else
                         color = (this.i === lyric.i - 1) ? Style.Color.PlayingText : Style.Color.Text;
 
@@ -1631,15 +1602,17 @@ LyricShow = new function (Style) {
                 else
                     color = Style.Highline ? Style.Color.PlayingText : Style.Color.Text;
 
-                var x = LyricShow.on_paintInfo.x;
-                var y = this.cy + Math.ceil(offsetY);
-                var w = LyricShow.on_paintInfo.w;
+                var x = LyricShow.Properties.x;
+                var y = this.y + Math.ceil(offsetY);
+                var w = LyricShow.Properties.w;
                 var alpha = 255;
-                if (Style.Fading)
-                    if (y + this.height - g_y <= Style.FadingHeight[0])
-                        alpha = (y + this.height - g_y) * 255 / Style.FadingHeight[0];
-                    else if (y >= g_y + wh - Style.FadingHeight[1])
-                        alpha = (g_y + wh - y) * 255 / Style.FadingHeight[1];
+                if (Style.Fading) {
+                    if (y + this.height <= g_y + Style.FadingHeight[0])
+                        alpha = (y + this.height - g_y) / Style.FadingHeight[0] * 255;
+                    else if (g_y + wh - y <= Style.FadingHeight[1])
+                        alpha = (g_y + wh - y) / Style.FadingHeight[1] * 255;
+                    alpha = Math.max(alpha, 0);
+                }
 
                 switch (Style.DrawingMethod) {
                     case 0:
@@ -1650,14 +1623,14 @@ LyricShow = new function (Style) {
                         break;
                     case 2:
                         !useLazyTextRender && !this.textImg && (this.textImg = this.buildTextImg());
-                        x -= LyricShow.on_paintInfo.n;
+                        x -= LyricShow.Properties.n;
                         w = this.textImg.Width;
                         var h = this.textImg.Height;
                         if (color === Style.Color.Text)
                             gr.DrawImage(this.textImg, x, y, w, h, 0, 0, w, h, 0, alpha);
                         else if (this.i === lyric.i - 1) {
                             Style.FadeInPlayingColor && gr.DrawImage(this.textImg, x, y, w, h, 0, 0, w, h, 0, alpha);
-                            gr.DrawImage(this.textHighlineImg, x, y, w, h, 0, 0, w, h, 0, Style.FadeInPlayingColor ? (LyricShow.on_paintInfo.dpi / 48) * alpha : alpha);
+                            gr.DrawImage(this.textHighlineImg, x, y, w, h, 0, 0, w, h, 0, Style.FadeInPlayingColor ? (LyricShow.Properties.dpi / 48) * alpha : alpha);
                         }
                         else
                             gr.DrawImage(this.textHighlineImg, x, y, w, h, 0, 0, w, h, 0, alpha);
@@ -1667,7 +1640,7 @@ LyricShow = new function (Style) {
             DrawString.prototype.draw_withShadow = function (gr) {
                 if (filetype === "lrc") {
                     if (Style.FadeInPlayingColor)
-                        color = this.i === lyric.i - 1 ? LyricShow.on_paintInfo.dpc : Style.Color.Text;
+                        var color = this.i === lyric.i - 1 ? LyricShow.Properties.dpc : Style.Color.Text;
                     else
                         color = this.i === lyric.i - 1 ? Style.Color.PlayingText : Style.Color.Text;
 
@@ -1677,12 +1650,12 @@ LyricShow = new function (Style) {
                 else
                     color = Style.Highline ? Style.Color.PlayingText : Style.Color.Text;
 
-                var x = LyricShow.on_paintInfo.x;
-                var y = this.cy + Math.ceil(offsetY);
-                var w = LyricShow.on_paintInfo.w;
+                var x = LyricShow.Properties.x;
+                var y = this.y + Math.ceil(offsetY);
+                var w = LyricShow.Properties.w;
                 var alpha = 255;
                 if (Style.Fading) {
-                    if (y + this.height - g_y <= Style.FadingHeight[0])
+                    if (y + this.height <= g_y + Style.FadingHeight[0])
                         alpha = (y + this.height - g_y) / Style.FadingHeight[0] * 255;
                     else if (g_y + wh - y <= Style.FadingHeight[1])
                         alpha = (g_y + wh - y) / Style.FadingHeight[1] * 255;
@@ -1700,14 +1673,14 @@ LyricShow = new function (Style) {
                         break;
                     case 2:
                         !useLazyTextRender && !this.textImg && (this.textImg = this.buildTextImg());
-                        x -= LyricShow.on_paintInfo.n;
+                        x -= LyricShow.Properties.n;
                         w = this.textImg.Width;
                         var h = this.textImg.Height;
                         if (color === Style.Color.Text)
                             gr.DrawImage(this.textImg, x, y, w, h, 0, 0, w, h, 0, alpha);
                         else if (this.i === lyric.i - 1) {
                             Style.FadeInPlayingColor && gr.DrawImage(this.textImg, x, y, w, h, 0, 0, w, h, 0, alpha);
-                            gr.DrawImage(this.textHighlineImg, x, y, w, h, 0, 0, w, h, 0, Style.FadeInPlayingColor ? (LyricShow.on_paintInfo.dpi / 48) * alpha : alpha);
+                            gr.DrawImage(this.textHighlineImg, x, y, w, h, 0, 0, w, h, 0, Style.FadeInPlayingColor ? (LyricShow.Properties.dpi / 48) * alpha : alpha);
                         }
                         else
                             gr.DrawImage(this.textHighlineImg, x, y, w, h, 0, 0, w, h, 0, alpha);
@@ -1715,10 +1688,10 @@ LyricShow = new function (Style) {
                 }
             };
             DrawString.prototype.draw_OneLine = function (gr, y) {
-                var color = this.i === lyric.i - 1 ? LyricShow.on_paintInfo.dpc : Style.Color.Text;
-                var alpha = this.i === lyric.i - 1 ? LyricShow.on_paintInfo.pl_alpha : LyricShow.on_paintInfo.l_alpha;
-                var x = LyricShow.on_paintInfo.x;
-                var w = LyricShow.on_paintInfo.w;
+                var color = this.i === lyric.i - 1 ? LyricShow.Properties.dpc : Style.Color.Text;
+                var alpha = this.i === lyric.i - 1 ? LyricShow.Properties.pl_alpha : LyricShow.Properties.l_alpha;
+                var x = LyricShow.Properties.x;
+                var w = LyricShow.Properties.w;
                 switch (Style.DrawingMethod) { // Only GDI+
                     case 1:
                         gr.DrawString(this.text, Style.Font, setAlpha(color, alpha), x, y, w, this.height, Style.Align);
@@ -1730,10 +1703,10 @@ LyricShow = new function (Style) {
                 }
             };
             DrawString.prototype.draw_OneLine_withShadow = function (gr, y) {
-                var color = this.i === lyric.i - 1 ? LyricShow.on_paintInfo.dpc : Style.Color.Text;
-                var alpha = this.i === lyric.i - 1 ? LyricShow.on_paintInfo.pl_alpha : LyricShow.on_paintInfo.l_alpha;
-                var x = LyricShow.on_paintInfo.x;
-                var w = LyricShow.on_paintInfo.w;
+                var color = this.i === lyric.i - 1 ? LyricShow.Properties.dpc : Style.Color.Text;
+                var alpha = this.i === lyric.i - 1 ? LyricShow.Properties.pl_alpha : LyricShow.Properties.l_alpha;
+                var x = LyricShow.Properties.x;
+                var w = LyricShow.Properties.w;
                 switch (Style.DrawingMethod) { // Only GDI+
                     case 1:
                         gr.DrawString(this.text, Style.Font, setAlpha(Style.Color.TextShadow, alpha), x + Style.ShadowPosition[0], y + Style.ShadowPosition[1], w, this.height, Style.Align);
@@ -1746,7 +1719,7 @@ LyricShow = new function (Style) {
                 }
             };
             DrawString.prototype.onclick = function (x, y) {
-                if (x < g_x || x > g_x + ww || y < offsetY + this.cy || y > offsetY + this.nextCY)
+                if (x < g_x || x > g_x + ww || y < offsetY + this.y || y > offsetY + this.nextY)
                     return;
                 this.doCommand();
                 return true;
@@ -1758,7 +1731,10 @@ LyricShow = new function (Style) {
                     word && FuncCommand("https://twitter.com/search?q=" + word);
                 }
                 else
-                    if (this.time || this.time === 0) fb.PlaybackTime = this.time;
+                    if (typeof this.time === 'number' && isFinite(this.time)) {
+                        fromY = offsetY;
+                        fb.PlaybackTime = this.time;
+                    }
             };
             // Constructor END
 
@@ -1780,16 +1756,16 @@ LyricShow = new function (Style) {
         ignore_remainder = false; // 誤差補正ON
         time *= 100;
         var interval = prop.Panel.Interval;
-        var DrawStyle = LyricShow.setProperties.DrawStyle;
-        var lineList = this.setProperties.lineList;
+        var DrawStyle = this.Properties.DrawStyle;
+        var lineList = this.Properties.lineList;
         if (lineList) {
             for (var i = 1; i < lineList.length; i++) {
                 if (lineList[i] > Math.round(time)) break;
             }
             lyric.i = i; // 対象行
 
-            LyricShow.on_paintInfo.dpi = 0;
-            LyricShow.on_paintInfo.dpc = prop.Style.Color.Text;
+            LyricShow.Properties.dpi = 0;
+            LyricShow.Properties.dpc = prop.Style.Color.Text;
             switch (prop.Panel.ScrollType) {
                 case 1:
                     lineY = (time - lineList[i - 1]) * 10 / interval * DrawStyle[i - 1].speed; // (i-1行になってから現在の再生時間になるまでに行われた更新回数) * 1回の更新での移動量
@@ -1797,113 +1773,107 @@ LyricShow = new function (Style) {
                     break;
                 case 2:
                     if (DrawStyle[i - 1].speedType2) { // speedType2を条件に使うことで、次の行までの時間が (prop.Panel.ScrollDurationTime*10) ミリ秒以上空く行であるか判別できる
-                        lineY = 0;
-                        if (lineList[i] - time > prop.Panel.ScrollDurationTime)
+                        if (lineList[i] - time > prop.Panel.ScrollDurationTime) {
+                            lineY = 0;
                             offsetY = fixY - DrawStyle[i - 1].y;
+                        }
                         else {
                             lineY = (prop.Panel.ScrollDurationTime - (lineList[i] - time)) * 10 / interval * DrawStyle[i - 1].speedType2;
                             offsetY = fixY - DrawStyle[i - 1].y - lineY;
                         }
                     }
-                    else { // そうでなければ　ScrollType === 1　と同じ動作をする
+                    else { // そうでなければ ScrollType === 1 と同じ動作をする
                         lineY = (time - lineList[i - 1]) * 10 / interval * DrawStyle[i - 1].speed;
                         offsetY = fixY - DrawStyle[i - 1].y - lineY;
                     }
                     break;
                 case 3:
-                    if (DrawStyle[i - 1].speedType2) {
-                        lineY = DrawStyle[i - 2].height;
-                        if (time - lineList[i - 1] > prop.Panel.ScrollDurationTime)
+                    if (DrawStyle[i - 1].speedType2 || i === lyric.text.length) { // 最終行もこちら
+                        if (time - lineList[i - 1] > prop.Panel.ScrollDurationTime || fromY) { // fromYでの分岐: ScrollToCenter直後のスクロールは見栄えが悪いので、移動済みの状態にする
+                            lineY = DrawStyle[i - 2].height;
                             offsetY = fixY - DrawStyle[i - 1].y;
+                        }
                         else {
                             lineY = (time - lineList[i - 1]) * 10 / interval * DrawStyle[i - 1].speedType3;
                             offsetY = fixY - DrawStyle[i - 2].y - lineY;
                         }
                     }
                     else {
-                        if (time - lineList[i - 1] > prop.Panel.ScrollDurationTime)
-                            offsetY = fixY - DrawStyle[i - 1].y;
-                        else {
-                            lineY = (time - lineList[i - 1]) * 10 / interval * (DrawStyle[i - 1].speedType3EOL || DrawStyle[i - 1].speedType3);
-                            offsetY = fixY - DrawStyle[i - 2].y - lineY;
-                        }
+                        lineY = (time - lineList[i - 1]) * 10 / interval * DrawStyle[i - 1].speedType3;
+                        offsetY = fixY - DrawStyle[i - 2].y - lineY;
                     }
                     break;
                 case 4:
                     offsetY = fixY;
-                    LyricShow.on_paintInfo.pl_alpha = 252;
-                    LyricShow.on_paintInfo.l_alpha = 252;
-                    jumpY = null;
+                    LyricShow.Properties.pl_alpha = 252;
+                    LyricShow.Properties.l_alpha = 252;
+                    fromY = null;
                     break;
                 case 5:
                     offsetY = fixY;
-                    LyricShow.on_paintInfo.pl_alpha = 252;
-                    LyricShow.on_paintInfo.l_alpha = 0;
-                    jumpY = null;
+                    LyricShow.Properties.pl_alpha = 252;
+                    LyricShow.Properties.l_alpha = 0;
+                    fromY = null;
                     break;
             } // end switch
-
-            if (jumpY) {
-                if (prop.Panel.ScrollType === 3 && prop.Panel.ScrollToCenter) {// ScrollToCenter ではシーク後にいきなりスクロールすると見栄えが悪いのでlineYを埋めて回避. かつ移動済みのオフセット値に変更
-                    lineY = DrawStyle[i - 2].height;
-                    offsetY -= lineY;
-                }
-
-                if (prop.Panel.ScrollToCenter)
-                    this.moveLineWithAnimation(jumpY, offsetY);
-                else
-                    offsetY = jumpY;
-                jumpY = null;
-            }
         }
         else
-            offsetY = fixY - this.setProperties.h * time / (fb.PlaybackLength * 100); // パネルの半分 - (1ファイルの高さ * 再生時間の割合)
+            offsetY = fixY - this.Properties.h * time / (fb.PlaybackLength * 100); // パネルの半分 - (1ファイルの高さ * 再生時間の割合)
 
-        if (offsetY === parseInt(offsetY, 10)) // 整数かどうか
-            moveY = 0;
-        else if (offsetY > 0)
-            moveY = parseFloat("0." + String(fixY - offsetY).split(".")[1]);
-        else
-            moveY = parseFloat("0." + String(Math.abs(offsetY)).split(".")[1]);
+        if (isExternalSeek) {
+            if (!prop.Panel.FollowExternalSeek)
+                offsetY = fromY;
+        }
+        else if (fromY) {
+            if (prop.Panel.ScrollToCenter)
+                this.applyDelta(fromY, offsetY);
+            else
+                offsetY = fromY;
+        }
+        fromY = null;
+
+
+        moveY = offsetY % 1; // 整数なら0
+        if (moveY > 0)
+            moveY = 1 - moveY;
+        else if (moveY < 0)
+            moveY = Math.abs(moveY);
+
         window.Repaint();
         this.pauseTimer(fb.IsPaused);
     };
 
-    this.moveLineWithAnimation = function (from, to) {
-        var mlwa = arguments.callee;
-        if (Lock) {
-            this.moveLineWithAnimationTimer.clearInterval();
+    this.applyDelta = function (from, to) {
+        var ad = arguments.callee;
+
+        if (isAnim) {
+            ad.applyAnimation.clearInterval();
         }
         else {
-            mlwa.IsPaused = fb.IsPaused;
+            ad.IsPaused = fb.IsPaused;
             !fb.IsPaused && fb.Pause();
         }
 
-        Lock = true;
+        isAnim = true;
 
-        offsetY = Math.floor(from);
-        mlwa.to = to;
-        mlwa.anmDelta = to - offsetY;
-        this.moveLineWithAnimationTimer.interval(15);
+        offsetY = from;
+        ad.anmDelta = to - from;
+        ad.to = to;
+        ad.applyAnimation.interval(15);
     };
-    this.moveLineWithAnimationTimer = function () { // for Timer
-        var mlwa = LyricShow.moveLineWithAnimation;
-        if (!fb.IsPlaying) {
-            arguments.callee.clearInterval();
-            Lock = false;
-        } else {
-            offsetY += mlwa.anmDelta / 3.5;
-            mlwa.anmDelta -= mlwa.anmDelta / 3.5;
-            if (Math.abs(mlwa.anmDelta) <= 1) {
-                offsetY = mlwa.to;
-                moveY = 0;
-                arguments.callee.clearInterval();
-                !mlwa.IsPaused && fb.Pause();
-                Lock = false;
-            }
+    this.applyDelta.applyAnimation = function () { // for Timer
+        var ad = LyricShow.applyDelta;
 
-            LyricShow.repaintRect();
+        offsetY += ad.anmDelta / 3.5;
+        ad.anmDelta -= ad.anmDelta / 3.5;
+        if (Math.abs(ad.anmDelta) <= 1) {
+            offsetY = ad.to;
+            moveY = 0;
+            arguments.callee.clearInterval();
+            !ad.IsPaused && fb.Pause();
+            isAnim = false;
         }
+        LyricShow.repaintRect();
     };
 
     this.pauseTimer = function (state) {
@@ -1941,7 +1911,7 @@ LyricShow = new function (Style) {
     };
 
     this.repaintRect = function () {
-        window.RepaintRect(this.on_paintInfo.x - this.on_paintInfo.n, 0, this.on_paintInfo.w + this.on_paintInfo.n * 2, window.Height);
+        window.RepaintRect(this.Properties.x - this.Properties.n, 0, this.Properties.w + this.Properties.n * 2, window.Height);
     };
 
     this.BackgroundImage = {
@@ -1958,30 +1928,26 @@ LyricShow = new function (Style) {
         },
         searchImageInWildcard: function (path) {
             var foldername = fs.GetParentFolderName(path);
-            if (!fs.FolderExists(foldername)) return false;
+            if (!fs.FolderExists(foldername))
+                return;
 
-            var file, newImg;
+            var newImg;
             var exp = fs.GetFileName(path);
             var arr = utils.Glob(foldername + "\\*.*").toArray();
 
             for (var i = 0; i < arr.length; i++) {
                 if (this.isSupportImage(arr[i]) && utils.PathWildcardMatch(exp, fs.GetFileName(arr[i]))) {
                     newImg = this.getImg(arr[i]);
-                    if (newImg) return { path: arr[i], img: newImg }; // One file per path is enough
+                    if (newImg)
+                        return newImg; // One file per path is enough
                 }
             }
         },
         getImg: function (path) {
-            if (path.charAt(0) === "<") {
-                var embeddedImage = utils.GetAlbumArtEmbedded(path.slice(1, -1), 0);
-                if (embeddedImage)
-                    return embeddedImage;
-            }
-            else {
-                if (fs.FileExists(path))
-                    return gdi.Image(path);
-            }
-            return null;
+            if (path.charAt(0) === "<")
+                return utils.GetAlbumArtEmbedded(path.slice(1, -1), 0);
+            else if (fs.FileExists(path))
+                return gdi.Image(path);
         },
         calcImgSize: function (img, dspW, dspH, strch, kar) {
             if (!img) return;
@@ -2022,18 +1988,15 @@ LyricShow = new function (Style) {
             var w = image.Width;
             var h = image.Height;
 
-            var tmp = image.Resize(w * blurValue / 100, h * blurValue / 100, 7); // 画像を縮小する
-            var blurred_image = tmp.Resize(w, h, 7); // 縮小した画像を元のサイズに戻す（縮小率によって画像のblur具合が変化する）
-            tmp.Dispose();
-            image.Dispose();
+            image.BoxBlur(blurValue, 2); // iteration は2で十分
 
             var newImg = gdi.CreateImage(w, h);
             var canvas = newImg.GetGraphics();
-            var offset = 100 - blurValue;
-            canvas.DrawImage(blurred_image, 0 - offset, 0 - offset, w + offset * 2, h + offset * 2, 0, 0, w, h, 0, 255); // 上下左右をoffsetの値分だけ引き伸ばして中央部分を切り取った形 // blurValue が小さいほど切り取る部分がより中央になる
+            var offset = Math.min(blurValue * 2, 100);
+            canvas.DrawImage(image, 0 - offset, 0 - offset, w + offset * 2, h + offset * 2, 0, 0, w, h, 0, 255); // 上下左右をoffsetの値分だけ引き伸ばして中央部分を切り取る // blurを強く掛けるほど中央寄りにする
 
             newImg.ReleaseGraphics(canvas);
-            blurred_image.Dispose();
+            image.Dispose();
 
             return newImg;
         },
@@ -2043,12 +2006,12 @@ LyricShow = new function (Style) {
 
             var newImg = gdi.CreateImage(window.Width, window.Height);
             var canvas = newImg.GetGraphics();
-            canvas.DrawImage(image, BackgroundSize.x, BackgroundSize.y, image.Width, image.Height, 0, 0, image.Width, image.Height, angle, 255); // パネル外にはみ出すとgr.DrawImageメソッドの描画速度が低下するので、パネルサイズで切り取る　
+            canvas.DrawImage(image, BGSize.x, BGSize.y, image.Width, image.Height, 0, 0, image.Width, image.Height, angle, 255); // パネル外にはみ出すとgr.DrawImageメソッドの描画速度が低下するので、パネルサイズで切り取る
 
             newImg.ReleaseGraphics(canvas);
             image.Dispose();
 
-            BackgroundSize = {
+            BGSize = {
                 x: 0, // パネルサイズで切り取ったので 0
                 y: 0,
                 width: newImg.Width,
@@ -2057,8 +2020,8 @@ LyricShow = new function (Style) {
 
             return newImg;
         },
-        setImage: function () {
-            var newImg, path, tmp, foldername, exp, e, file, res, same;
+        build: function () {
+            var newImg, newColorScheme, tmp;
             var p = prop.Panel.BackgroundPath;
             if (p) {
                 try {
@@ -2072,34 +2035,32 @@ LyricShow = new function (Style) {
                 p = p.split("||");
                 for (var i = 0; i < p.length; i++) {
                     if (p[i].indexOf("*") === -1 && p[i].indexOf("?") === -1) { // If not wildcard exist
-                        path = p[i];
-                        newImg = this.getImg(path);
+                        newImg = this.getImg(p[i]);
                         if (newImg) break;
                     }
                     else { // Search in wildcard.
-                        res = this.searchImageInWildcard(p[i]);
-                        if (res) {
-                            path = res.path;
-                            newImg = res.img;
-                            break;
-                        }
+                        newImg = this.searchImageInWildcard(p[i]);
+                        if (newImg) break;
                     }
                 }
 
                 if (newImg) {
-                    same = Boolean(path === BackgroundPath);
-                    BackgroundPath = path;
-                    BackgroundSize = this.calcImgSize(newImg, window.Width, window.Height, prop.Panel.BackgroundStretch || prop.Panel.BackgroundBlur, prop.Panel.BackgroundKAR && !prop.Panel.BackgroundBlur);
-                    tmp = newImg.Resize(BackgroundSize.width, BackgroundSize.height, 7); // gr.DrawImageメソッドでリサイズ、アルファ値(255以外)、アングル(0以外)を指定し頻繁に更新すると、描画速度の低下と負荷が無視できないので先に適用しておく
+                    BGSize = this.calcImgSize(newImg, window.Width, window.Height, prop.Panel.BackgroundStretch || prop.Panel.BackgroundBlur, prop.Panel.BackgroundKAR && !prop.Panel.BackgroundBlur);
+                    tmp = newImg.Resize(BGSize.width, BGSize.height, 7); // gr.DrawImageメソッドでリサイズ、アルファ値(255以外)、アングル(0以外)を指定し頻繁に更新すると、描画速度の低下と負荷が無視できないので先に適用しておく
                     if (prop.Panel.BackgroundBlur) {
-                        tmp = this.applyBlur(tmp, prop.Panel.BackgroundBlurValue); // or // tmp.BoxBlur(20, 7);
-                        BackgroundImg = tmp.ApplyAlpha(prop.Panel.BackgroundBlurAlpha);
+                        tmp = this.applyBlur(tmp, prop.Panel.BackgroundBlurValue);
+                        BGImg = tmp.ApplyAlpha(prop.Panel.BackgroundBlurAlpha);
                     }
                     else {
                         tmp = this.applyAngle(tmp, prop.Panel.BackgroundAngle);
-                        BackgroundImg = tmp.ApplyAlpha(prop.Panel.BackgroundAlpha);
+                        BGImg = tmp.ApplyAlpha(prop.Panel.BackgroundAlpha);
                     }
-                    !same && this.fadeTimer();
+
+                    newColorScheme = newImg.GetColorScheme(-1).toArray().toString();
+                    if (BGColorScheme !== newColorScheme) {
+                        BGColorScheme = newColorScheme;
+                        this.fadeTimer();
+                    }
 
                     tmp.Dispose();
                     newImg.Dispose();
@@ -2109,37 +2070,40 @@ LyricShow = new function (Style) {
             }
         },
         releaseGlaphic: function () {
-            if (BackgroundImg) {
-                BackgroundImg.Dispose();
-                BackgroundImg = BackgroundSize = BackgroundPath = null;
+            if (BGImg) {
+                BGImg.Dispose();
+                BGImg = BGSize = BGColorScheme = null;
             }
+        },
+        isSet: function () {
+            return Boolean(BGImg);
         },
         fadeTimer: function (reverse) {
             this.increaseAlpha.clearInterval();
             this.decreaseAlpha.clearInterval();
 
             if (!reverse) {
-                backalpha = 0;
+                BGAlpha = 0;
                 this.increaseAlpha.interval(50);
             }
             else {
-                backalpha = 255;
+                BGAlpha = 255;
                 this.decreaseAlpha.interval(30);
             }
         },
         increaseAlpha: function () {
-            backalpha += 17;
-            if (backalpha >= 255) {
+            BGAlpha += 17;
+            if (BGAlpha >= 255) {
                 arguments.callee.clearInterval();
-                backalpha = 255;
+                BGAlpha = 255;
             }
             window.Repaint();
         },
         decreaseAlpha: function () {
-            backalpha -= 17;
-            if (backalpha <= 0) {
+            BGAlpha -= 17;
+            if (BGAlpha <= 0) {
                 arguments.callee.clearInterval();
-                backalpha = 0;
+                BGAlpha = 0;
             }
             window.Repaint();
         }
@@ -2148,49 +2112,47 @@ LyricShow = new function (Style) {
     this.start = function (path, text) {
 
         this.init();
-        prop.Panel.BackgroundEnable && this.BackgroundImage.setImage();
+        prop.Panel.BackgroundEnable && this.BackgroundImage.build();
+
+        parse_path = path[0]; // default parse_path for save
+        try { // default ParentFolder of parse_path // 条件を満たす曲をスキップするようなコンポを入れているとparse_pathがなぜか空になってエラーを起こすのでtryで回避
+            directory = parse_path.match(directoryRE)[0];
+        } catch (e) { }
+
         L:
-            {
-                parse_path = path[0]; // set default parse_path for save
-                try { // default ParentFolder of parse_path // 条件を満たす曲をスキップするようなコンポを入れているとparse_pathがなぜか空になってエラーを起こすのでtryで回避
-                    directory = parse_path.match(directoryRE)[0];
-                } catch (e) { }
-
-                if (text) { // for Clipboad and FileDialog 
-                    if (this.readLyric(text, true)) break L; // 第二引数は IsSpecifiedPath. 保存パスに影響
-                    else return;
-                }
-                for (var p = prop.Panel.Priority, i = 0; i < p.length; i++) { // according to priority order
-                    switch (p[i]) {
-                        case "Sync_Tag":
-                            if (this.readLyric("LYRICS")) break L;
-                            break;
-                        case "Sync_File":
-                            for (var j = 0; j < path.length; j++) {
-                                if (this.readLyric(path[j] + ".lrc")) break L;
-                            }
-                            break;
-                        case "Unsync_Tag":
-                            if (this.readLyric("UNSYNCED LYRICS")) break L;
-                            break;
-                        case "Unsync_File":
-                            for (j = 0; j < path.length; j++) {
-                                if (this.readLyric(path[j] + ".txt")) break L;
-                            }
-                            break;
-                    }
-                }
-                return Messages.NotFound.trace(); // lyric is not found
+        {
+            if (text) { // for Clipboad and FileDialog 
+                if (this.readLyric(text, true)) break L; // 第二引数は keepDefaultPath. textがファイルパスだった場合でも保存場所はdefault parse_pathのままになる
+                else return;
             }
+            for (var p = prop.Panel.Priority, i = 0; i < p.length; i++) { // according to priority order
+                switch (p[i]) {
+                    case "Sync_Tag":
+                        if (this.readLyric("LYRICS")) break L;
+                        break;
+                    case "Sync_File":
+                        for (var j = 0; j < path.length; j++) {
+                            if (this.readLyric(path[j] + ".lrc")) break L;
+                        }
+                        break;
+                    case "Unsync_Tag":
+                        if (this.readLyric("UNSYNCED LYRICS")) break L;
+                        break;
+                    case "Unsync_File":
+                        for (j = 0; j < path.length; j++) {
+                            if (this.readLyric(path[j] + ".txt")) break L;
+                        }
+                        break;
+                }
+            }
+            return Messages.NotFound.trace(); // lyric is not found
+        }
 
-        this.setProperties.setLineList();
-        this.setProperties.setWordbreakList();
-        this.setProperties.setScrollSpeedList();
-
-        this.set_on_paintInfo_x_w();
-        this.set_on_paintInfo_RGBdiff();
-
-        this.setProperties.buildDrawStyle();
+        this.Properties.setLineList();
+        this.Properties.setWordbreakList();
+        this.Properties.setScrollSpeedList();
+        this.Properties.setPaintInfo();
+        this.Properties.buildDrawStyle();
 
         this.searchLine(fb.PlaybackTime);
         this.backup();
@@ -2202,12 +2164,12 @@ LyricShow = new function (Style) {
 
         if (lyric)
             for (var i = 0, j = lyric.text.length; i < j; i++) {
-                this.setProperties.DrawStyle[i].dispose();
+                this.Properties.DrawStyle[i].dispose();
             }
 
-        path = directory = dataSize = charset = fieldname = filetype = lyric = offsetinfo = null;
-        this.setProperties.lineList = this.setProperties.leftcenterX = this.setProperties.wordbreakList = this.setProperties.wordbreakText = this.setProperties.scrollSpeedList = this.scrollSpeedType2List = this.setProperties.DrawStyle = this.setProperties.h = this.setProperties.minOffsetY = null;
-        lineY = moveY = jumpY = null;
+        directory = filetype = lyric = null;
+        this.Properties.lineList = this.Properties.wordbreakList = this.Properties.wordbreakText = this.Properties.scrollSpeedList = this.Properties.scrollSpeedType2List = this.Properties.scrollSpeedType3List = this.Properties.DrawStyle = null;
+        lineY = moveY = fromY = null;
 
         if (repeatRes)
             for (i = 0; i < repeatRes.length; i++)
@@ -2221,60 +2183,56 @@ LyricShow = new function (Style) {
 
     this.scroll_0 = function () { // timerで呼び出す関数. timerで呼び出すとthisの意味が変わるのでthisは使わない
 
-        if (offsetY < LyricShow.setProperties.minOffsetY) {
-            offsetY = LyricShow.setProperties.minOffsetY;
+        if (offsetY < LyricShow.Properties.minOffsetY) {
+            offsetY = LyricShow.Properties.minOffsetY;
             movable = false; // 移動不可のフラグ
         }
-        LyricShow.setProperties.DrawStyle[lyric.i - 1].scroll_0() && LyricShow.repaintRect();
+        LyricShow.Properties.DrawStyle[lyric.i - 1].scroll_0() && LyricShow.repaintRect();
     };
 
     this.scroll_1 = function () { // timerで呼び出す関数
 
-        if (offsetY < LyricShow.setProperties.minOffsetY) {
-            offsetY = LyricShow.setProperties.minOffsetY;
+        if (offsetY < LyricShow.Properties.minOffsetY) {
+            offsetY = LyricShow.Properties.minOffsetY;
             movable = false;
             ignore_remainder = true; // ライン移動時の誤差補正を無効にする（一度だけ）
         }
-        LyricShow.setProperties.DrawStyle[lyric.i - 1].scroll_1(fb.PlaybackTime * 100) && LyricShow.repaintRect(); // lyric.i(対象行)の１個前(再生行)の情報でスクロール
+        LyricShow.Properties.DrawStyle[lyric.i - 1].scroll_1(fb.PlaybackTime * 100) && LyricShow.repaintRect(); // lyric.i(対象行)の１個前(再生行)の情報でスクロール
     };
 
     this.scroll_2 = function () { // timerで呼び出す関数
 
-        if (offsetY < LyricShow.setProperties.minOffsetY) {
-            offsetY = LyricShow.setProperties.minOffsetY;
+        if (offsetY < LyricShow.Properties.minOffsetY) {
+            offsetY = LyricShow.Properties.minOffsetY;
             movable = false;
             ignore_remainder = true;
         }
-        LyricShow.setProperties.DrawStyle[lyric.i - 1].scroll_2(fb.PlaybackTime * 100) && LyricShow.repaintRect();
+        LyricShow.Properties.DrawStyle[lyric.i - 1].scroll_2(fb.PlaybackTime * 100) && LyricShow.repaintRect();
     };
 
     this.scroll_3 = function () { // timerで呼び出す関数
 
-        if (lyric.i === lyric.text.length) {
-            if (fb.PlaybackTime * 100 - LyricShow.setProperties.lineList[lyric.i - 1] > prop.Panel.ScrollDurationTime) {
-                if (LyricShow.setProperties.DrawStyle[lyric.i - 1].speedType3 !== 0)
-                    LyricShow.setProperties.DrawStyle[lyric.i - 1].speedType3 = 0;
-            }
-            else
-                LyricShow.setProperties.DrawStyle[lyric.i - 1].speedType3 = LyricShow.setProperties.DrawStyle[lyric.i - 1].speedType3EOL;
-        }
-
-        if (offsetY < LyricShow.setProperties.minOffsetY) {
-            offsetY = LyricShow.setProperties.minOffsetY;
+        if (offsetY < LyricShow.Properties.minOffsetY) {
+            offsetY = LyricShow.Properties.minOffsetY;
             movable = false;
             ignore_remainder = true;
         }
-        LyricShow.setProperties.DrawStyle[lyric.i - 1].scroll_3(fb.PlaybackTime * 100) && LyricShow.repaintRect();
+
+        if (lyric.i === lyric.text.length) {
+            if (fb.PlaybackTime * 100 - LyricShow.Properties.lineList[lyric.i - 1] > prop.Panel.ScrollDurationTime * 1.3)
+                return;
+        }
+        LyricShow.Properties.DrawStyle[lyric.i - 1].scroll_3(fb.PlaybackTime * 100) && LyricShow.repaintRect();
     };
 
     this.scroll_4 = function () { // timerで呼び出す関数
 
-        LyricShow.setProperties.DrawStyle[lyric.i - 1].scroll_4(fb.PlaybackTime * 100) && LyricShow.repaintRect();
+        LyricShow.Properties.DrawStyle[lyric.i - 1].scroll_4(fb.PlaybackTime * 100) && LyricShow.repaintRect();
     };
 
     this.scroll_5 = function () { // timerで呼び出す関数
 
-        LyricShow.setProperties.DrawStyle[lyric.i - 1].scroll_5(fb.PlaybackTime * 100) && LyricShow.repaintRect();
+        LyricShow.Properties.DrawStyle[lyric.i - 1].scroll_5(fb.PlaybackTime * 100) && LyricShow.repaintRect();
     };
 
     this.calcOddNumHeight = function (DrawStyle, i) {
@@ -2297,42 +2255,14 @@ LyricShow = new function (Style) {
         return Math.max(h1, h2);
     };
 
-    this.set_on_paintInfo_RGBdiff = function () {
-
-        var bc = getRGB(Style.Color.Text); // base color
-        var tc = getRGB(Style.Color.PlayingText); // target color
-        for (var i = 0; i < 3; i++) // [R_diff, G_diff, B_diff]
-            this.on_paintInfo.di[i] = (tc[i] - bc[i]) / this.on_paintInfo.dpi_max; // scroll_4や5でdpi_max回足す
-        this.on_paintInfo.dpc = Style.Color.Text;
-        this.on_paintInfo.dpi = 0;
-    };
-
-    this.set_on_paintInfo_x_w = function () {
-
-        this.on_paintInfo.x = Left_Center ? this.setProperties.leftcenterX : Center_Left ? centerleftX : g_x;
-        this.on_paintInfo.w = Left_Center || Right_Center ? ww - this.setProperties.leftcenterX + g_x : Center_Left || Center_Right ? ww - centerleftX + g_x : ww;
-    };
-
-    this.on_paintInfo = {
-        x: 0,
-        w: 0,
-        n: Math.ceil(Style.TextRoundSize / 2),
-        di: [],
-        dpc: Style.Color.Text,
-        dpi: 0,
-        dpi_max: 48,
-        pl_alpha: 252,
-        l_alpha: 252
-    };
-
     this.on_paint = function (gr) {
-        var DrawStyle = LyricShow.setProperties.DrawStyle;
+        var DrawStyle = LyricShow.Properties.DrawStyle;
 
         // background color
         gr.FillSolidRect(-1, -1, window.Width + 1, window.Height + 1, Style.Color.Background);
         // background image
-        if (BackgroundImg && backalpha) // alphaが0なら描画をスキップ
-            gr.DrawImage(BackgroundImg, BackgroundSize.x, BackgroundSize.y, BackgroundSize.width, BackgroundSize.height, 0, 0, BackgroundSize.width, BackgroundSize.height, 0, backalpha);
+        if (BGImg && BGAlpha) // alphaが0の場合は負荷軽減のため描画をスキップ
+            gr.DrawImage(BGImg, BGSize.x, BGSize.y, BGSize.width, BGSize.height, 0, 0, BGSize.width, BGSize.height, 0, BGAlpha);
 
         // lyrics
         if (lyric) { // lyrics is found
@@ -2341,14 +2271,14 @@ LyricShow = new function (Style) {
 
             if (lyric.info.length && offsetY > 0 && prop.Panel.ScrollType !== 4 && prop.Panel.ScrollType !== 5)
                 for (var i = 1; i <= lyric.info.length; i++) {
-                    Style.Shadow && gr.GdiDrawText(lyric.info[lyric.info.length - i], Style.Font, Style.Color.TextShadow, this.on_paintInfo.x + Style.ShadowPosition[0], Math.ceil(g_y + offsetY - TextHeight * i + Style.ShadowPosition[1]), this.on_paintInfo.w, wh, DT_CENTER | DT_NOPREFIX);
-                    gr.GdiDrawText(lyric.info[lyric.info.length - i], Style.Font, Style.Color.Text, this.on_paintInfo.x, Math.ceil(g_y + offsetY - TextHeight * i), this.on_paintInfo.w, wh, DT_CENTER | DT_NOPREFIX);
+                    Style.Shadow && gr.GdiDrawText(lyric.info[lyric.info.length - i], Style.Font, Style.Color.TextShadow, this.Properties.x + Style.ShadowPosition[0], Math.ceil(g_y + offsetY - textHeight * i + Style.ShadowPosition[1]), this.Properties.w, wh, DT_CENTER | DT_NOPREFIX);
+                    gr.GdiDrawText(lyric.info[lyric.info.length - i], Style.Font, Style.Color.Text, this.Properties.x, Math.ceil(g_y + offsetY - textHeight * i), this.Properties.w, wh, DT_CENTER | DT_NOPREFIX);
                 }
 
             if (filetype === "lrc") // for文の中の演算量を増やすわけにはいかないのでfor文自体を分岐させる
                 if (prop.Panel.ScrollType === 4) {
                     if (Style.Shadow)
-                        for (i = lyric.i - 1, j = 0; j < 3 && i !== lyric.text.length; i++, j++) {
+                        for (i = lyric.i - 1, j = 0; j < 3 && i !== lyric.text.length; i++ , j++) {
                             var y = offsetY;
                             if (DrawStyle[i].isEvenNum)
                                 y += this.calcOddNumHeight(DrawStyle, i);
@@ -2357,7 +2287,7 @@ LyricShow = new function (Style) {
                                 break;
                         }
                     else
-                        for (i = lyric.i - 1, j = 0; j < 3 && i !== lyric.text.length; i++, j++) {
+                        for (i = lyric.i - 1, j = 0; j < 3 && i !== lyric.text.length; i++ , j++) {
                             y = offsetY;
                             if (DrawStyle[i].isEvenNum)
                                 y += this.calcOddNumHeight(DrawStyle, i);
@@ -2368,13 +2298,13 @@ LyricShow = new function (Style) {
                 }
                 else if (prop.Panel.ScrollType === 5) {
                     if (Style.Shadow)
-                        for (i = lyric.i - 1, j = 0; j < 3 && i !== lyric.text.length; i++, j++) {
+                        for (i = lyric.i - 1, j = 0; j < 3 && i !== lyric.text.length; i++ , j++) {
                             DrawStyle[i].draw_OneLine_withShadow(gr, offsetY);
                             if (j === 1 && typeof DrawStyle[i].isEvenNum !== "undefined")
                                 break;
                         }
                     else
-                        for (i = lyric.i - 1, j = 0; j < 3 && i !== lyric.text.length; i++, j++) {
+                        for (i = lyric.i - 1, j = 0; j < 3 && i !== lyric.text.length; i++ , j++) {
                             DrawStyle[i].draw_OneLine(gr, offsetY);
                             if (j === 1 && typeof DrawStyle[i].isEvenNum !== "undefined")
                                 break;
@@ -2384,30 +2314,30 @@ LyricShow = new function (Style) {
                     if (Style.Shadow)
                         for (i = 0; i < lyric.text.length; i++) {
                             var c = offsetY + DrawStyle[i].y;
-                            if (c > wh) { disp.bottom = i - 1; break; } // do not draw text outside the screen. CPU utilization rises
-                            else if (c < -DrawStyle[i].height) { disp.top = i + 1; continue; } // ditto
+                            if (c > g_y + wh) { disp.bottom = i - 1; break; } // do not draw text outside the screen. CPU utilization rises
+                            else if (c < g_y - DrawStyle[i].height) { disp.top = i + 1; continue; } // ditto
                             else DrawStyle[i].draw_withShadow(gr);
                         }
                     else
                         for (i = 0; i < lyric.text.length; i++) {
                             c = offsetY + DrawStyle[i].y;
-                            if (c > wh) { disp.bottom = i - 1; break; } // do not draw text outside the screen. CPU utilization rises
-                            else if (c < -DrawStyle[i].height) { disp.top = i + 1; continue; } // ditto
+                            if (c > g_y + wh) { disp.bottom = i - 1; break; } // do not draw text outside the screen. CPU utilization rises
+                            else if (c < g_y - DrawStyle[i].height) { disp.top = i + 1; continue; } // ditto
                             else DrawStyle[i].draw(gr);
                         }
             else
                 if (Style.Shadow)
                     for (i = 0; i < lyric.text.length; i++) {
                         c = offsetY + DrawStyle[i].y;
-                        if (c > wh) { disp.bottom = i - 1; break; }
-                        else if (c < -DrawStyle[i].height) { disp.top = i + 1; continue; }
+                        if (c > g_y + wh) { disp.bottom = i - 1; break; }
+                        else if (c < g_y - DrawStyle[i].height) { disp.top = i + 1; continue; }
                         else DrawStyle[i].draw_withShadow(gr);
                     }
                 else
                     for (i = 0; i < lyric.text.length; i++) {
                         c = offsetY + DrawStyle[i].y;
-                        if (c > wh) { disp.bottom = i - 1; break; }
-                        else if (c < -DrawStyle[i].height) { disp.top = i + 1; continue; }
+                        if (c > g_y + wh) { disp.bottom = i - 1; break; }
+                        else if (c < g_y - DrawStyle[i].height) { disp.top = i + 1; continue; }
                         else DrawStyle[i].draw(gr);
                     }
         }
@@ -2416,64 +2346,59 @@ LyricShow = new function (Style) {
             gr.GdiDrawText("Click here to enable this panel.", Style.Font, Style.Color.Text, g_x, g_y + (wh * (46 / 100)) - 6, ww, wh, DT_CENTER | DT_WORDBREAK | DT_NOPREFIX);
         }
         else if (fb.IsPlaying) { // lyrics is not found
-            var nlw, offset;
-            var align = window.GetProperty("Style.AlignNoLyric");
-            var noLyricX = (align === 0x00000003 || align === 0x00000006) ? ww : (align === 0x00000004) ? centerleftX : g_x;
-            var c_ww = (align === 0x00000004 || align === 0x00000005) ? ww - centerleftX + g_x : ww;
-
+            var text_w, noLyricX, noLyricW, offset;
+            var leftcenterX_NL = ww;
             var wordbreak = 0;
+
             var s = fb.TitleFormat(prop.Panel.NoLyric).Eval().split("\\n");
 
+            if (Style.DrawingMethod === 0)
+                for (i = 0; i < s.length; i++) {
+                    text_w = gr.CalcTextWidth(s[i], Style.Font);
+                    leftcenterX_NL = Math.min((ww - text_w) / 2, leftcenterX_NL);
+                }
+            else
+                for (i = 0; i < s.length; i++) {
+                    text_w = gr.MeasureString(s[i], Style.Font, 0, 0, ww * 10, wh, 0).Width;
+                    leftcenterX_NL = Math.min((ww - text_w) / 2, leftcenterX_NL);
+                }
+            leftcenterX_NL = Math.floor(Math.max(leftcenterX_NL, 0)) + g_x;
+
+            noLyricX = align.Left_Center_NL ? leftcenterX_NL : align.Center_Left_NL ? centerleftX : g_x;
+            noLyricW = align.Left_Center_NL || align.Right_Center_NL ? ww - leftcenterX_NL + g_x : align.Center_Left_NL || align.Center_Right_NL ? ww - centerleftX + g_x : ww;
+
             if (Style.DrawingMethod === 0) {
-                TextHeightWithoutLPadding = gr.CalcTextHeight("Test", Style.Font);
-                TextHeight = TextHeightWithoutLPadding + Style.LPadding;
-                offset = g_y + (wh / 2) - s.length / 2 * TextHeight;
+                textHeightWithoutLPadding = gr.CalcTextHeight("Test", Style.Font);
+                textHeight = textHeightWithoutLPadding + Style.LPadding;
             }
             else {
-                TextHeightWithoutLPadding = Math.ceil(gr.MeasureString("Test", Style.Font, 0, 0, ww * 10, wh, 0).Height);
-                TextHeight = TextHeightWithoutLPadding + Style.LPadding;
-                offset = g_y + (wh / 2) - s.length / 2 * TextHeight;
+                textHeightWithoutLPadding = Math.ceil(gr.MeasureString("Test", Style.Font, 0, 0, ww * 10, wh, 0).Height);
+                textHeight = textHeightWithoutLPadding + Style.LPadding;
             }
-
-            if (align === 0x00000003 || align === 0x00000006) {
-                if (Style.DrawingMethod === 0)
-                    for (i = 0; i < s.length; i++) {
-                        nlw = gr.CalcTextWidth(s[i], Style.Font);
-                        noLyricX = Math.min((ww - nlw) / 2, noLyricX);
-                    }
-                else
-                    for (i = 0; i < s.length; i++) {
-                        nlw = gr.MeasureString(s[i], Style.Font, 0, 0, ww * 10, wh, 0).Width;
-                        noLyricX = Math.min((ww - nlw) / 2, noLyricX);
-                    }
-                noLyricX = Math.max(noLyricX, 0);
-                c_ww = ww - noLyricX * 2;
-                noLyricX += g_x;
-            }
-
+            offset = g_y + (wh / 2) - s.length / 2 * textHeight;
 
             try {
                 switch (Style.DrawingMethod) {
                     case 0:
                         for (i = 0; i < s.length; i++) {
-                            Style.Shadow && gr.GdiDrawText(s[i], Style.Font, Style.Color.TextShadow, noLyricX + Style.ShadowPosition[0], offset + TextHeight * (i + wordbreak) + Style.ShadowPosition[1], c_ww, wh, Style.AlignNoLyric);
-                            gr.GdiDrawText(s[i], Style.Font, Style.Color.Text, noLyricX, offset + TextHeight * (i + wordbreak), c_ww, wh, Style.AlignNoLyric);
-                            wordbreak += Math.floor(gr.CalcTextWidth(s[i], Style.Font) / ww);
+                            Style.Shadow && gr.GdiDrawText(s[i], Style.Font, Style.Color.TextShadow, noLyricX + Style.ShadowPosition[0], offset + textHeight * (i + wordbreak) + Style.ShadowPosition[1], noLyricW, wh, Style.AlignNoLyric);
+                            gr.GdiDrawText(s[i], Style.Font, Style.Color.Text, noLyricX, offset + textHeight * (i + wordbreak), noLyricW, wh, Style.AlignNoLyric);
+                            wordbreak += Math.floor(gr.CalcTextWidth(s[i], Style.Font) / noLyricW);
                         }
                         break;
                     case 1:
                         for (i = 0; i < s.length; i++) {
-                            Style.Shadow && gr.DrawString(s[i], Style.Font, Style.Color.TextShadow, noLyricX + Style.ShadowPosition[0], offset + TextHeight * (i + wordbreak) + Style.ShadowPosition[1], c_ww, wh, Style.AlignNoLyric);
-                            gr.DrawString(s[i], Style.Font, Style.Color.Text, noLyricX, offset + TextHeight * (i + wordbreak), c_ww, wh, Style.AlignNoLyric);
-                            wordbreak += Math.floor(gr.MeasureString(s[i], Style.Font, 0, 0, ww * 10, wh, 0).Width / ww);
+                            Style.Shadow && gr.DrawString(s[i], Style.Font, Style.Color.TextShadow, noLyricX + Style.ShadowPosition[0], offset + textHeight * (i + wordbreak) + Style.ShadowPosition[1], noLyricW, wh, Style.AlignNoLyric);
+                            gr.DrawString(s[i], Style.Font, Style.Color.Text, noLyricX, offset + textHeight * (i + wordbreak), noLyricW, wh, Style.AlignNoLyric);
+                            wordbreak += Math.floor(gr.MeasureString(s[i], Style.Font, 0, 0, ww * 10, wh, 0).Width / noLyricW);
 
                         }
                         break;
                     case 2:
                         TextRender.OutLineText(Style.Color.Text, Style.Color.TextRound, Style.Shadow ? Style.TextRoundSize : 0);
                         for (i = 0; i < s.length; i++) {
-                            TextRender.RenderStringRect(gr, s[i], Style.Font, noLyricX, offset + TextHeight * (i + wordbreak), c_ww, wh, Style.AlignNoLyric);
-                            wordbreak += Math.floor(gr.MeasureString(s[i], Style.Font, 0, 0, ww * 10, wh, 0).Width / ww);
+                            TextRender.RenderStringRect(gr, s[i], Style.Font, noLyricX, offset + textHeight * (i + wordbreak), noLyricW, wh, Style.AlignNoLyric);
+                            wordbreak += Math.floor(gr.MeasureString(s[i], Style.Font, 0, 0, ww * 10, wh, 0).Width / noLyricW);
                         }
                         break;
                 }
@@ -2482,7 +2407,6 @@ LyricShow = new function (Style) {
 
         }
     };
-
 }(prop.Style);
 
 
@@ -2490,15 +2414,15 @@ LyricShow = new function (Style) {
 //== Create "Edit" Object ===================
 //===========================================
 
-Edit = new function (Style, p) {
+var Edit = new function (Style, p) {
 
     var DrawStyle, edit_fixY, di = [];
 
     this.init = function () {
 
-        edit_fixY = TextHeight * 2;
-        DrawStyle = p.DrawStyle;
+        edit_fixY = g_y + textHeight * 2;
         offsetY = edit_fixY + Math.round(Style.LPadding / 2);
+        DrawStyle = p.DrawStyle;
 
         if (filetype === "lrc") {
             lyric.i = lyric.text.length;
@@ -2517,10 +2441,8 @@ Edit = new function (Style, p) {
         window.Repaint();
 
         if (lyric.i === lyric.text.length) {
-            Lock = true; // some command is prevent
             this.saveMenu(x, y);
-            prop.Edit.Start && this.undo(); // saveMenu表示中に次の曲に遷移する可能性があるのでundoの前にチェックする
-            (function () { Lock = false; }).timeout(200);
+            this.isStarted && this.undo(); // saveMenu表示中に次の曲に遷移する可能性があるのでundoの前にチェックする
         }
     };
 
@@ -2532,16 +2454,14 @@ Edit = new function (Style, p) {
             lyric.text[--lyric.i] = lyric.text[lyric.i].replace(tagTimeRE, "");
             offsetY += DrawStyle[lyric.i - 1].height;
             if (lyric.i === 1) break;
-        } while (all)
+        } while (all);
 
         window.Repaint();
     };
 
-    this.adjustTime = function (n) { // -100 < Int n < 100
+    this.adjustTime = function (n) {
 
         if (lyric.i === 1) return;
-
-        Lock = true;
 
         var pl = lyric.i - 1;
         lyric.text[pl].match(tagTimeRE);
@@ -2562,11 +2482,9 @@ Edit = new function (Style, p) {
                 apply();
         }
 
-        Lock = false;
-
         function apply() {
             Edit.applyTimeDiff(pt, pl, n);
-            if (prop.Edit.View)
+            if (Edit.View.isStarted)
                 DrawStyle[pl].doCommand();
             else
                 window.Repaint();
@@ -2574,11 +2492,9 @@ Edit = new function (Style, p) {
 
     };
 
-    this.offsetTime = function (n) { // -100 < Int n < 100
+    this.offsetTime = function (n) {
 
         if (lyric.i === 1) return;
-
-        Lock = true;
 
         var tt;
 
@@ -2589,12 +2505,10 @@ Edit = new function (Style, p) {
             }
         }
 
-        if (prop.Edit.View)
+        if (this.View.isStarted)
             DrawStyle[lyric.i - 1].doCommand();
         else
             window.Repaint();
-
-        Lock = false;
     };
 
     this.applyTimeDiff = function (time, i, diff) {
@@ -2609,7 +2523,7 @@ Edit = new function (Style, p) {
         lyric.text[i] = lyric.text[i].replace(tagTimeRE, "");
         putTime(time, i);
 
-        if (prop.Edit.View) {
+        if (this.View.isStarted) {
             p.lineList[i] = time;
             DrawStyle[i].time = p.lineList[i] / 100;
         }
@@ -2657,7 +2571,7 @@ Edit = new function (Style, p) {
                 break;
         }
 
-        p.setWordbreakList(true);
+        p.setWordbreakList();
         p.buildDrawStyle();
         DrawStyle = p.DrawStyle;
         n === 2 && (offsetY = edit_fixY + Math.round(Style.LPadding / 2) - DrawStyle[lyric.i - 1].y);
@@ -2667,46 +2581,59 @@ Edit = new function (Style, p) {
 
     this.saveMenu = function (x, y) {
 
-        Lock_MiddleButton = true;
+        // メニュー表示中に曲が遷移しても正常に保存できるように情報を保持しておく. 関連してメニューの定義もここで行う
         var meta = fb.GetNowPlaying();
         var field = getFieldName();
         var file = parse_path + ".lrc";
         var folder = fs.GetParentFolderName(file);
         var LineFeedCode = prop.Save.LineFeedCode;
         var text = (lyric.info.length ? lyric.info.join(LineFeedCode) + LineFeedCode : "") + lyric.text.join(LineFeedCode);
-        var _menu, ret;
 
-        Menu.build(Menu.Save);
-        _menu = Menu.getMenu();
-        ret = _menu.TrackPopupMenu(x || 0, y || 0);
-        switch (ret) {
-            case 3:
-                try {
-                    writeTagField(text, field, meta);
-                    StatusBar.setText(Messages.SavedToTag.ret('"' + field + '"'));
-                    StatusBar.show();
-                    playSoundSimple(commondir + "finished.wav");
-                } catch (e) {
-                    Messages.FailedToSaveLyricsToTag.popup("\n" + e.message);
+        Menu.build({
+            id: "Save",
+            items: [
+                {
+                    Flag: MF_GRAYED,
+                    Caption: Label.Save
+                },
+                {
+                    Flag: MF_SEPARATOR
+                },
+                {
+                    Flag: MF_STRING,
+                    Caption: Label.SaveToTag,
+                    Func: function () {
+                        try {
+                            writeTagField(text, field, meta);
+                            StatusBar.showText(Messages.SavedToTag.ret('"' + field + '"'));
+                            playSoundSimple(commondir + "finished.wav");
+                        } catch (e) {
+                            Messages.FailedToSaveLyricsToTag.popup("\n" + e.message);
+                        }
+                    }
+                },
+                {
+                    Flag: MF_STRING,
+                    Caption: Label.SaveToFile,
+                    Func: function () {
+                        try {
+                            if (!fs.FolderExists(folder))
+                                createFolder(fs, folder);
+                            writeTextFile(text, file, prop.Save.CharacterCode);
+                            StatusBar.showText(Messages.Saved.ret(file));
+                            playSoundSimple(commondir + "finished.wav");
+                            FuncCommands(prop.Save.RunAfterSave, meta);
+                        } catch (e) {
+                            Messages.FailedToSaveLyricsToFile.popup("\n" + e.message);
+                        }
+                    }
                 }
-                break;
-            case 4:
-                try {
-                    if (!fs.FolderExists(folder))
-                        createFolder(fs, folder);
-                    writeTextFile(text, file, prop.Save.CharacterCode);
-                    StatusBar.setText(Messages.Saved.ret(file));
-                    StatusBar.show();
-                    playSoundSimple(commondir + "finished.wav");
-                    FuncCommands(prop.Save.RunAfterSave, meta);
-                } catch (e) {
-                    Messages.FailedToSaveLyricsToFile.popup("\n" + e.message);
-                }
-                break;
-        }
+            ]
+        });
+        Menu.show(x || 0, y || 0);
+
         meta.Dispose();
-        Menu.build(prop.Edit.Start ? Menu.Edit : '');
-        Lock_MiddleButton = false;
+        Menu.build();
     };
 
     this.deleteFile = function (file) {
@@ -2715,9 +2642,8 @@ Edit = new function (Style, p) {
             return;
         try {
             sendToRecycleBin(file);
-            Menu.build(Menu.Edit);
-            StatusBar.setText(Messages.Deleted.ret());
-            StatusBar.show();
+            Menu.build();
+            StatusBar.showText(Messages.Deleted.ret());
         } catch (e) {
             Messages.FailedToDelete.popup();
         }
@@ -2727,12 +2653,12 @@ Edit = new function (Style, p) {
 
         LyricShow.pauseTimer(true);
         Buttons.buildButton();
-        with (prop.Style) { Color = CE[CSE]; }
-        prop.Edit.Start = true;
+        Style.Color = Style.C_E[Style.CS_E];
+        this.isStarted = true;
         filetype === "txt" && putTime(0, 0);
 
-        p.setLineList(true);
-        p.setWordbreakList(true);
+        p.setLineList();
+        p.setWordbreakList();
         p.buildDrawStyle();
         this.init();
 
@@ -2741,16 +2667,16 @@ Edit = new function (Style, p) {
         else {
             this.calcRGBdiff();
             window.Repaint();
-            Menu.build(Menu.Edit);
+            Menu.build();
         }
 
     };
 
     this.end = function () {
 
-        prop.Edit.Start = false;
-        prop.Edit.View && this.View.end();
-        with (prop.Style) { Color = CLS[CSLS]; }
+        this.isStarted = false;
+        this.View.isStarted && this.View.end();
+        Style.Color = Style.C_LS[Style.CS_LS];
 
     };
 
@@ -2772,7 +2698,7 @@ Edit = new function (Style, p) {
 
         this.watchLineChange = function () {
             if (Math.round(fb.PlaybackTime * 100) >= p.lineList[lyric.i]) {
-                offsetY -= LyricShow.setProperties.DrawStyle[lyric.i - 1].height;
+                offsetY -= p.DrawStyle[lyric.i - 1].height;
                 lyric.i++;
                 window.Repaint();
             }
@@ -2786,49 +2712,67 @@ Edit = new function (Style, p) {
         };
 
         this.start = function () {
-            prop.Edit.View = true;
+            this.isStarted = true;
             this.i = lyric.i; // ビューモード解除時に元に戻れるように値を退避
             if (lyric.i !== lyric.text.length) {
-                p.setLineList(true);
-                p.setWordbreakList(true);
+                p.setLineList();
+                p.setWordbreakList();
                 p.buildDrawStyle();
                 DrawStyle = p.DrawStyle;
             }
             Edit.calcRGBdiff();
             this.searchLine(fb.PlaybackTime);
-            Menu.build(Menu.Edit);
+            Menu.build();
         };
 
         this.end = function () {
-            prop.Edit.View = false;
+            this.isStarted = false;
             this.pauseTimer(true);
             lyric.i = this.i; // ビューモードに入る前の状態に戻す
             offsetY = edit_fixY + Math.round(Style.LPadding / 2) - DrawStyle[lyric.i - 1].y;
             lyric.i === lyric.text.length && Edit.undo();
             Edit.calcRGBdiff();
         };
-    };
+    }();
 
     this.switchView = function () {
 
-        prop.Edit.View = !prop.Edit.View;
-        if (prop.Edit.View) this.View.start();
+        this.View.isStarted = !this.View.isStarted;
+        if (this.View.isStarted) this.View.start();
         else {
             this.View.end();
             window.Repaint();
-            Menu.build(Menu.Edit);
+            Menu.build();
         }
     };
 
     this.calcRGBdiff = function () {
 
-        var bg = prop.Edit.View ? Style.Color.ViewBackground : Style.Color.Background;
+        var bg = this.View.isStarted ? Style.Color.ViewBackground : Style.Color.Background;
         if (getAlpha(bg) !== 0xff)
             bg = RGBAtoRGB(bg); // parse alpha value
         var b = getRGB(Style.Color.Text); // base color
         var t = getRGB(bg); // target color
         for (var i = 0; i < 3; i++) // [R_diff, G_diff, B_diff]
             di[i] = prop.Edit.Step === 0 ? 0 : (t[i] - b[i]) / prop.Edit.Step;
+    };
+
+    this.on_mouse_move = function (x, y) {
+
+        if (y > wh - 30 || (x > seek_width && x < ww - seek_width)) {
+            if (this.CurrentArea) {
+                this.CurrentArea = null;
+                window.Repaint();
+            }
+        }
+        else if (x <= seek_width && this.CurrentArea !== "LEFT") {
+            this.CurrentArea = "LEFT";
+            window.Repaint();
+        }
+        else if (x >= ww - seek_width && this.CurrentArea !== "RIGHT") {
+            this.CurrentArea = "RIGHT";
+            window.Repaint();
+        }
     };
 
     this.on_paint = function (gr) {
@@ -2839,15 +2783,15 @@ Edit = new function (Style, p) {
         disp.bottom = lyric.text.length - 1;
 
         // background color
-        gr.FillSolidRect(-1, -1, window.Width + 1, window.Height + 1, prop.Edit.View ? Style.Color.ViewBackground : Style.Color.Background);
+        gr.FillSolidRect(-1, -1, window.Width + 1, window.Height + 1, this.View.isStarted ? Style.Color.ViewBackground : Style.Color.Background);
         // playing line color
         try {
-            gr.FillRoundRect(g_x + 1, g_y + edit_fixY, ww - 2, DrawStyle[p].height, 5, 5, Style.Color.Line);
+            gr.FillRoundRect(g_x + 1, edit_fixY, ww - 2, DrawStyle[p].height, 5, 5, Style.Color.Line);
         } catch (e) { }
 
         // lyrics
         for (var i = disp.top; i < lyric.text.length; i++) {
-            if (offsetY + DrawStyle[i].y > wh) { disp.bottom = i - 1; break; }
+            if (offsetY + DrawStyle[i].y > g_y + wh) { disp.bottom = i - 1; break; }
             else {
                 ci = Math.abs(i - p);
                 ci = Math.min(ci, prop.Edit.Step);
@@ -2859,13 +2803,13 @@ Edit = new function (Style, p) {
 
         if (prop.Edit.Rule) // rule
             for (i = 1; i <= disp.bottom - disp.top + 2; i++)
-                gr.DrawLine(ww - 4 + g_x, g_y + TextHeight * i, 4 + g_x, g_y + TextHeight * i, 1, Style.Color.Rule);
+                gr.DrawLine(g_x + 4, g_y + textHeight * i, g_x + ww - 4, g_y + textHeight * i, 1, Style.Color.Rule);
 
         // length
-        gr.gdiDrawText("[" + lyric.i + " / " + lyric.text.length + "]", Style.Font, Style.Color.Length, g_x, window.Height - TextHeight + prop.Style.LPadding, window.Width, TextHeight, 0);
+        gr.gdiDrawText("[" + lyric.i + " / " + lyric.text.length + "]", Style.Font, Style.Color.Length, g_x, window.Height - textHeight + prop.Style.LPadding, window.Width, textHeight, 0);
 
-        if (larea_seek) { // seek
-            gr.FillRoundRect(0, TextHeight, seek_width, Math.max(wh - 50, 0), arc_w, arc_h, Style.Color.Seek);
+        if (this.CurrentArea === "LEFT") { // seek
+            gr.FillRoundRect(0, textHeight, seek_width, Math.max(wh - 50, 0), arc_w, arc_h, Style.Color.Seek);
             gr.DrawPolygon(Style.Color.SeekArrow, 1,
                 [
                     (seek_width / 2 + seek_width / 12), (wh / 2 - wh / 20),
@@ -2873,8 +2817,8 @@ Edit = new function (Style, p) {
                     (seek_width / 2 + seek_width / 12), (wh / 2 + wh / 20)
                 ]);
         }
-        if (rarea_seek) {
-            gr.FillRoundRect(rarea_seek_x, TextHeight, seek_width, Math.max(wh - 50, 0), arc_w, arc_h, Style.Color.Seek);
+        if (this.CurrentArea === "RIGHT") {
+            gr.FillRoundRect(ww - seek_width, textHeight, seek_width, Math.max(wh - 50, 0), arc_w, arc_h, Style.Color.Seek);
             gr.DrawPolygon(Style.Color.SeekArrow, 1,
                 [
                     ww - (seek_width / 2 + seek_width / 12), (wh / 2 - wh / 20),
@@ -2883,15 +2827,15 @@ Edit = new function (Style, p) {
                 ]);
         }
     };
-
-}(prop.Style, LyricShow.setProperties);
+}(prop.Style, LyricShow.Properties);
 
 
 //===========================================
 //== Create "Buttons" Object ================
 //===========================================
 
-Buttons = new function () {
+var Buttons = new function () {
+
     var icon_space = 4;
     var button = [];
     var tooltip = window.CreateTooltip();
@@ -2903,7 +2847,7 @@ Buttons = new function () {
             Y: function () { return window.Height - 19; },
             Tiptext: Label.Reload,
             Func: function () {
-                main(path || "");
+                main(lyric.path || "");
                 (function () { lyric && Edit.start(); }).timeout(400);
             }
         },
@@ -2913,9 +2857,9 @@ Buttons = new function () {
             Y: function () { return window.Height - 19; },
             Tiptext: Label.Clear,
             Func: function () {
-                prop.Edit.View && Edit.View.end();
+                Edit.View.isStarted && Edit.View.end();
                 Edit.undo(true);
-                Menu.build(Menu.Edit);
+                Menu.build();
             }
         },
         {
@@ -2959,11 +2903,6 @@ Buttons = new function () {
         }
     };
 
-    this.on_paint = function (gr) {
-        for (var i = 0; i < button.length; i++)
-            button[i].Draw(gr);
-    };
-
     this.on_mouse_move = function (x, y) {
         for (var i = 0; i < button.length; i++)
             if (button[i].isMouseOver(x, y)) {
@@ -2977,6 +2916,11 @@ Buttons = new function () {
             this.CurrentButton.DeactivateTooltip();
             this.CurrentButton = null;
         }
+    };
+
+    this.on_paint = function (gr) {
+        for (var i = 0; i < button.length; i++)
+            button[i].Draw(gr);
     };
 
     // Constructor
@@ -3004,15 +2948,14 @@ Buttons = new function () {
         tooltip.Deactivate();
     };
     // Constructor END
-};
+}();
 
 
 //===========================================
 //== Create "StatusBar" Object ==============
 //===========================================
 
-StatusBar = new function (Style) {
-    this.TIMER = false;
+var StatusBar = new function (Style) {
 
     this.setText = function (Text) {
         this.Text = Text;
@@ -3060,7 +3003,6 @@ StatusBar = new function (Style) {
             gr.GdiDrawText(this.Text, Style.StatusBarFont, Style.StatusBarColor, g_x + 3, this.Y + 1, ww - 3, this.Height, DT_LEFT | DT_WORDBREAK | DT_WORD_ELLIPSIS | DT_NOPREFIX);
         }
     };
-
 }(prop.Style);
 
 
@@ -3068,15 +3010,15 @@ StatusBar = new function (Style) {
 //== Create "Keybind" Object ================
 //===========================================
 
-Keybind = new function () {
+var Keybind = new function () {
 
     var commands = {
         SeekToNextLine: function () { seekLineTo(1); },
         SeekToPlayingLine: function () { seekLineTo(0); },
         SeekToPreviousLine: function () { seekLineTo(-1); },
         SeekToTop: function () {
-            if (prop.Edit.View || (!prop.Edit.Start && filetype === "lrc"))
-                LyricShow.setProperties.DrawStyle[1].doCommand();
+            if (Edit.View.isStarted || (!Edit.isStarted && filetype === "lrc"))
+                LyricShow.Properties.DrawStyle[1].doCommand();
             else fb.PlaybackTime = 0;
         },
         SwitchAutoScroll: function () {
@@ -3115,11 +3057,11 @@ Keybind = new function () {
                     if (/^Tag$/i.test(prop.Save.ClipbordAutoSaveTo))
                         saveToTag(getFieldName());
                     else if (/^File$/i.test(prop.Save.ClipbordAutoSaveTo))
-                        saveToFile(parse_path + (filetype === "lrc" ? ".lrc" : ".txt"));
+                        saveToFile(parse_path + "." + filetype);
                 }
             }
         };
-    };
+    }();
 
     this.LyricShow_keyup = new function () {
 
@@ -3149,7 +3091,7 @@ Keybind = new function () {
             Menu.build();
         };
         this[93] = function () { Menu.show(0, 0); }; // Menu key
-    };
+    }();
 
     this.Edit_keydown = new function () {
 
@@ -3169,8 +3111,8 @@ Keybind = new function () {
         keynum = prop.Edit.Keybind["BackBy3Seconds"];
         this[keynum] = function () { fb.PlaybackTime -= 3; };
 
-        this[13] = function () { !prop.Edit.View && Edit.moveNextLine(); }; // Enter
-        this[33] = function () { !prop.Edit.View && Edit.undo(); }; // Page Up
+        this[13] = function () { !Edit.View.isStarted && Edit.moveNextLine(); }; // Enter
+        this[33] = function () { !Edit.View.isStarted && Edit.undo(); }; // Page Up
         this[38] = function () { // Up
             if (utils.IsKeyPressed(VK_SHIFT)) Edit.offsetTime(5); // (+Shift)
             else Edit.adjustTime(-5);
@@ -3179,21 +3121,21 @@ Keybind = new function () {
             if (utils.IsKeyPressed(VK_SHIFT)) Edit.offsetTime(-5); // (+Shift)
             else Edit.adjustTime(5);
         };
-    };
+    }();
 
     this.Edit_keyup = new function () {
         this[93] = function () { Menu.show(0, 0); }; // Menu key
-    };
-};
+    }();
+}();
 
 
 //===========================================
 //== Create "Menu" Object ===================
 //===========================================
 
-Menu = new function () {
+var Menu = new function () {
 
-    var _menu, item_list;
+    var _menu, _item_list;
 
     //============
     //  sub menu items
@@ -3218,7 +3160,7 @@ Menu = new function () {
         },
         {
             Flag: MF_GRAYED,
-            Caption: "[Previous]",
+            Caption: "[Previous]"
         },
         {
             Flag: function () { return !lyric && backupLyric[0] ? MF_STRING : null; },
@@ -3347,7 +3289,7 @@ Menu = new function () {
             Func: function () {
                 window.SetProperty("Style.Font-Bold", prop.Style.Font_Bold = !prop.Style.Font_Bold);
                 prop.Style.Font = gdi.Font(prop.Style.Font_Family, prop.Style.Font_Size, (prop.Style.Font_Bold ? 1 : 0) + (prop.Style.Font_Italic ? 2 : 0));
-                lyric && prop.Style.DrawingMethod === 2 && prop.Panel.ScrollType <= 3 && LyricShow.setProperties.buildDrawStyle(); // テキスト画像の再作成
+                lyric && prop.Style.DrawingMethod === 2 && (prop.Panel.ScrollType <= 3 || filetype === "txt") && LyricShow.Properties.buildDrawStyle(); // テキスト画像の再作成
                 window.Repaint();
                 Menu.build();
             }
@@ -3357,7 +3299,7 @@ Menu = new function () {
             Caption: Label.Shadow,
             Func: function () {
                 window.SetProperty("Style.Text-Shadow", prop.Style.Shadow = !prop.Style.Shadow);
-                lyric && prop.Style.DrawingMethod === 2 && prop.Panel.ScrollType <= 3 && LyricShow.setProperties.buildDrawStyle(); // テキスト画像の再作成
+                lyric && prop.Style.DrawingMethod === 2 && (prop.Panel.ScrollType <= 3 || filetype === "txt") && LyricShow.Properties.buildDrawStyle(); // テキスト画像の再作成
                 window.Repaint();
                 Menu.build();
             }
@@ -3368,7 +3310,7 @@ Menu = new function () {
             Func: function () {
                 window.SetProperty("Style.Font-Italic", prop.Style.Font_Italic = !prop.Style.Font_Italic);
                 prop.Style.Font = gdi.Font(prop.Style.Font_Family, prop.Style.Font_Size, (prop.Style.Font_Bold ? 1 : 0) + (prop.Style.Font_Italic ? 2 : 0));
-                lyric && prop.Style.DrawingMethod === 2 && prop.Panel.ScrollType <= 3 && LyricShow.setProperties.buildDrawStyle(); // テキスト画像の再作成
+                lyric && prop.Style.DrawingMethod === 2 && (prop.Panel.ScrollType <= 3 || filetype === "txt") && LyricShow.Properties.buildDrawStyle(); // テキスト画像の再作成
                 window.Repaint();
                 Menu.build();
             }
@@ -3380,10 +3322,10 @@ Menu = new function () {
                 window.SetProperty("Panel.Background.Enable", prop.Panel.BackgroundEnable = !prop.Panel.BackgroundEnable);
                 Menu.build();
                 if (prop.Panel.BackgroundEnable) {
-                    if (BackgroundImg)
+                    if (LyricShow.BackgroundImage.isSet())
                         LyricShow.BackgroundImage.fadeTimer();
                     else
-                        LyricShow.BackgroundImage.setImage();
+                        LyricShow.BackgroundImage.build();
                 }
                 else
                     LyricShow.BackgroundImage.fadeTimer(true);
@@ -3396,7 +3338,7 @@ Menu = new function () {
                 window.SetProperty("Panel.Background.Blur", prop.Panel.BackgroundBlur = !prop.Panel.BackgroundBlur);
                 Menu.build();
                 if (prop.Panel.BackgroundEnable) {
-                    LyricShow.BackgroundImage.setImage();
+                    LyricShow.BackgroundImage.build();
                     LyricShow.BackgroundImage.fadeTimer();
                 }
                 else
@@ -3417,6 +3359,14 @@ Menu = new function () {
             Func: function () {
                 window.SetProperty("Style.Fading", prop.Style.Fading = !prop.Style.Fading);
                 setDrawingMethod();
+                Menu.build();
+            }
+        },
+        {
+            Flag: function () { return prop.Panel.FollowExternalSeek ? MF_CHECKED : MF_UNCHECKED; },
+            Caption: Label.FollowExternalSeek,
+            Func: function () {
+                window.SetProperty("Panel.FollowExternalSeek", prop.Panel.FollowExternalSeek = !prop.Panel.FollowExternalSeek);
                 Menu.build();
             }
         },
@@ -3522,25 +3472,25 @@ Menu = new function () {
         }
     ];
 
-    var submenu_Color_LyricShow = createColorMenuItems(prop.Style.CLS, "Style.ColorStyle.LyricShow", "CSLS"); // radio item
-    var submenu_Color_Edit = createColorMenuItems(prop.Style.CE, "Style.ColorStyle.Edit", "CSE"); // radio item
+    var submenu_Color_LyricShow = createColorMenuItems(prop.Style.C_LS, "Style.ColorStyle.LyricShow", "CS_LS"); // radio item
+    var submenu_Color_Edit = createColorMenuItems(prop.Style.C_E, "Style.ColorStyle.Edit", "CS_E"); // radio item
 
-    function createColorMenuItems(Color, PropName, Place) {
+    function createColorMenuItems(Color, SettingName, PropName) {
         var items = [], item;
         for (var name in Color) {
             item = {};
             item["Caption"] = name;
             item["Func"] = function () {
-                window.SetProperty(PropName, prop.Style[Place] = this.Caption);
+                window.SetProperty(SettingName, prop.Style[PropName] = this.Caption);
                 prop.Style.Color = Color[this.Caption];
-                if (prop.Edit.Start)
+                if (Edit.isStarted)
                     Edit.calcRGBdiff();
                 else {
-                    lyric && prop.Style.DrawingMethod === 2 && prop.Panel.ScrollType <= 3 && LyricShow.setProperties.buildDrawStyle(); // テキスト画像の再作成
-                    LyricShow.set_on_paintInfo_RGBdiff();
+                    LyricShow.Properties.setPaintInfo();
+                    lyric && prop.Style.DrawingMethod === 2 && (prop.Panel.ScrollType <= 3 || filetype === "txt") && LyricShow.Properties.buildDrawStyle(); // テキスト画像の再作成
                 }
                 window.Repaint();
-                Menu.build(prop.Edit.Start ? Menu.Edit : "");
+                Menu.build();
             };
             items.push(item);
         }
@@ -3590,7 +3540,9 @@ Menu = new function () {
         {
             Flag: function () { return fb.IsPlaying ? MF_STRING : MF_GRAYED; },
             Caption: Label.Refresh,
-            Func: main
+            Func: function () {
+                main();
+            }
         },
         {
             Flag: MF_SEPARATOR
@@ -3607,7 +3559,7 @@ Menu = new function () {
         },
         {
             Flag: function () { return lyric ? MF_STRING : MF_GRAYED; },
-            Caption: function () { return prop.Panel.AutoScroll ? Label.ForbidAutoScroll : Label.AllowAutoScroll },
+            Caption: function () { return prop.Panel.AutoScroll ? Label.ForbidAutoScroll : Label.AllowAutoScroll; },
             Func: function () {
                 window.SetProperty("Panel.AutoScroll", prop.Panel.AutoScroll = !prop.Panel.AutoScroll);
                 movable = prop.Panel.AutoScroll;
@@ -3652,7 +3604,7 @@ Menu = new function () {
             Sub: submenu_Color_LyricShow,
             Radio: function () { // radio number begin with 0
                 for (var i = 0; i < submenu_Color_LyricShow.length; i++) {
-                    if (submenu_Color_LyricShow[i].Caption === prop.Style.CSLS)
+                    if (submenu_Color_LyricShow[i].Caption === prop.Style.CS_LS)
                         return i;
                 }
             }
@@ -3666,22 +3618,22 @@ Menu = new function () {
             Func: function () {
                 if (!lyric) return;
                 var LineFeedCode = prop.Save.LineFeedCode;
-                var lyrics = (lyric.info.length ? lyric.info.join(LineFeedCode) + LineFeedCode : "") + lyric.text.join(LineFeedCode).trim();
+                var text = (lyric.info.length ? lyric.info.join(LineFeedCode) + LineFeedCode : "") + lyric.text.join(LineFeedCode).trim();
                 var lineNum = lyric.text.length - (filetype === "lrc" ? 0 : 2);
-                var strCount = lyrics.replace(new RegExp(LineFeedCode, "g"), "").length;
+                var strCount = text.replace(new RegExp(LineFeedCode, "g"), "").length;
 
-                if (path)
-                    var mes = path + "\nType: " + filetype.toUpperCase() + "\n"
-                            + "Lyrics: " + lineNum + " lines, " + strCount + " length, " + dataSize / 1000 + " KB, read as " + charset + "\n"
-                            + (filetype === "lrc" ? "Applied offset: " + (offsetinfo || 0) + " ms\n" : "")
-                            + "------------------------------\n"
-                            + lyrics;
-                else
-                    mes = "Field: " + fieldname + "\nType: " + filetype.toUpperCase() + "\n"
-                        + "Lyrics: " + lineNum + " lines, " + strCount + " length\n"
-                        + (filetype === "lrc" ? "Applied offset: " + (offsetinfo || 0) + " ms\n" : "")
+                if (lyric.path)
+                    var mes = lyric.path + "\nType: " + filetype.toUpperCase() + "\n"
+                        + "Lyrics: " + lineNum + " lines, " + strCount + " length, " + lyric.dataSize / 1000 + " KB, read as " + lyric.charset + "\n"
+                        + (filetype === "lrc" ? "Applied offset: " + (lyric.offset || 0) + " ms\n" : "")
                         + "------------------------------\n"
-                        + lyrics;
+                        + text;
+                else
+                    mes = "Field: " + lyric.fieldname + "\nType: " + filetype.toUpperCase() + "\n"
+                        + "Lyrics: " + lineNum + " lines, " + strCount + " length\n"
+                        + (filetype === "lrc" ? "Applied offset: " + (lyric.offset || 0) + " ms\n" : "")
+                        + "------------------------------\n"
+                        + text;
 
                 fb.ShowPopupMessage(mes, scriptName);
             }
@@ -3702,7 +3654,7 @@ Menu = new function () {
             Flag: function () { return lyric ? MF_STRING : MF_GRAYED; },
             Caption: Label.SaveToFile,
             Func: function () {
-                saveToFile(parse_path + (filetype === "lrc" ? ".lrc" : ".txt"));
+                saveToFile(parse_path + "." + filetype);
             }
         },
         {
@@ -3717,7 +3669,7 @@ Menu = new function () {
                     if (/^Tag$/i.test(prop.Save.ClipbordAutoSaveTo))
                         saveToTag(getFieldName());
                     else if (/^File$/i.test(prop.Save.ClipbordAutoSaveTo))
-                        saveToFile(parse_path + (filetype === "lrc" ? ".lrc" : ".txt"));
+                        saveToFile(parse_path + "." + filetype);
                 }
             }
         },
@@ -3735,23 +3687,21 @@ Menu = new function () {
             Flag: MF_SEPARATOR
         },
         {
-            Flag: function () { return path ? MF_STRING : MF_GRAYED; },
+            Flag: function () { return lyric && lyric.path ? MF_STRING : MF_GRAYED; },
             Caption: Label.OpenIn,
             Func: function () {
-                if (path) {
-                    if (prop.Panel.Editor)
-                        FuncCommand(prop.Panel.Editor + " " + path);
-                    else
-                        FuncCommand(path);
-                }
+                if (prop.Panel.Editor)
+                    FuncCommand(prop.Panel.Editor + " " + lyric.path);
+                else
+                    FuncCommand(lyric.path);
             }
         },
         {
             Flag: function () { return fb.IsPlaying ? MF_STRING : MF_GRAYED; },
             Caption: Label.OpenFolder,
             Func: function () {
-                if (path)
-                    FuncCommand("explorer.exe /select,\"" + path + "\"");
+                if (lyric && lyric.path)
+                    FuncCommand("explorer.exe /select,\"" + lyric.path + "\"");
                 else if (directory)
                     FuncCommand(directory);
             }
@@ -3769,7 +3719,7 @@ Menu = new function () {
 
     var menu_Edit = [
         {
-            Flag: function () { return prop.Edit.View ? MF_CHECKED : MF_UNCHECKED; },
+            Flag: function () { return Edit.View.isStarted ? MF_CHECKED : MF_UNCHECKED; },
             Caption: Label.View,
             Func: function () {
                 Edit.switchView();
@@ -3781,20 +3731,22 @@ Menu = new function () {
         {
             Flag: MF_STRING,
             Caption: Label.LyricShow,
-            Func: main
+            Func: function () {
+                main();
+            }
         },
         {
             Flag: MF_SEPARATOR
         },
         {
-            Flag: function () { return (prop.Edit.View && Edit.View.i === lyric.text.length) ? MF_STRING : MF_GRAYED; },
+            Flag: function () { return (Edit.View.isStarted && Edit.View.i === lyric.text.length) ? MF_STRING : MF_GRAYED; },
             Caption: Label.SaveToTag,
             Func: function () {
                 saveToTag(getFieldName());
             }
         },
         {
-            Flag: function () { return (prop.Edit.View && Edit.View.i === lyric.text.length) ? MF_STRING : MF_GRAYED; },
+            Flag: function () { return (Edit.View.isStarted && Edit.View.i === lyric.text.length) ? MF_STRING : MF_GRAYED; },
             Caption: Label.SaveToFile,
             Func: function () {
                 saveToFile(parse_path + ".lrc");
@@ -3811,14 +3763,14 @@ Menu = new function () {
             }
         },
         {
-            Flag: function () { return prop.Edit.View ? MF_GRAYED : MF_STRING; },
+            Flag: function () { return Edit.View.isStarted ? MF_GRAYED : MF_STRING; },
             Caption: Label.InsertLine,
             Func: function () {
                 Edit.controlLine(1);
             }
         },
         {
-            Flag: function () { return prop.Edit.View ? MF_GRAYED : MF_STRING; },
+            Flag: function () { return Edit.View.isStarted ? MF_GRAYED : MF_STRING; },
             Caption: Label.DeleteLine,
             Func: function () {
                 Edit.controlLine(-1);
@@ -3833,7 +3785,7 @@ Menu = new function () {
             Sub: submenu_Color_Edit,
             Radio: function () { // radio number begin with 0
                 for (var i = 0; i < submenu_Color_Edit.length; i++) {
-                    if (submenu_Color_Edit[i].Caption === prop.Style.CSE)
+                    if (submenu_Color_Edit[i].Caption === prop.Style.CS_E)
                         return i;
                 }
             }
@@ -3844,7 +3796,7 @@ Menu = new function () {
             Func: function () {
                 window.SetProperty("Edit.ShowRuledLine", prop.Edit.Rule = !prop.Edit.Rule);
                 window.Repaint();
-                Menu.build(Menu.Edit);
+                Menu.build();
             }
         },
         {
@@ -3888,16 +3840,17 @@ Menu = new function () {
         {
             Flag: MF_SEPARATOR
         },
-        { // Do not add items after this
+        {
             Flag: function () { return fb.IsPlaying ? MF_STRING : MF_GRAYED; },
             Caption: "Now Playing",
             Sub: function (IMenuObj) {
+                var base_id = 1000; // このメニューではidに1000番台を使うようにする
                 var _context = fb.CreateContextMenuManager();
                 _context.InitNowPlaying();
-                _context.BuildMenu(IMenuObj, buildMenu.idx, -1);
+                _context.BuildMenu(IMenuObj, base_id, -1);
 
                 buildMenu.item_list._context = _context;
-                buildMenu.item_list._contextIdx = buildMenu.idx;
+                buildMenu.item_list._contextIdx = base_id;
             }
         }
     ];
@@ -3906,27 +3859,10 @@ Menu = new function () {
     menu_Edit = menu_Edit.concat(common);
 
 
-    var menu_Save = [
-        {
-            Flag: MF_GRAYED,
-            Caption: Label.Save
-        },
-        {
-            Flag: MF_SEPARATOR
-        },
-        {
-            Flag: MF_STRING,
-            Caption: Label.SaveToTag
-        },
-        {
-            Flag: MF_STRING,
-            Caption: Label.SaveToFile
-        }
-    ];
-
     //========
     //  menu_obj
     //========
+    // Make id equal to property name
     this.LyricShow = {
         id: "LyricShow",
         items: menu_LyricShow
@@ -3935,11 +3871,6 @@ Menu = new function () {
     this.Edit = {
         id: "Edit",
         items: menu_Edit
-    };
-
-    this.Save = {
-        id: "Save",
-        items: menu_Save
     };
 
     this.Plugins = {
@@ -3953,14 +3884,15 @@ Menu = new function () {
     this.build = function (mobj) {
         _menu && _menu.Dispose();
 
-        mobj = mobj || this.LyricShow;
+        mobj = mobj || (Edit.isStarted ? this.Edit : this.LyricShow);
         _menu = buildMenu(mobj.items);
-        item_list = buildMenu.item_list;
+        _item_list = buildMenu.item_list;
         this.id = mobj.id;
     };
 
     this.show = function (x, y) {
-        Lock_MiddleButton = true;
+        Menu.isShown = true;
+        var item_list = _item_list; // メニュー表示中に_item_listの参照先が変わる可能性があるので参照を保持しておく
         var ret = _menu.TrackPopupMenu(x, y);
         //console(ret);
         if (ret !== 0) {
@@ -3969,19 +3901,24 @@ Menu = new function () {
             else
                 item_list._context.ExecuteByID(ret - item_list._contextIdx);
         }
-        Lock_MiddleButton = false;
+        (function () { Menu.isShown = false; }).timeout(10);
     };
 
-    this.getMenu = function () {
-        return _menu;
-    };
+    this.insertItems = function (id, index, items) {
+        var target = Menu[id];
+        var list, temp;
+        if (target instanceof Object && target.items instanceof Array) {
+            list = target.items;
+            if (index < 0)
+                index = Math.max(list.length + index + 1, 0);
+            else
+                index = Math.min(index, list.length);
 
-    this.addToMenu_LyricShow = function (items) {
-        var temp = menu_LyricShow.splice(menu_LyricShow.length - 2, 2);
-        menu_LyricShow = menu_LyricShow.concat(items, temp);
-        this.LyricShow.items = menu_LyricShow;
+            temp = list.splice(index, list.length - index);
+            list.push.apply(list, items.concat(temp));
+        }
     };
-};
+}();
 
 
 //========================================
@@ -4026,8 +3963,8 @@ function on_paint(gr) {
     gr.SetSmoothingMode(2);
     //gr.SetInterpolationMode(7);
 
-    if (!prop.Edit.Start) // Normal
-        LyricShow && LyricShow.on_paint(gr);
+    if (!Edit.isStarted) // Normal
+        LyricShow.on_paint(gr);
     else { // Edit
         Edit.on_paint(gr);
         Buttons.on_paint(gr);
@@ -4042,26 +3979,25 @@ function on_paint(gr) {
 }
 
 function on_size() {
-    var on_size_research = Boolean(ww === 0 || wh === 0); // 真なら行検索をやり直す
+    var _re_search = Boolean(ww === 0 || wh === 0); // 真なら行検索をやり直す
     g_x = prop.Style.HPadding;
     g_y = prop.Style.VPadding[0];
     ww = Math.max(window.Width - g_x * 2, 0); // window.Width と window.Height を 0 に設定してくるコンポ（foo_uie_tabs等）があるので、Math.maxメソッドで負数を回避
     wh = Math.max(window.Height - (g_y + prop.Style.VPadding[1]), 0);
     centerleftX = Math.round(ww / 5 + g_x);
-    fixY = Math.round(wh * (prop.Style.CenterPosition / 100));
+    fixY = g_y + Math.round(wh * (prop.Style.CenterPosition / 100));
 
     seek_width = Math.max(Math.floor(ww * 15 / 100), 0);
-    rarea_seek_x = ww - seek_width;
     arc_w = (seek_width >= 30) * 15;
     arc_h = (wh - 50 >= 30) * 15;
 
-    if (prop.Edit.Start) {
+    if (Edit.isStarted) {
         Buttons.buildButton();
     }
     else {
         prop.Panel.RefreshOnPanelResize && ww && wh && refreshDrawStyle();
-        prop.Panel.RefreshOnPanelResize && BackgroundImg && LyricShow.BackgroundImage.setImage();
-        on_size_research && lyric && LyricShow.searchLine(fb.PlaybackTime);
+        prop.Panel.RefreshOnPanelResize && LyricShow.BackgroundImage.isSet() && LyricShow.BackgroundImage.build();
+        _re_search && lyric && LyricShow.searchLine(fb.PlaybackTime);
     }
 
     for (var pname in plugins) {
@@ -4075,7 +4011,7 @@ function on_focus(is_focused) {
 }
 
 function on_playback_new_track(metadb) {
-    if (Lock_MiddleButton && Menu.id !== "Save")
+    if (Menu.isShown && Menu.id !== "Save")
         ws.SendKeys("%"); // close context menu
     infoPath = null;
     main();
@@ -4090,14 +4026,20 @@ function on_playback_seek(time) {
     if (prop.Panel.GuessPlaybackTempo)
         LyricShow.guessPlaybackTempo.time = time;
 
-    if (!prop.Edit.Start && lyric)
+    isExternalSeek = (fromY === null); // fromYが設定されていないならmodoki以外によるシークと判断する
+    if (isExternalSeek)
+        fromY = offsetY;
+
+    if (!Edit.isStarted && lyric)
         LyricShow.searchLine(time);
-    else if (prop.Edit.View)
+    else if (Edit.View.isStarted)
         Edit.View.searchLine(time);
+
+    isExternalSeek = false;
 }
 
 function on_playback_stop(reason) {
-    if (Lock_MiddleButton && Menu.id !== "Save")
+    if (Menu.isShown && Menu.id !== "Save")
         ws.SendKeys("%"); // close context menu
     if (reason === 0 || reason === 1)
         main();
@@ -4109,9 +4051,9 @@ function on_playback_stop(reason) {
 }
 
 function on_playback_pause(state) {
-    if (!prop.Edit.Start && lyric)
+    if (!Edit.isStarted && lyric)
         LyricShow.pauseTimer(state);
-    else if (prop.Edit.View)
+    else if (Edit.View.isStarted)
         Edit.View.pauseTimer(state);
 
     for (var pname in plugins) {
@@ -4121,29 +4063,14 @@ function on_playback_pause(state) {
 }
 
 function on_mouse_move(x, y) {
-    if (drag) {
-        applyDelta(y - drag_y, true);
-        drag_y = y;
+    if (mouse.isDrag) {
+        applyDelta(y - mouse.drag_y, true);
+        mouse.drag_y = y;
     }
-    else if (prop.Edit.Start) {
+    else if (Edit.isStarted) {
         Buttons.on_mouse_move(x, y);
         if (!Buttons.CurrentButton)
-            if (x <= seek_width && !larea_seek) {
-                larea_seek = true;
-                window.Repaint();
-            }
-            else if (x > seek_width && larea_seek) {
-                larea_seek = false;
-                window.Repaint();
-            }
-            else if (x >= rarea_seek_x && y < wh - 30 && !rarea_seek) {
-                rarea_seek = true;
-                window.Repaint();
-            }
-            else if ((x < rarea_seek_x || y > wh - 30) && rarea_seek) {
-                rarea_seek = false;
-                window.Repaint();
-            }
+            Edit.on_mouse_move(x, y);
     }
 
     for (var pname in plugins) {
@@ -4158,8 +4085,8 @@ function on_mouse_leave() {
         Buttons.CurrentButton = null;
     }
 
-    if (larea_seek || rarea_seek) {
-        larea_seek = rarea_seek = false;
+    if (Edit.CurrentArea) {
+        Edit.CurrentArea = null;
         window.Repaint();
     }
 
@@ -4170,12 +4097,16 @@ function on_mouse_leave() {
 }
 
 function on_mouse_lbtn_down(x, y, mask) {
+    if (Menu.isShown)
+        return;
+
     for (var pname in plugins) {
         if (plugins[pname].onClick instanceof Function)
             if (plugins[pname].onClick(x, y, mask))
                 return;
     }
-    if (!prop.Edit.Start) {
+
+    if (!Edit.isStarted) {
         if (utils.IsKeyPressed(VK_SHIFT)) {
             if (fb.IsPlaying && prop.Panel.InfoPath) {
                 if (!infoPath) {
@@ -4183,49 +4114,47 @@ function on_mouse_lbtn_down(x, y, mask) {
                     infoPath.push("");
                 }
                 main(infoPath[0]);
-                StatusBar.setText(infoPath[0]);
-                StatusBar.show(3000);
+                StatusBar.showText(infoPath[0], 3000);
                 infoPath.push(infoPath.shift());
             }
         }
         else if (lyric) {
-            !Lock && (drag = true);
-            drag_y = down_pos.y = y;
-            down_pos.x = x;
+            !isAnim && (mouse.isDrag = true);
+            mouse.down_y = mouse.drag_y = y;
+            mouse.down_x = x;
         }
     }
-    else if (!Lock) {
+    else {
         if (Buttons.CurrentButton)
             /*none*/;
-        else if (larea_seek)
+        else if (Edit.CurrentArea === "LEFT")
             fb.PlaybackTime -= 3;
-        else if (rarea_seek)
+        else if (Edit.CurrentArea === "RIGHT")
             fb.PlaybackTime += 3;
         else if (utils.IsKeyPressed(VK_CONTROL))
             fs.FileExists(parse_path + ".txt") && Edit.deleteFile(parse_path + ".txt");
-        else if (!prop.Edit.View) {
+        else if (!Edit.View.isStarted) {
             if (utils.IsKeyPressed(VK_SHIFT))
                 Edit.controlLine(0);
-            else if (y < TextHeight * 2 + g_y)
+            else if (y < textHeight * 2 + g_y)
                 Edit.undo();
             else
                 Edit.moveNextLine(x, y);
         }
         else
             for (var i = disp.top, j = disp.bottom; i <= j; i++) {
-                if (LyricShow.setProperties.DrawStyle[i].onclick(x, y))
+                if (LyricShow.Properties.DrawStyle[i].onclick(x, y))
                     break;
             }
     }
 }
 
 function on_mouse_lbtn_up(x, y, mask) {
-    if (!prop.Edit.Start) {
-        drag = false;
-        if (prop.Panel.ScrollType !== 4 && prop.Panel.ScrollType !== 5 && prop.Panel.SingleClickSeek && filetype === "lrc" && x === down_pos.x && y === down_pos.y) {
-            jumpY = offsetY;
+    if (!Edit.isStarted) {
+        mouse.isDrag = false;
+        if (prop.Panel.ScrollType !== 4 && prop.Panel.ScrollType !== 5 && prop.Panel.SingleClickSeek && filetype === "lrc" && x === mouse.down_x && y === mouse.down_y) {
             for (var i = disp.top, j = disp.bottom; i <= j; i++) {
-                if (LyricShow.setProperties.DrawStyle[i].onclick(x, y))
+                if (LyricShow.Properties.DrawStyle[i].onclick(x, y))
                     break;
             }
         }
@@ -4235,21 +4164,20 @@ function on_mouse_lbtn_up(x, y, mask) {
 }
 
 function on_mouse_lbtn_dblclk(x, y, mask) {
-    if (prop.Edit.Start) on_mouse_lbtn_down(x, y, mask);
+    if (Edit.isStarted) on_mouse_lbtn_down(x, y, mask);
     else if (filetype !== "lrc") main();
     else if (prop.Panel.ScrollType !== 4 && prop.Panel.ScrollType !== 5 && !prop.Panel.SingleClickSeek) {
-        jumpY = offsetY;
         for (var i = disp.top, j = disp.bottom; i <= j; i++) {
-            if (LyricShow.setProperties.DrawStyle[i].onclick(x, y))
+            if (LyricShow.Properties.DrawStyle[i].onclick(x, y))
                 break;
         }
     }
 }
 
 function on_mouse_mbtn_down(x, y, mask) {
-    if (Lock_MiddleButton) ws.SendKeys("%"); // close context menu
-    else if (prop.Edit.Start) Edit.switchView();
-    else if (lyric) !Lock && Edit.start();
+    if (Menu.isShown) ws.SendKeys("%"); // close context menu
+    else if (Edit.isStarted) Edit.switchView();
+    else if (lyric) !isAnim && Edit.start();
     else {
         Menu.build(Menu.Plugins);
         Menu.show(x, y);
@@ -4262,7 +4190,7 @@ function on_mouse_mbtn_dblclk(x, y, mask) {
 }
 
 function on_mouse_wheel(step) {
-    if (!prop.Edit.Start) {
+    if (!Edit.isStarted) {
         if (utils.IsKeyPressed(VK_CONTROL)) {
             if (step === 1 && prop.Style.Font_Size >= 48 || step === -1 && prop.Style.Font_Size <= 10)
                 return;
@@ -4274,14 +4202,13 @@ function on_mouse_wheel(step) {
             }
             else
                 refreshDrawStyle();
-            StatusBar.setText("Font Size : " + prop.Style.Font_Size);
-            StatusBar.show(3000);
+            StatusBar.showText("Font Size : " + prop.Style.Font_Size, 3000);
         }
         else
             lyric && applyDelta(step * prop.Panel.MouseWheelDelta);
     }
-    else if (!Lock) {
-        if (!prop.Edit.View) {
+    else {
+        if (!Edit.View.isStarted) {
             if (step === 1) // wheel up
                 Edit.undo();
             else if (step === -1) // wheel down
@@ -4290,7 +4217,7 @@ function on_mouse_wheel(step) {
         else {
             var i = lyric.i - 1 - step;
             if (i < lyric.text.length && i >= 0)
-                LyricShow.setProperties.DrawStyle[i].doCommand();
+                LyricShow.Properties.DrawStyle[i].doCommand();
         }
     }
 }
@@ -4299,7 +4226,7 @@ function on_mouse_rbtn_up(x, y, mask) {
     if (utils.IsKeyPressed(VK_SHIFT))
         return;
     else {
-        !Lock && Menu.show(x, y);
+        Menu.show(x, y);
         return true; // prevent default menu
     }
 }
@@ -4307,11 +4234,11 @@ function on_mouse_rbtn_up(x, y, mask) {
 function on_key_down(vkey) {
     //console(vkey);
     var prevent_shortcuts;
-    if (!prop.Edit.Start) {
+    if (!Edit.isStarted) {
         Keybind.LyricShow_keydown[vkey] && Keybind.LyricShow_keydown[vkey]();
         prevent_shortcuts = Boolean(Keybind.LyricShow_keydown[vkey] || Keybind.LyricShow_keyup[vkey]);
     }
-    else if (!Lock) {
+    else {
         Keybind.Edit_keydown[vkey] && Keybind.Edit_keydown[vkey]();
         prevent_shortcuts = Boolean(Keybind.Edit_keydown[vkey] || Keybind.Edit_keyup[vkey]);
     }
@@ -4320,9 +4247,9 @@ function on_key_down(vkey) {
 }
 
 function on_key_up(vkey) {
-    if (!prop.Edit.Start)
+    if (!Edit.isStarted)
         Keybind.LyricShow_keyup[vkey] && Keybind.LyricShow_keyup[vkey]();
-    else if (!Lock)
+    else
         Keybind.Edit_keyup[vkey] && Keybind.Edit_keyup[vkey]();
 }
 

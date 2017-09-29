@@ -1,6 +1,6 @@
 ﻿pl = {
     name: 'splugin_AutoTagging',
-    label: prop.Panel.Lang == 'ja' ? '設定: 再生時にタグに保存' : 'Setting: Auto Tagging',
+    label: prop.Panel.Lang === 'ja' ? '設定: 再生時にタグに保存' : 'Setting: Auto Tagging',
     author: 'tomato111',
     onStartUp: function () { // 最初に一度だけ呼び出される
     },

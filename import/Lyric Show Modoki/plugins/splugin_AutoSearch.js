@@ -1,6 +1,6 @@
 ﻿pl = {
     name: 'splugin_AutoSearch',
-    label: prop.Panel.Lang == 'ja' ? '設定: 再生時に検索' : 'Setting: Auto Search',
+    label: prop.Panel.Lang === 'ja' ? '設定: 再生時に検索' : 'Setting: Auto Search',
     author: 'tomato111',
     onStartUp: function () { // 最初に一度だけ呼び出される
 

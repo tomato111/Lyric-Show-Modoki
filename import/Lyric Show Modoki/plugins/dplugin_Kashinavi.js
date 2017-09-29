@@ -1,6 +1,6 @@
 ﻿pl = {
     name: 'dplugin_Kashinavi',
-    label: prop.Panel.Lang == 'ja' ? '歌詞検索: 歌詞ナビ' : 'Download Lyrics: Kashi Navi',
+    label: prop.Panel.Lang === 'ja' ? '歌詞検索: 歌詞ナビ' : 'Download Lyrics: Kashi Navi',
     author: 'tomato111',
     onStartUp: function () { // 最初に一度だけ呼び出される
     },
@@ -12,7 +12,7 @@
         }
 
         if (!fb.IsPlaying) {
-            StatusBar.showText(prop.Panel.Lang == 'ja' ? '再生していません。' : 'Not Playing');
+            StatusBar.showText(prop.Panel.Lang === 'ja' ? '再生していません。' : 'Not Playing');
             return;
         }
 
@@ -30,7 +30,7 @@
             if (!artist) return;
         }
 
-        StatusBar.showText((prop.Panel.Lang == 'ja' ? '検索中......' : 'Searching......') + label);
+        StatusBar.showText((prop.Panel.Lang === 'ja' ? '検索中......' : 'Searching......') + label);
         getHTML(null, 'GET', createQuery(title), ASYNC, 0, onLoaded);
 
         //------------------------------------
@@ -45,7 +45,7 @@
         }
 
         function onLoaded(request, depth, file) {
-            StatusBar.showText((prop.Panel.Lang == 'ja' ? '検索中......' : 'Searching......') + label);
+            StatusBar.showText((prop.Panel.Lang === 'ja' ? '検索中......' : 'Searching......') + label);
             debug_html && fb.trace('\nOpen#' + depth + ': ' + file + '\n');
 
             var res = request.responseBody;
@@ -70,7 +70,7 @@
                 }
                 else {
                     main(text);
-                    StatusBar.showText(prop.Panel.Lang == 'ja' ? '検索終了。歌詞を取得しました。' : 'Search completed.');
+                    StatusBar.showText(prop.Panel.Lang === 'ja' ? '検索終了。歌詞を取得しました。' : 'Search completed.');
 
                     plugin_auto_save();
                 }
@@ -82,7 +82,7 @@
                     return;
                 }
                 StatusBar.hide();
-                var intButton = ws.Popup(prop.Panel.Lang == 'ja' ? 'ページが見つかりませんでした。\nブラウザで開きますか？' : 'Page not found.\nOpen the URL in browser?', 0, 'Confirm', 36);
+                var intButton = ws.Popup(prop.Panel.Lang === 'ja' ? 'ページが見つかりませんでした。\nブラウザで開きますか？' : 'Page not found.\nOpen the URL in browser?', 0, label, 36);
                 if (intButton === 6)
                     FuncCommand('"' + file + '"');
             }
@@ -101,7 +101,7 @@
 
             if (depth === 1) { // info
                 onLoaded.info = title + LineFeedCode + LineFeedCode;
-                for (var i = 0, j = 0; i < resArray.length; i++)
+                for (var i = 0; i < resArray.length; i++)
                     if (InfoRE.test(resArray[i])) {
                         onLoaded.info += '作詞  ' + RegExp.$1 + LineFeedCode
                             + '作曲  ' + RegExp.$2 + LineFeedCode
@@ -113,8 +113,7 @@
                     .replace(/^document\.write\("<p oncopy='return false;' unselectable='on;'>/i, '')
                     .replace(/<p>"\)$/i, '')
                     .replace(/<br>/gi, LineFeedCode)
-                    .replaceEach('&quot;', '"', '&amp;', '&', 'ig')
-                    .decNumRefToString()
+                    .decodeHTMLEntities()
                     .trim();
             }
             else { // search

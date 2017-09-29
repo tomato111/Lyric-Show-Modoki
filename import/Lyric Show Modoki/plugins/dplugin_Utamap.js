@@ -1,6 +1,6 @@
 ﻿pl = {
     name: 'dplugin_Utamap',
-    label: prop.Panel.Lang == 'ja' ? '歌詞検索: うたまっぷ' : 'Download Lyrics: Utamap',
+    label: prop.Panel.Lang === 'ja' ? '歌詞検索: うたまっぷ' : 'Download Lyrics: Utamap',
     author: 'tomato111',
     onStartUp: function () { // 最初に一度だけ呼び出される
     },
@@ -12,7 +12,7 @@
         }
 
         if (!fb.IsPlaying) {
-            StatusBar.showText(prop.Panel.Lang == 'ja' ? '再生していません。' : 'Not Playing');
+            StatusBar.showText(prop.Panel.Lang === 'ja' ? '再生していません。' : 'Not Playing');
             return;
         }
 
@@ -30,7 +30,7 @@
             if (!artist) return;
         }
 
-        StatusBar.showText((prop.Panel.Lang == 'ja' ? '検索中......' : 'Searching......') + label);
+        StatusBar.showText((prop.Panel.Lang === 'ja' ? '検索中......' : 'Searching......') + label);
         getHTML(null, 'GET', createQuery(title), ASYNC, 0, onLoaded);
 
         //------------------------------------
@@ -45,7 +45,7 @@
         }
 
         function onLoaded(request, depth, file) {
-            StatusBar.showText((prop.Panel.Lang == 'ja' ? '検索中......' : 'Searching......') + label);
+            StatusBar.showText((prop.Panel.Lang === 'ja' ? '検索中......' : 'Searching......') + label);
             debug_html && fb.trace('\nOpen#' + depth + ': ' + file + '\n');
             if (depth === true) {
                 var res = request.responseBody;
@@ -76,7 +76,7 @@
                 }
                 else {
                     main(text);
-                    StatusBar.showText(prop.Panel.Lang == 'ja' ? '検索終了。歌詞を取得しました。' : 'Search completed.');
+                    StatusBar.showText(prop.Panel.Lang === 'ja' ? '検索終了。歌詞を取得しました。' : 'Search completed.');
 
                     plugin_auto_save();
                 }
@@ -88,7 +88,7 @@
                     return;
                 }
                 StatusBar.hide();
-                var intButton = ws.Popup(prop.Panel.Lang == 'ja' ? 'ページが見つかりませんでした。\nブラウザで開きますか？' : 'Page not found.\nOpen the URL in browser?', 0, 'Confirm', 36);
+                var intButton = ws.Popup(prop.Panel.Lang === 'ja' ? 'ページが見つかりませんでした。\nブラウザで開きますか？' : 'Page not found.\nOpen the URL in browser?', 0, label, 36);
                 if (intButton === 6)
                     FuncCommand('"' + file.replace(/page=\d+&/, '') + '"');
             }
@@ -106,7 +106,7 @@
                 onLoaded.info = title + LineFeedCode + LineFeedCode;
                 for (var i = 0, j = 0; i < resArray.length; i++)
                     if (InfoRE.test(resArray[i])) {
-                        onLoaded.info += RegExp.$1.replace(/&nbsp;/g, ' ').replace(/<strong>|<\/strong>/gi, '').replace(/&amp;/g, '&') + (j++ % 2 ? LineFeedCode : '  ');
+                        onLoaded.info += RegExp.$1.decodeHTMLEntities().replace(/<strong>|<\/strong>/gi, '') + (j++ % 2 ? LineFeedCode : '  ');
                     }
                 onLoaded.info += LineFeedCode;
             }
@@ -119,17 +119,18 @@
                 this.lyrics = this.lyrics.trim();
             }
             else { // search
-                tmpti = title.replace(/&/g, '&amp;').toLowerCase().replace(FuzzyRE, '');
-                tmpar = artist.replace(/&/g, '&amp;').toLowerCase().replace(FuzzyRE, '');
+                tmpti = title.toLowerCase().replace(FuzzyRE, '');
+                tmpar = artist.toLowerCase().replace(FuzzyRE, '');
                 for (i = 0; i < resArray.length; i++)
                     if (backref = resArray[i].match(SearchRE)) {
                         debug_html && fb.trace('class: ' + backref[1] + ', id: ' + backref[3] + ', innerText: ' + backref[4]);
-                        if (backref[1] === 'ct160' && backref[3] && backref[4].toLowerCase().replace(FuzzyRE, '') === tmpti) {
+                        backref[4] = backref[4].decodeHTMLEntities().toLowerCase().replace(FuzzyRE, '');
+                        if (backref[1] === 'ct160' && backref[3] && backref[4] === tmpti) {
                             id = backref[3];
                             url = 'http://www.utamap.com' + backref[2].slice(1);
                             this.next = true;
                         }
-                        else if (id && backref[1] === 'ct120' && backref[4].toLowerCase().replace(FuzzyRE, '') === tmpar) {
+                        else if (id && backref[1] === 'ct120' && backref[4] === tmpar) {
                             this.id = id;
                             this.url = url;
                             break;

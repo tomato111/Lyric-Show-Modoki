@@ -1,6 +1,6 @@
 ﻿pl = {
     name: 'dplugin_Kasitime',
-    label: prop.Panel.Lang == 'ja' ? '歌詞検索: 歌詞タイム' : 'Download Lyrics: Kasi Time',
+    label: prop.Panel.Lang === 'ja' ? '歌詞検索: 歌詞タイム' : 'Download Lyrics: Kasi Time',
     author: 'tomato111,Junya Renno',
     onStartUp: function () { // 最初に一度だけ呼び出される
     },
@@ -12,7 +12,7 @@
         }
 
         if (!fb.IsPlaying) {
-            StatusBar.showText(prop.Panel.Lang == 'ja' ? '再生していません。' : 'Not Playing');
+            StatusBar.showText(prop.Panel.Lang === 'ja' ? '再生していません。' : 'Not Playing');
             return;
         }
 
@@ -30,7 +30,7 @@
             if (!artist) return;
         }
 
-        StatusBar.showText((prop.Panel.Lang == 'ja' ? '検索中......' : 'Searching......') + label);
+        StatusBar.showText((prop.Panel.Lang === 'ja' ? '検索中......' : 'Searching......') + label);
         getHTML(null, 'GET', createQuery(title, artist), ASYNC, 0, onLoaded);
 
         //------------------------------------
@@ -47,7 +47,7 @@
         }
 
         function onLoaded(request, depth, file) {
-            StatusBar.showText((prop.Panel.Lang == 'ja' ? '検索中......' : 'Searching......') + label);
+            StatusBar.showText((prop.Panel.Lang === 'ja' ? '検索中......' : 'Searching......') + label);
             debug_html && fb.trace('\nOpen#' + depth + ': ' + file + '\n');
 
             var res = request.responseText;
@@ -67,7 +67,7 @@
                 }
                 else {
                     main(text);
-                    StatusBar.showText(prop.Panel.Lang == 'ja' ? '検索終了。歌詞を取得しました。' : 'Search completed.');
+                    StatusBar.showText(prop.Panel.Lang === 'ja' ? '検索終了。歌詞を取得しました。' : 'Search completed.');
 
                     plugin_auto_save();
                 }
@@ -78,33 +78,11 @@
                     return;
                 }
                 StatusBar.hide();
-                var intButton = ws.Popup(prop.Panel.Lang == 'ja' ? 'ページが見つかりませんでした。\nブラウザで開きますか？' : 'Page not found.\nOpen the URL in browser?', 0, 'Confirm', 36);
+                var intButton = ws.Popup(prop.Panel.Lang === 'ja' ? 'ページが見つかりませんでした。\nブラウザで開きますか？' : 'Page not found.\nOpen the URL in browser?', 0, label, 36);
                 if (intButton === 6)
                     FuncCommand('"' + file + '"');
             }
 
-        }
-        function decodeEntity(word) {
-            return word.replaceEach(
-		              		"&lt;", "<",
-		              		"&gt;", ">",
-		              		"&larr;", "←",
-		              		"&uarr;", "↑",
-		              		"&rarr;", "→",
-		              		"&darr;", "↓",
-		              		"&amp;", '&',
-		              		"&hellip;", '…',
-		              		"&bull;", '•',
-		              		"&hearts;", '♥',
-		              		"&clubs;", '♣',
-		              		"&spades;", '♠',
-		              		"&diams;", '♦',
-		              		"&#039;", "'",
-		              		"&quot;", '"',
-                            "&ldquo;", '“',
-                            "&rdquo;", '”',
-		              		"&#064;", "@",
-		              		"g");
         }
 
         function AnalyzePage(res, depth) {
@@ -134,17 +112,17 @@
                     }
                 }
 
-                onLoaded.info = decodeEntity(onLoaded.info)
-                    .decNumRefToString();
-                this.lyrics = decodeEntity(this.lyrics)
-                    .decNumRefToString()
+                onLoaded.info = onLoaded.info
+                    .decodeHTMLEntities();
+                this.lyrics = this.lyrics
+                    .decodeHTMLEntities()
                     .replace(LineBreakRE, LineFeedCode)
                     .trim();
             } else { // search
                 tmpti = title.toLowerCase().replace(FuzzyRE, '');
                 while (SearchRE.exec(res) !== null) {
                     id = RegExp.$1;
-                    pageTitle = RegExp.$2.decNumRefToString().toLowerCase().replace(FuzzyRE, '');
+                    pageTitle = RegExp.$2.decodeHTMLEntities().toLowerCase().replace(FuzzyRE, '');
 
                     if (pageTitle.indexOf(tmpti) === 0) { // Google検索結果はページタイトルが一定の文字数で省略されるため、アーティスト名が途切れやすい。なので曲名が前方一致した時点で取得するようにする
                         this.id = id;
