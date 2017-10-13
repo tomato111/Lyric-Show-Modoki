@@ -1,4 +1,4 @@
-﻿//## code for foo_uie_wsh_mod v1.5.0 or higher  ####//
+﻿//## code for foo_uie_wsh_mod v1.5.6 or higher  ####//
 //## Please check off "Grab Focus" and "Delay Load" ##//
 
 // ==PREPROCESSOR==

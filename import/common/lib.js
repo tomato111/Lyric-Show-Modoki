@@ -604,7 +604,7 @@ function getHTML(data, method, file, async, depth, onLoaded, header) {
         }
     };
 
-    if (header)
+    if (header) /* HINT: If the cache is in trouble, use { 'If-Modified-Since': 'Thu, 01 Jun 1970 00:00:00 GMT' } */
         for (var name in header) {
             request.setRequestHeader(name, header[name]);
         }
