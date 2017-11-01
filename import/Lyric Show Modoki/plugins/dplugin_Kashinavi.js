@@ -35,11 +35,9 @@
 
         //------------------------------------
 
-        function createQuery(word, info, id) {
+        function createQuery(word, id) {
             if (id)
-                return 'http://kashinavi.com/s/kashi.php?no=' + id;
-            else if (info)
-                return 'http://kashinavi.com/song_view.html?' + info;
+                return 'http://kashinavi.com/song_view.html?' + id;
             else
                 return 'http://kashinavi.com/search.php?r=kyoku&search=' + EscapeSJIS(word).replace(/\+/g, '%2B').replace(/%20/g, '+') + '&start=1&m=front';
         }
@@ -56,10 +54,7 @@
             var Page = new AnalyzePage(resArray, depth);
 
             if (Page.id) {
-                getHTML(null, 'GET', createQuery(null, Page.id), ASYNC, ++depth, function () {
-                    onLoaded.apply(null, arguments);
-                    getHTML(null, 'GET', createQuery(null, null, Page.id), ASYNC, ++depth, onLoaded);
-                });
+                getHTML(null, 'GET', createQuery(null, Page.id), ASYNC, ++depth, onLoaded);
             }
             else if (Page.lyrics) {
                 var text = onLoaded.info + Page.lyrics;
@@ -75,7 +70,6 @@
                     plugin_auto_save();
                 }
             }
-            else if (onLoaded.info) { return; }
             else {
                 if (isAutoSearch) {
                     plugins['splugin_AutoSearch'].results.push({ name: label, lyric: null });
@@ -96,25 +90,26 @@
                 + '<img src=.+\\1">(.+?)</a>' // $2:曲名
                 + '</td><td><a href=.+?>(.+?)</a>', 'i'); // $3:歌手名
             var InfoRE = /<tr><td>作詞　：　(.+?)<br>作曲　：　(.+?)<\/td>/i; // $1:作詞, $2:作曲
+            var StartLyricRE = /<p.+?unselectable="on;">/i;
             var FuzzyRE = /[-.'&＆～・*＊+＋/／!！。,、 　]/g;
             var LineFeedCode = prop.Save.LineFeedCode;
 
-            if (depth === 1) { // info
+            if (depth === 1) { // lyric
                 onLoaded.info = title + LineFeedCode + LineFeedCode;
-                for (var i = 0; i < resArray.length; i++)
+                for (var i = 0; i < resArray.length; i++) {
                     if (InfoRE.test(resArray[i])) {
                         onLoaded.info += '作詞  ' + RegExp.$1 + LineFeedCode
                             + '作曲  ' + RegExp.$2 + LineFeedCode
                             + '唄  ' + artist + LineFeedCode + LineFeedCode;
                     }
-            }
-            else if (depth === 2) { // lyric
-                this.lyrics = resArray[0]
-                    .replace(/^document\.write\("<p oncopy='return false;' unselectable='on;'>/i, '')
-                    .replace(/<p>"\)$/i, '')
-                    .replace(/<br>/gi, LineFeedCode)
-                    .decodeHTMLEntities()
-                    .trim();
+                    if (StartLyricRE.test(resArray[i])) {
+                        this.lyrics = RegExp.rightContext.slice(0, -4)
+                            .replace(/<br>/gi, LineFeedCode)
+                            .decodeHTMLEntities()
+                            .trim();
+                        break;
+                    }
+                }
             }
             else { // search
                 tmpti = title.toLowerCase().replace(FuzzyRE, '');
