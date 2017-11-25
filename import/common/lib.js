@@ -50,7 +50,7 @@ String.prototype.decodeHTMLEntities = function () {
     var result; // エンティティだけ抜き出す（改行やhtmlタグ関係を避ける）
 
     var document = new ActiveXObject("htmlfile");
-    document.write("<html></html>"); // 生成した要素に何か代入する場合は必須
+    document.open();
     var element = document.createElement('div');
 
     while ((result = entitiesRE.exec(str)) !== null) {
@@ -58,6 +58,7 @@ String.prototype.decodeHTMLEntities = function () {
         str = str.replace(new RegExp(result[0], "ig"), element.innerText); // このdocumentのwindowはIE7なのでinnerText
         entitiesRE.lastIndex = result.index + element.innerText.length; // strを更新したのでlastIndexの位置を修正する
     }
+    document.close();
     return str;
 };
 
