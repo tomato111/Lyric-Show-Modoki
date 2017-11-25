@@ -8,7 +8,7 @@
         var timeout_millisecond = 8000;
         var ResultsListNames = [this.name];
 
-        this.AvailablePluginNames = window.GetProperty('Plugin.Search.AutoSearch', 'dplugin_Miku_Hatsune_wiki, dplugin_Utamap, dplugin_Utanet, dplugin_Kashiget, dplugin_Kasitime, dplugin_AZLyrics, dplugin_Tube365, dplugin_ViewLyrics').split(/[ 　]*,[ 　]*/);
+        this.AvailablePluginNames = window.GetProperty('Plugin.Search.AutoSearch', 'dplugin_Miku_Hatsune_wiki, dplugin_Utamap, dplugin_Utanet, dplugin_Kashiget, dplugin_Kasitime, dplugin_AZLyrics, dplugin_Tube365, dplugin_ViewLyrics, dplugin_AniKasiPV').split(/[ 　]*,[ 　]*/);
         for (var i = 0; i < this.AvailablePluginNames.length;) {
             var name = this.AvailablePluginNames[i];
             if (plugins[name]) {
