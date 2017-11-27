@@ -31,15 +31,17 @@
         }
 
         StatusBar.showText((prop.Panel.Lang === 'ja' ? '検索中......' : 'Searching......') + label);
-        getHTML(null, 'GET', createQuery(title), ASYNC, 0, onLoaded);
+        getHTML(null, 'GET', createQuery(title, artist), ASYNC, 0, onLoaded);
 
         //------------------------------------
 
-        function createQuery(word, id) {
+        function createQuery(title, artist, id) {
             if (id)
                 return 'https://www5.atwiki.jp/hmiku/?pageid=' + id;
             else
-                return 'https://www5.atwiki.jp/hmiku/?cmd=search&keyword=' + encodeURIComponent(word).replaceEach("'", '%27', '\\(', '%28', '\\)', '%29', '%20', '+', 'g') + '&andor=and&ignore=1';
+                return 'https://www5.atwiki.jp/hmiku/?cmd=search&keyword='
+                    + encodeURIComponent(title + ' ' + artist).replaceEach("'", '%27', '\\(', '%28', '\\)', '%29', '%20', '+', 'g')
+                    + '&andor=and&ignore=1';
         }
 
         function onLoaded(request, depth, file) {
@@ -49,13 +51,12 @@
             var res = request.responseText;
 
             debug_html && fb.trace(res);
-            var resArray = res.split('\n');
-            var Page = new AnalyzePage(resArray, depth);
+            var Page = new AnalyzePage(res, depth);
 
             if (Page.id)
-                getHTML(null, 'GET', createQuery(null, Page.id), ASYNC, true, onLoaded);
+                getHTML(null, 'GET', createQuery(null, null, Page.id), ASYNC, true, onLoaded);
             else if (depth === 0) {
-                getHTML(null, 'GET', createQuery(title + ' ' + artist), ASYNC, ++depth, onLoaded);
+                getHTML(null, 'GET', createQuery(title, ''), ASYNC, ++depth, onLoaded);
             }
             else if (Page.lyrics) {
                 var text = onLoaded.info + Page.lyrics;
@@ -84,65 +85,56 @@
 
         }
 
-        function AnalyzePage(resArray, depth) {
-            var tmpti, tmpar, backref, id, aimai, isLyric;
+        function AnalyzePage(res, depth) {
+            var tmpti, tmpar, backref, id, aimai;
 
-            var IdSearchRE = /<a href=".+?&amp;pageid=(.+?)" title="(.+?)" style=".+?">/; // $1:id, $2:title
-            var ContentsSearchRE = /id_[a-z0-9]{8}|^作詞：|^作曲：|^編曲：|^唄：/;
-            var LineBreakRE = /<br ?\/>|<\/div>/ig;
-            var Ignore1RE = /<a href.+?>|<\/a>|<span.+?>|<\/span>/ig;
-            var Ignore2RE = /<.+?>|\t/ig;
+            var SearchRE = /<a href=".+?&amp;pageid=(.+?)" title="(.+?)" style=".+?">/ig; // $1:id, $2:pageTitle
+            var FuzzyRE = /[-.'’&＆%％@＠～・×*＊+＋／!！?？（）(),，、 　]/g; // スラッシュはこのサイトでは区切りの目安として使うので含めない
+
+            var InfoRE = /(?:<div>|<br ?\/?>)(作詞：.+?)<\/div>/i; // $1:info
+            var StartLyricRE = /<h3 id="id_0a172479">歌詞<\/h3>(.+?)(?:<h3|<table)/i;
+            var IgnoreRE = /<.+?>/ig;
+            var LineBreakRE = /<br ?\/?>|<\/div>/ig;
             var LineFeedCode = prop.Save.LineFeedCode;
 
             if (depth === true) { // lyric
-                onLoaded.info = '';
-                this.lyrics = '';
-                for (var i = 0; i < resArray.length; i++) {
-                    if (ContentsSearchRE.test(resArray[i])) {
-                        debug_html && fb.trace(i + 1 + ': ' + RegExp.lastMatch);
-                        if (RegExp.lastMatch === 'id_0a172479') {
-                            isLyric = true; continue;
-                        }
-                        else if (RegExp.lastMatch.indexOf('id_') === -1) {
-                            onLoaded.info += resArray[i].replace('：', '  ') + LineFeedCode; continue;
-                        }
-                        else if (isLyric || RegExp.lastMatch === 'id_738ae0ba') // Lyric_End or is_CD_Page
-                            break;
-                    }
+                res = res.replace(/[\t ]*(?:\r\n|\r|\n)[\t ]*/g, '');
+                onLoaded.info = title + LineFeedCode + LineFeedCode;
 
-                    if (isLyric)
-                        this.lyrics += resArray[i];
+                if (InfoRE.test(res)) {
+                    onLoaded.info += (RegExp.$1 + LineFeedCode + LineFeedCode)
+                        .replace(LineBreakRE, LineFeedCode)
+                        .replace(IgnoreRE, '')
+                        .replace(/^(.+?)：/mg, '$1  ')
+                        .decodeHTMLEntities();
                 }
 
-                onLoaded.info = title + LineFeedCode + LineFeedCode
-                    + onLoaded.info.replace(Ignore1RE, '').decodeHTMLEntities()
-                    + LineFeedCode;
-                this.lyrics = this.lyrics
-                    .replace(LineBreakRE, LineFeedCode)
-                    .replace(Ignore2RE, '')
-                    .decodeHTMLEntities()
-                    .trim();
+                if (StartLyricRE.test(res)) {
+                    this.lyrics = RegExp.$1
+                        .replace(LineBreakRE, LineFeedCode)
+                        .replace(IgnoreRE, '')
+                        .decodeHTMLEntities()
+                        .trim();
+                }
             }
-
             else { // search
-                tmpti = title.toLowerCase();
-                tmpar = artist.toLowerCase();
-                for (i = 0; i < resArray.length; i++) {
-                    if (backref = resArray[i].match(IdSearchRE)) {
-                        backref[2] = backref[2].decodeHTMLEntities().toLowerCase();
-                        debug_html && fb.trace('title: ' + backref[2] + ' id: ' + backref[1]);
-                        if (backref[2] === tmpti)
-                            id = backref[1];
-                        if (backref[2].indexOf(tmpti + '/') === 0 && backref[2].indexOf(tmpti + '/過去ログ') === -1 && backref[2].indexOf(tmpti + '/cd') === -1)
-                            aimai = true;
-                        if (backref[2] === tmpti + '/' + tmpar) {
-                            aimai = false;
-                            id = backref[1];
-                            break;
-                        }
-                    }
-                }
+                tmpti = title.toLowerCase().replace(FuzzyRE, '');
+                tmpar = artist.toLowerCase().replace(FuzzyRE, '').slice(0, 2); // 表記揺れが激しいので極端に短くする
+                while ((backref = SearchRE.exec(res)) !== null) {
+                    debug_html && fb.trace('id: ' + backref[1] + ' pageTitle: ' + backref[2]);
+                    backref[2] = backref[2].decodeHTMLEntities().toLowerCase().replace(FuzzyRE, '');
 
+                    if (backref[2].indexOf(tmpti + '/' + tmpar) === 0) {
+                        this.id = backref[1];
+                        return;
+                    }
+
+                    if (backref[2] === tmpti)
+                        id = backref[1];
+                    if (backref[2].indexOf(tmpti + '/') === 0 && backref[2].indexOf('/過去ログ') === -1 && backref[2].indexOf('/cd') === -1)
+                        aimai = true;
+
+                }
                 debug_html && fb.trace('aimai: ' + aimai);
                 if (id && !aimai)
                     this.id = id;

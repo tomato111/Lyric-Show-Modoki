@@ -31,22 +31,25 @@
         }
 
         StatusBar.showText((prop.Panel.Lang === 'ja' ? '検索中......' : 'Searching......') + label);
-        getHTML(null, 'GET', createQuery(title), ASYNC, 0, onLoaded);
+        getHTML(null, 'GET', createQuery(title, ''), ASYNC, 0, onLoaded);
 
         //------------------------------------
 
-        function createQuery(word, page, id) {
+        function createQuery(title, artist, page, id) {
             if (id)
                 return 'http://www.utamap.com/phpflash/flashfalsephp.php?unum=' + id;
             else if (page)
-                return 'http://www.utamap.com/searchkasi.php?page=' + page + '&searchname=title&sortname=0&pattern=1&word=' + EscapeSJIS(word).replace(/\+/g, '%2B').replace(/%20/g, '+') + '&act=search';
+                return 'http://www.utamap.com/searchkasi.php?searchname=title&page=' + page + '&sortname=0&pattern=1&word=' + EscapeSJIS(title).replace(/\+/g, '%2B').replace(/%20/g, '+');
             else
-                return 'http://www.utamap.com/searchkasi.php?searchname=title&word=' + EscapeSJIS(word).replace(/\+/g, '%2B').replace(/%20/g, '+') + '&act=search&search_by_keyword=%8C%9F%26%23160%3B%26%23160%3B%26%23160%3B%8D%F5&sortname=0&pattern=1';
+                return 'http://www.utamap.com/searchkasi.php?searchname=title&word='
+                    + EscapeSJIS(title).replace(/\+/g, '%2B').replace(/%20/g, '+')
+                    + '&act=search&search_by_keyword=%8C%9F%26%23160%3B%26%23160%3B%26%23160%3B%8D%F5&sortname=0&pattern=1';
         }
 
         function onLoaded(request, depth, file) {
             StatusBar.showText((prop.Panel.Lang === 'ja' ? '検索中......' : 'Searching......') + label);
             debug_html && fb.trace('\nOpen#' + depth + ': ' + file + '\n');
+
             if (depth === true) {
                 var res = request.responseBody;
                 res = responseBodyToCharset(res, 'UTF-8'); // fix character corruption
@@ -55,17 +58,13 @@
                 res = request.responseText;
 
             debug_html && fb.trace(res);
-            var resArray = res.split('\n');
-            var Page = new AnalyzePage(resArray, depth);
+            var Page = new AnalyzePage(res, depth);
 
             if (Page.id) {
-                getHTML(null, 'GET', Page.url, ASYNC, false, function () {
-                    onLoaded.apply(null, arguments);
-                    getHTML(null, 'GET', createQuery(null, null, Page.id), ASYNC, true, onLoaded);
-                });
+                getHTML(null, 'GET', createQuery(null, null, null, Page.id), ASYNC, true, onLoaded);
             }
             else if (Page.next) {
-                getHTML(null, 'GET', createQuery(title, ++depth), ASYNC, depth, onLoaded);
+                getHTML(null, 'GET', createQuery(title, '', ++depth), ASYNC, depth, onLoaded);
             }
             else if (Page.lyrics) {
                 var text = onLoaded.info + Page.lyrics;
@@ -81,7 +80,6 @@
                     plugin_auto_save();
                 }
             }
-            else if (onLoaded.info) { return; }
             else {
                 if (isAutoSearch) {
                     plugins['splugin_AutoSearch'].results.push({ name: label, lyric: null });
@@ -95,50 +93,48 @@
 
         }
 
-        function AnalyzePage(resArray, depth) {
-            var id, url, tmpti, tmpar, backref;
-            var SearchRE = new RegExp('<TD class=(ct\\d{3})>(?:<A href="(.+?=(.+?))">)?(.*?)(?:</A>)?</td>', 'i'); // $1:class, $2:relativeURL, $3:id, $4:innerText
-            var InfoRE = new RegExp('<td class="pad5x10x0x10">(.*?)</td>', 'i'); // $1:innerHTML
-            var FuzzyRE = /[-.'&＆～・*＊+＋/／!！。,、 　]/g;
+        function AnalyzePage(res, depth) {
+            var tmpti, tmpar, backref;
+
+            var SearchRE = new RegExp('<td class=ct160><a href=".+?=(.+?)">(.*?)</a></td>\\s+' // $1:id, $2:曲名
+                + '<td class=ct120>(.*?)</td>\\s+' // $3:歌手
+                + '<td class=ct120>(.*?)</td>\\s+' // $4:作詞
+                + '<td class=ct120>(.*?)</td>', 'ig'); // $5:作曲
+            var FuzzyRE = /[-.'’&＆%％@＠～・×*＊+＋/／!！?？（）(),，、 　]/g;
+
+            var IgnoreRE = /^.+?&.+?=/ig;
+            var LineBreakRE = /\n/ig;
             var LineFeedCode = prop.Save.LineFeedCode;
 
-            if (depth === false) { // info
-                onLoaded.info = title + LineFeedCode + LineFeedCode;
-                for (var i = 0, j = 0; i < resArray.length; i++)
-                    if (InfoRE.test(resArray[i])) {
-                        onLoaded.info += RegExp.$1.decodeHTMLEntities().replace(/<strong>|<\/strong>/gi, '') + (j++ % 2 ? LineFeedCode : '  ');
-                    }
-                onLoaded.info += LineFeedCode;
-            }
-            else if (depth === true) { // lyric
-                this.lyrics = '';
-                resArray[0] = resArray[0].replace(/^.+?&.+?=/, '');
-                for (i = 0; i < resArray.length; i++) {
-                    this.lyrics += resArray[i] + LineFeedCode;
-                }
-                this.lyrics = this.lyrics.trim();
+            if (depth === true) { // lyric
+                this.lyrics = res
+                    .replace(IgnoreRE, '')
+                    .replace(LineBreakRE, LineFeedCode)
+                    .decodeHTMLEntities()
+                    .trim();
             }
             else { // search
                 tmpti = title.toLowerCase().replace(FuzzyRE, '');
-                tmpar = artist.toLowerCase().replace(FuzzyRE, '');
-                for (i = 0; i < resArray.length; i++)
-                    if (backref = resArray[i].match(SearchRE)) {
-                        debug_html && fb.trace('class: ' + backref[1] + ', id: ' + backref[3] + ', innerText: ' + backref[4]);
-                        backref[4] = backref[4].decodeHTMLEntities().toLowerCase().replace(FuzzyRE, '');
-                        if (backref[1] === 'ct160' && backref[3] && backref[4] === tmpti) {
-                            id = backref[3];
-                            url = 'http://www.utamap.com' + backref[2].slice(1);
-                            this.next = true;
-                        }
-                        else if (id && backref[1] === 'ct120' && backref[4] === tmpar) {
-                            this.id = id;
-                            this.url = url;
-                            break;
-                        }
-                        else {
-                            id = null;
-                        }
+                tmpar = artist.toLowerCase().replace(/[(（].+/, '').replace(FuzzyRE, '');
+                while ((backref = SearchRE.exec(res)) !== null) {
+                    debug_html && fb.trace('id: ' + backref[1] + ', title: ' + backref[2] + ', artist: ' + backref[3]);
+
+                    for (var i = 2; i < 6; i++) {
+                        backref[i] = backref[i].decodeHTMLEntities();
                     }
+
+                    if (backref[2].toLowerCase().replace(FuzzyRE, '') === tmpti && backref[3].toLowerCase().replace(FuzzyRE, '').indexOf(tmpar) !== -1) {
+                        this.id = backref[1];
+
+                        onLoaded.info = title + LineFeedCode + LineFeedCode
+                            + '作詞  ' + backref[4] + LineFeedCode
+                            + '作曲  ' + backref[5] + LineFeedCode
+                            + '唄  ' + backref[3] + LineFeedCode + LineFeedCode;
+                        break;
+                    }
+
+                    this.next = true; // SearchREがヒットした時点で次のページを場合によって調べるフラグをたてる
+                }
             }
         }
 

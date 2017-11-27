@@ -37,7 +37,9 @@
 
         function createQuery(title, artist) {
             var NotAlphaNumericRE = /[^a-z0-9]/ig;
-            return 'http://www.azlyrics.com/lyrics/' + artist.toLowerCase().replace(NotAlphaNumericRE, '') + '/' + title.toLowerCase().replace(NotAlphaNumericRE, '') + '.html';
+            title = title.toLowerCase().replace(NotAlphaNumericRE, '');
+            artist = artist.toLowerCase().replace(/^the /, '').replace(NotAlphaNumericRE, '');
+            return 'https://www.azlyrics.com/lyrics/' + artist + '/' + title + '.html';
         }
 
         function onLoaded(request, depth, file) {
@@ -47,8 +49,7 @@
             var res = request.responseText;
 
             debug_html && fb.trace(res);
-            var resArray = res.split(getLineFeedCode(res));
-            var Page = new AnalyzePage(resArray);
+            var Page = new AnalyzePage(res);
 
             if (Page.lyrics) {
                 var text = onLoaded.info + Page.lyrics;
@@ -77,35 +78,23 @@
 
         }
 
-        function AnalyzePage(resArray) {
-            var isLyric;
+        function AnalyzePage(res) {
 
-            var StartLyricRE = /<!-- Usage of azlyrics/i;
-            var EndLyricRE = /<\/div>/i;
-            var LineBreakRE = /<br>/ig;
+            var StartLyricRE = /<!-- Usage of.+?-->(.+?)<\/div>/i;
             var IgnoreRE = /<i>|<\/i>/ig;
+            var LineBreakRE = /<br>/ig;
             var LineFeedCode = prop.Save.LineFeedCode;
 
             onLoaded.info = title + LineFeedCode + LineFeedCode;
-            this.lyrics = '';
 
-            for (var i = 0; i < resArray.length; i++) {
-                if (StartLyricRE.test(resArray[i])) {
-                    isLyric = true; continue;
-                }
-                if (EndLyricRE.test(resArray[i]) && isLyric) {
-                    break;
-                }
-
-                if (isLyric)
-                    this.lyrics += resArray[i];
+            res = res.replace(/[\t ]*(?:\r\n|\r|\n)[\t ]*/g, ''); // ちなみにこのサイトは改行コードが混在しているので注意
+            if (StartLyricRE.test(res)) {
+                this.lyrics = RegExp.$1
+                    .replace(IgnoreRE, '')
+                    .replace(LineBreakRE, LineFeedCode)
+                    .decodeHTMLEntities()
+                    .trim();
             }
-
-            this.lyrics = this.lyrics
-                .replace(LineBreakRE, LineFeedCode)
-                .replace(IgnoreRE, '')
-                .decodeHTMLEntities()
-                .trim();
         }
 
     }

@@ -31,15 +31,17 @@
         }
 
         StatusBar.showText((prop.Panel.Lang === 'ja' ? '検索中......' : 'Searching......') + label);
-        getHTML(null, 'GET', createQuery(title), ASYNC, 0, onLoaded);
+        getHTML(null, 'GET', createQuery(title, ''), ASYNC, 0, onLoaded);
 
         //------------------------------------
 
-        function createQuery(word, id) {
+        function createQuery(title, artist, id) {
             if (id)
-                return 'http://www.uta-net.com/user/phplib/svg/showkasi.php?ID=' + id + '&WIDTH=560&HEIGHT=1092&FONTSIZE=15&t=1437802371';
+                return 'https://www.uta-net.com/user/phplib/svg/showkasi.php?ID=' + id + '&WIDTH=560&HEIGHT=1092&FONTSIZE=15&t=' + Math.floor(new Date() / 1000);
             else
-                return 'http://www.uta-net.com/search/?Aselect=2&Keyword=' + encodeURIComponent(word).replaceEach("'", '%27', '\\(', '%28', '\\)', '%29', '!', '%21', '%20', '+', 'g') + '&Bselect=1' + '&x=' + Math.floor((Math.random() * 45 + 1)) + '&y=' + Math.floor((Math.random() * 23 + 1));
+                return 'https://www.uta-net.com/search/?Aselect=2&Keyword='
+                    + encodeURIComponent(title).replaceEach("'", '%27', '\\(', '%28', '\\)', '%29', '!', '%21', '%20', '+', 'g')
+                    + '&Bselect=1&x=' + Math.floor((Math.random() * 45 + 1)) + '&y=' + Math.floor((Math.random() * 23 + 1));
         }
 
         function onLoaded(request, depth, file) {
@@ -50,11 +52,10 @@
             res = responseBodyToCharset(res, 'UTF-8'); // fix character corruption
 
             debug_html && fb.trace(res);
-            var resArray = res.split('\n');
-            var Page = new AnalyzePage(resArray, depth);
+            var Page = new AnalyzePage(res, depth);
 
             if (Page.id) {
-                getHTML(null, 'GET', createQuery(null, Page.id), ASYNC, ++depth, onLoaded);
+                getHTML(null, 'GET', createQuery(null, null, Page.id), ASYNC, ++depth, onLoaded);
             }
             else if (Page.lyrics) {
                 var text = onLoaded.info + Page.lyrics;
@@ -83,41 +84,46 @@
 
         }
 
-        function AnalyzePage(resArray, depth) {
+        function AnalyzePage(res, depth) {
             var tmpti, tmpar, backref;
 
             var SearchRE = new RegExp('<tr><td class="side td1"><a href="/song/(\\d+)/">(.+?)</a>.*?</td>' // $1:id, $2:曲名
-                + '<td class="td2"><a href=".*?">(.*?)</a></td>' // $3:歌手名
-                + '<td class="td3">(.*?)</td>' // $4:作詞者
-                + '<td class="td4">(.*?)</td>', 'i'); // $5:作曲者
-            var FuzzyRE = /[-.'&＆～・*＊+＋/／!！。,、 　]/g;
+                + '<td class="td2"><a href=".*?">(.*?)</a></td>' // $3:歌手
+                + '<td class="td3">(.*?)</td>' // $4:作詞
+                + '<td class="td4">(.*?)</td>', 'ig'); // $5:作曲
+            var FuzzyRE = /[-.'’&＆%％@＠～・×*＊+＋/／!！?？（）(),，、 　]/g;
+
+            var IgnoreRE = /^.+?font-size="\d+">|<rect.+svg>$|<text.+?>/ig;
+            var LineBreakRE = /<\/text>/ig;
             var LineFeedCode = prop.Save.LineFeedCode;
 
             if (depth === 1) { // lyric
-                this.lyrics = resArray[0]
-                    .replace(/^.+?font-size="\d+">/i, '')
-                    .replace(/<rect.+svg>$/i, '')
-                    .replace(/<text.+?>/gi, '')
-                    .replace(/<\/text>/gi, LineFeedCode)
+                this.lyrics = res
+                    .replace(IgnoreRE, '')
+                    .replace(LineBreakRE, LineFeedCode)
                     .decodeHTMLEntities()
                     .trim();
             }
             else { // search
                 tmpti = title.toLowerCase().replace(FuzzyRE, '');
-                tmpar = artist.toLowerCase().replace(FuzzyRE, '');
-                for (i = 0; i < resArray.length; i++)
-                    if (backref = resArray[i].match(SearchRE)) {
-                        if (backref[2].toLowerCase().replace(FuzzyRE, '') === tmpti && backref[3].toLowerCase().replace(FuzzyRE, '') === tmpar) {
-                            debug_html && fb.trace('id: ' + backref[1] + ', title: ' + backref[2] + ', artist: ' + backref[3]);
-                            this.id = backref[1];
+                tmpar = artist.toLowerCase().replace(/[(（].+/, '').replace(FuzzyRE, '');
+                while ((backref = SearchRE.exec(res)) !== null) {
+                    debug_html && fb.trace('id: ' + backref[1] + ', title: ' + backref[2] + ', artist: ' + backref[3]);
 
-                            onLoaded.info = title + LineFeedCode + LineFeedCode
-                                + '作詞  ' + backref[4] + LineFeedCode
-                                + '作曲  ' + backref[5] + LineFeedCode
-                                + '唄  ' + artist + LineFeedCode + LineFeedCode;
-                            break;
-                        }
+                    for (var i = 2; i < 6; i++) {
+                        backref[i] = backref[i].decodeHTMLEntities();
                     }
+
+                    if (backref[2].toLowerCase().replace(FuzzyRE, '') === tmpti && backref[3].toLowerCase().replace(FuzzyRE, '').indexOf(tmpar) !== -1) {
+                        this.id = backref[1];
+
+                        onLoaded.info = title + LineFeedCode + LineFeedCode
+                            + '作詞  ' + backref[4] + LineFeedCode
+                            + '作曲  ' + backref[5] + LineFeedCode
+                            + '唄  ' + backref[3] + LineFeedCode + LineFeedCode;
+                        break;
+                    }
+                }
             }
         }
 

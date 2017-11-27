@@ -1,6 +1,6 @@
 ﻿pl = {
     name: 'dplugin_Kasitime',
-    label: prop.Panel.Lang === 'ja' ? '歌詞検索: 歌詞タイム' : 'Download Lyrics: Kasi Time',
+    label: prop.Panel.Lang === 'ja' ? '歌詞検索: 歌詞タイム' : 'Download Lyrics: Kasi-time',
     author: 'tomato111,Junya Renno',
     onStartUp: function () { // 最初に一度だけ呼び出される
     },
@@ -38,12 +38,13 @@
         function createQuery(title, artist, id) {
             if (id)
                 return 'http://www.kasi-time.com/item-' + id + '.html';
-            else
+            else {
+                title = title.replace(/-/g, ' '); // 語句の先頭のハイフンは除外検索を意味するので置換する
+                artist = artist.replace(/-/g, ' ').replace(/cv[.:： ]/ig, ''); // CV:の表記は削った方が結果が良くなるので削る
                 return 'https://www.google.co.jp/search?q='
-                    + encodeURIComponent(title).replaceEach("'", '%27', '\\(', '%28', '\\)', '%29', '%20', '+', '!', '%21', 'g')
-                    + '+'
-                    + encodeURIComponent(artist).replaceEach("'", '%27', '\\(', '%28', '\\)', '%29', '%20', '+', '!', '%21', 'g')
-                    + '+site%3Ahttp%3A%2F%2Fwww.kasi-time.com';
+                    + encodeURIComponent(title + ' ' + artist).replaceEach("'", '%27', '\\(', '%28', '\\)', '%29', '%20', '+', '!', '%21', 'g')
+                    + '+site%3Awww.kasi-time.com';
+            }
         }
 
         function onLoaded(request, depth, file) {
@@ -88,43 +89,46 @@
         function AnalyzePage(res, depth) {
             var tmpti, id, pageTitle;
 
-            var SearchRE = /<h3 class="r"><a href=.+?www.kasi-time.com\/item-(\d+)\.html.+?>(?:<b>)?(.+?)<\/a>/ig; // $1:id, $2:pageTitle
-            var FuzzyRE = /[-.'&＆～・*＊+＋/／!！。,、 　]/g;
+            var SearchRE = /<h3 class="r"><a href=.+?www.kasi-time.com\/item-(\d+)\.html.+?>(.+?)<\/a>/ig; // $1:id, $2:pageTitle
+            var EmphasisRE = /<em>|<\/em>|<b>|<\/b>/ig;
+            var FuzzyRE = /[-.'’&＆%％@＠～・×*＊+＋/／!！?？（）(),，、 　]/g;
 
-            var InfoRE = /<meta name="description" content="歌手:(.*?) 作詞:(.*?) 作曲:(.*?) +(?:.+に関連している曲です|歌い出し)/i; // $1:歌手, $2:作詞, $3:作曲
-            var StartLyricRE = /var lyrics = '/i;
+            var InfoRE = new RegExp('<tr><th>歌手</th><td>(.+?)　?(?:<br>関連リンク:.+?)?</td></tr>' // $1:歌手 
+                + '<tr><th>作詞</th><td>(.+?)　?</td></tr>' // $2:作詞
+                + '<tr><th>作曲</th><td>(.+?)　?</td></tr>' // $3:作曲
+                + '(?:<tr><th>編曲</th><td>(.+?)　?</td></tr>)?', 'i'); // $4:編曲 (ない場合が多い)
+            var StartLyricRE = /var lyrics = '(.+?)';/i;
             var LineBreakRE = /<br>/ig;
             var LineFeedCode = prop.Save.LineFeedCode;
 
             if (depth === 1) { // lyric
+                res = res.replace(/[\t ]*(?:\r\n|\r|\n)[\t ]*/g, '');
                 onLoaded.info = title + LineFeedCode + LineFeedCode;
-                var resArray = res.split('\n');
-                for (var i = 0; i < resArray.length; i++) {
-                    if (InfoRE.test(resArray[i])) {
-                        onLoaded.info += '作詞  ' + RegExp.$2 + LineFeedCode
-                            + '作曲  ' + RegExp.$3 + LineFeedCode
-                            + '唄  ' + RegExp.$1 + LineFeedCode + LineFeedCode;
-                    }
 
-                    if (StartLyricRE.test(resArray[i])) {
-                        this.lyrics = RegExp.rightContext.slice(0, -2);
-                        break;
-                    }
+                if (InfoRE.test(res)) {
+                    onLoaded.info += ('作詞  ' + RegExp.$2 + LineFeedCode
+                        + '作曲  ' + RegExp.$3 + LineFeedCode
+                        + (RegExp.$4 ? '編曲  ' + RegExp.$4 + LineFeedCode : '')
+                        + '唄  ' + RegExp.$1 + LineFeedCode + LineFeedCode)
+                        .replace(/<a.+?>|<\/a>/g, '')
+                        .decodeHTMLEntities();
                 }
 
-                onLoaded.info = onLoaded.info
-                    .decodeHTMLEntities();
-                this.lyrics = this.lyrics
-                    .decodeHTMLEntities()
-                    .replace(LineBreakRE, LineFeedCode)
-                    .trim();
-            } else { // search
-                tmpti = title.toLowerCase().replace(FuzzyRE, '');
+                if (StartLyricRE.test(res)) {
+                    this.lyrics = RegExp.$1
+                        .replace(LineBreakRE, LineFeedCode)
+                        .decodeHTMLEntities()
+                        .trim();
+                }
+            }
+            else { // search
+                tmpti = title.toLowerCase().replace(FuzzyRE, '').slice(0, 30); // 曲名が長い場合は30文字で切り出す
+                res = res.replace(EmphasisRE, ''); // 環境によっては検索文字に強調タグが付くようなので削る
                 while (SearchRE.exec(res) !== null) {
                     id = RegExp.$1;
                     pageTitle = RegExp.$2.decodeHTMLEntities().toLowerCase().replace(FuzzyRE, '');
 
-                    if (pageTitle.indexOf(tmpti) === 0) { // Google検索結果はページタイトルが一定の文字数で省略されるため、アーティスト名が途切れやすい。なので曲名が前方一致した時点で取得するようにする
+                    if (pageTitle.indexOf(tmpti) === 0) {
                         this.id = id;
                         return;
                     }

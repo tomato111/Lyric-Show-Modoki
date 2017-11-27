@@ -31,15 +31,16 @@
         }
 
         StatusBar.showText((prop.Panel.Lang === 'ja' ? '検索中......' : 'Searching......') + label);
-        getHTML(null, 'GET', createQuery(title), ASYNC, 0, onLoaded);
+        getHTML(null, 'GET', createQuery(title, ''), ASYNC, 0, onLoaded);
 
         //------------------------------------
 
-        function createQuery(word, id) {
+        function createQuery(title, artist, id) {
             if (id)
                 return 'http://vovovov26.blog.fc2.com/blog-entry-' + id + '.html';
             else
-                return 'http://vovovov26.blog.fc2.com/?q=' + encodeURIComponent(word).replace(/'/g, '%27').replace(/\(/g, '%28').replace(/\)/g, '%29').replace(/%20/g, '+');
+                return 'http://vovovov26.blog.fc2.com/?q='
+                    + encodeURIComponent(title).replaceEach("'", '%27', '\\(', '%28', '\\)', '%29', '%20', '+', '!', '%21', 'g');
         }
 
         function onLoaded(request, depth, file) {
@@ -49,12 +50,10 @@
             var res = request.responseText;
 
             debug_html && fb.trace(res);
-            var resArray = res.split('\n');
-
-            var Page = new AnalyzePage(resArray, depth);
+            var Page = new AnalyzePage(res, depth);
 
             if (Page.id) {
-                getHTML(null, 'GET', createQuery(null, Page.id), ASYNC, ++depth, onLoaded);
+                getHTML(null, 'GET', createQuery(null, null, Page.id), ASYNC, ++depth, onLoaded);
             }
             else if (Page.lyrics) {
                 var text = onLoaded.info + Page.lyrics;
@@ -83,40 +82,46 @@
 
         }
 
-        function AnalyzePage(resArray, depth) {
-            var tmp, tmpti;
+        function AnalyzePage(res, depth) {
+            var tmpti, id, pageTitle;
 
-            var IdSearchRE = /<h3><a href="blog-entry-(\d+?)\.html">(.+?)<\/a><\/h3>/i; // $1:id, $2:title
-            var ContentsSearchRE = /<div class="contents_body">([^<].+)/i; // $1:contents
+            var SearchRE = /<h3><a href="blog-entry-(\d+?)\.html">(.+?)<\/a><\/h3>/ig; // $1:id, $2:pageTitle
+            var FuzzyRE = /[-.'’&＆%％@＠～・×*＊+＋/／!！?？（）(),，、 　]/g;
+
+            var StartLyricRE = /<div class="contents_body">([^<].+?)<div/i;
+            var IgnoreRE = /<a.+?>|<\/a>/ig;
+            var LineBreakRE = /<br ?\/?>/ig;
             var LineFeedCode = prop.Save.LineFeedCode;
 
             if (depth === 1) { // lyric
                 onLoaded.info = title + LineFeedCode + LineFeedCode;
-                for (var i = 0; i < resArray.length; i++)
-                    if (ContentsSearchRE.test(resArray[i])) {
-                        tmp = RegExp.$1.split('<br /><br /><br /><br />' + title + '<br />');
-                        if (tmp.length === 2)
-                            onLoaded.info += tmp[1]
-                                .replace(/<div class="fc2_footer".+/i, '')
-                                .replace(/<br \/>/g, LineFeedCode)
-                                .trim() + LineFeedCode + LineFeedCode;
+                if (StartLyricRE.test(res)) {
+                    tmp = RegExp.$1.split(new RegExp('(?:<br ?/?>){4}' + title.slice(0, 2) + '.+?<br ?/?>', 'i'));
+                    if (tmp.length === 2)
+                        onLoaded.info += tmp[1]
+                            .replace(IgnoreRE, '')
+                            .replace(LineBreakRE, LineFeedCode)
+                            .decodeHTMLEntities()
+                            .trim() + LineFeedCode + LineFeedCode;
 
-                        this.lyrics = tmp[0]
-                            .replace(/<br \/>/g, LineFeedCode)
-                            .trim();
-                        return;
-                    }
+                    this.lyrics = tmp[0]
+                        .replace(LineBreakRE, LineFeedCode)
+                        .decodeHTMLEntities()
+                        .trim();
+                }
             }
             else { // search
-                tmpti = title.toLowerCase();
-                for (i = 0; i < resArray.length; i++)
-                    if (IdSearchRE.test(resArray[i])) {
-                        debug_html && fb.trace('title: ' + RegExp.$2 + ' id: ' + RegExp.$1);
-                        if (RegExp.$2.toLowerCase() === tmpti) {
-                            this.id = RegExp.$1;
-                            break;
-                        }
+                tmpti = title.toLowerCase().replace(FuzzyRE, '');
+                while (SearchRE.exec(res) !== null) {
+                    debug_html && fb.trace('id: ' + RegExp.$1 + ' pageTitle: ' + RegExp.$2);
+                    id = RegExp.$1;
+                    pageTitle = RegExp.$2.decodeHTMLEntities().toLowerCase().replace(FuzzyRE, '');
+
+                    if (pageTitle === tmpti) {
+                        this.id = id;
+                        break;
                     }
+                }
             }
         }
 

@@ -40,7 +40,7 @@
                 return 'http://www.kget.jp/lyric/' + id + '/';
             else
                 return 'http://www.kget.jp/search/index.php?c=0&r='
-                    + encodeURIComponent(artist).replaceEach("'", '%27', '\\(', '%28', '\\)', '%29', '%20', '+', 'g')
+                    + encodeURIComponent(artist.replace(/cv[.:： ]/ig, '')).replaceEach("'", '%27', '\\(', '%28', '\\)', '%29', '%20', '+', 'g') // CV:の表記は削った方が結果が良くなるので削る
                     + '&t='
                     + encodeURIComponent(title).replaceEach("'", '%27', '\\(', '%28', '\\)', '%29', '%20', '+', 'g')
                     + '&v=&f=';
@@ -53,8 +53,7 @@
             var res = request.responseText;
 
             debug_html && fb.trace(res);
-            var resArray = res.split('\n');
-            var Page = new AnalyzePage(resArray, depth);
+            var Page = new AnalyzePage(res, depth);
 
             if (Page.id) {
                 getHTML(null, 'GET', createQuery(null, null, Page.id), ASYNC, ++depth, onLoaded);
@@ -86,50 +85,35 @@
 
         }
 
-        function AnalyzePage(resArray, depth) {
-            var isLyric;
+        function AnalyzePage(res, depth) {
 
-            var IdSearchRE = /<a class="lyric-anchor" href="\/lyric\/(\d+)\/.+<h2/i; // $1:id
-            var InfoSearchRE = /<div class="by"><p><span>.+?<\/span><em>(.+?)<\/em>.+?<span>.+?<\/span><em>(.+?)<\/em><\/p>/i; // $1:作詞, $2:作曲
-            var StartLyricRE = /<div id="lyric-trunk">/i;
-            var EndLyricRE = /<\/div>/i;
-            var LineBreakRE = /<br \/>/ig;
+            var CutoutRE = new RegExp('<div class="title-wrap cf"><a class="lyric-anchor".+?作曲：</span><em>.+?</em></p>', 'i'); // SearchREで.+を多用するため正規表現の処理がハングアップする。なので先に目的のものを切り出す
+            var SearchRE = new RegExp('<a class="lyric-anchor" href="/lyric/(\\d+)/.+?<p class="artist"><a.+?>(.+?)</a></p>.+?' // $1:id, $2:歌手
+                + '<div class="by"><p><span>作詞：</span><em>(.+?)</em>.+?<span>作曲：</span><em>(.+?)</em></p>', 'i'); // $3:作詞, $4:作曲
+
+            var StartLyricRE = /<div id="lyric-trunk">(.+?)<\/div>/i;
+            var LineBreakRE = /<br ?\/?>/ig;
             var LineFeedCode = prop.Save.LineFeedCode;
 
+            res = res.replace(/[\t ]*(?:\r\n|\r|\n)[\t ]*/g, '');
             if (depth === 1) { // lyric
-                this.lyrics = '';
-                for (var i = 0; i < resArray.length; i++) {
-                    if (StartLyricRE.test(resArray[i])) {
-                        isLyric = true; continue;
-                    }
-                    if (EndLyricRE.test(resArray[i]) && isLyric) {
-                        break;
-                    }
-
-                    if (isLyric) {
-                        this.lyrics += resArray[i];
-                    }
+                if (StartLyricRE.test(res)) {
+                    this.lyrics = RegExp.$1
+                        .replace(LineBreakRE, LineFeedCode)
+                        .decodeHTMLEntities()
+                        .trim();
                 }
-
-                this.lyrics = this.lyrics
-                    .decodeHTMLEntities()
-                    .replace(LineBreakRE, LineFeedCode)
-                    .trim();
             }
             else { // search
-                for (i = 0; i < resArray.length; i++) {
-                    if (IdSearchRE.test(resArray[i])) {
-                        debug_html && fb.trace('id: ' + RegExp.$1);
-                        this.id = RegExp.$1;
-                        continue;
-                    }
-                    if (this.id && InfoSearchRE.test(resArray[i])) {
-                        onLoaded.info = title + LineFeedCode + LineFeedCode
-                                + '作詞  ' + RegExp.$1 + LineFeedCode
-                                + '作曲  ' + RegExp.$2 + LineFeedCode
-                                + '唄  ' + artist + LineFeedCode + LineFeedCode;
-                        break;
-                    }
+                if (CutoutRE.test(res) && SearchRE.test(RegExp.lastMatch)) {
+                    debug_html && fb.trace('id: ' + RegExp.$1);
+                    this.id = RegExp.$1;
+
+                    onLoaded.info = (title + LineFeedCode + LineFeedCode
+                        + '作詞  ' + RegExp.$3 + LineFeedCode
+                        + '作曲  ' + RegExp.$4 + LineFeedCode
+                        + '唄  ' + RegExp.$2 + LineFeedCode + LineFeedCode)
+                        .decodeHTMLEntities();
                 }
             }
         }

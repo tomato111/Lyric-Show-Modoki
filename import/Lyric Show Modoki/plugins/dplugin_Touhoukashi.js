@@ -31,15 +31,16 @@
         }
 
         StatusBar.showText((prop.Panel.Lang === 'ja' ? '検索中......' : 'Searching......') + label);
-        getHTML(null, 'GET', createQuery(title), ASYNC, 0, onLoaded);
+        getHTML(null, 'GET', createQuery(title, ''), ASYNC, 0, onLoaded);
 
         //------------------------------------
 
-        function createQuery(word, id) {
+        function createQuery(title, artist, id) {
             if (id)
                 return 'https://www31.atwiki.jp/touhoukashi/?pageid=' + id;
             else
-                return 'https://www31.atwiki.jp/touhoukashi/search?andor=and&keyword=' + encodeURIComponent(word).replace(/'/g, '%27').replace(/\(/g, '%28').replace(/\)/g, '%29').replace(/%20/g, '+');
+                return 'https://www31.atwiki.jp/touhoukashi/search?andor=and&keyword='
+                    + encodeURIComponent(title).replaceEach("'", '%27', '\\(', '%28', '\\)', '%29', '%20', '+', '!', '%21', 'g');
         }
 
         function onLoaded(request, depth, file) {
@@ -49,11 +50,10 @@
             var res = request.responseText;
 
             debug_html && fb.trace(res);
-            var resArray = res.split('\n');
-            var Page = new AnalyzePage(resArray, depth);
+            var Page = new AnalyzePage(res, depth);
 
             if (Page.id) {
-                getHTML(null, 'GET', createQuery(null, Page.id), ASYNC, ++depth, onLoaded);
+                getHTML(null, 'GET', createQuery(null, null, Page.id), ASYNC, ++depth, onLoaded);
             }
             else if (Page.lyrics) {
                 var text = onLoaded.info + Page.lyrics;
@@ -82,59 +82,46 @@
 
         }
 
-        function AnalyzePage(resArray, depth) {
-            var isInfo, isLyric, tmpti;
+        function AnalyzePage(res, depth) {
+            var tmpti, id, pageTitle;
 
-            var IdSearchRE = /<a href=".+?&amp;pageid=(.+?)" title="(?:\d{1,2})?\.? ?(.+?)" style=".+?">/i; // $1:id, $2:title
-            var ContentsSearchRE = new RegExp('(?:<h[23] id="id_.+?">' + title + '</h[23]>|(アルバム)：<a href=")', 'i'); // サイトの書式にブレがあるので少し複雑に
-            var EndInfoRE = /<\/div>/i;
-            var EndLyricRE = /<div class=/i;
-            var LineBreakRE = /<div>|<br \/>/ig;
-            var IgnoreRE = /<\/div>|<a.+?">|<\/a>/ig;
+            var SearchRE = /<a href=".+?&amp;pageid=(.+?)" title="(?:\d{1,2})?[. ]?(.+?)" style=".+?">/ig; // $1:id, $2:pageTitle
+            var FuzzyRE = /[-.'’&＆%％@＠～・×*＊+＋/／!！?？（）(),，、 　]/g;
+
+            var StartLyricRE = /<div>(アルバム：.+?)<\/div>.+?<div>(.+?)<div class="/i; // $1:info, $2:lyric
+            var IgnoreRE = /<\/div>|<a.+?>|<\/a>/ig;
+            var LineBreakRE = /<div>|<br ?\/?>/ig;
             var LineFeedCode = prop.Save.LineFeedCode;
 
             if (depth === 1) { // lyric
-                onLoaded.info = '';
-                this.lyrics = '';
-                for (var i = 0; i < resArray.length; i++) {
-                    if (ContentsSearchRE.test(resArray[i]) && !isInfo) {
-                        isInfo = true; if (!RegExp.$1) continue; // サイトの書式のブレに対応するため、continue;するかどうかを後方参照の有無で決める
-                    }
-                    if (EndInfoRE.test(resArray[i]) && isInfo) {
-                        isInfo = false; isLyric = true; continue;
-                    }
-                    if (EndLyricRE.test(resArray[i]) && isLyric) {
-                        break;
-                    }
+                res = res.replace(/[\t ]*(?:\r\n|\r|\n)[\t ]*/g, '');
+                if (StartLyricRE.test(res)) {
+                    onLoaded.info = title + LineFeedCode + LineFeedCode + RegExp.$1;
+                    this.lyrics = RegExp.$2
+                        .replace(IgnoreRE, '')
+                        .replace(LineBreakRE, LineFeedCode)
+                        .decodeHTMLEntities()
+                        .trim();
 
-                    if (isInfo)
-                        onLoaded.info += resArray[i];
-                    if (isLyric)
-                        this.lyrics += resArray[i];
+                    onLoaded.info = onLoaded.info
+                        .replace(IgnoreRE, '')
+                        .replace(LineBreakRE, LineFeedCode)
+                        .decodeHTMLEntities()
+                        .trim() + LineFeedCode + LineFeedCode;
                 }
-
-                onLoaded.info = title + LineFeedCode + LineFeedCode +
-                    onLoaded.info
-                    .replace(LineBreakRE, LineFeedCode)
-                    .replace(IgnoreRE, '')
-                    .decodeHTMLEntities()
-                    .trim() + LineFeedCode + LineFeedCode;
-                this.lyrics = this.lyrics
-                    .replace(LineBreakRE, LineFeedCode)
-                    .replace(IgnoreRE, '')
-                    .decodeHTMLEntities()
-                    .trim();
             }
             else { // search
-                tmpti = title.toLowerCase();
-                for (i = 0; i < resArray.length; i++)
-                    if (IdSearchRE.test(resArray[i])) {
-                        debug_html && fb.trace('title: ' + RegExp.$2 + ' id: ' + RegExp.$1);
-                        if (RegExp.$2.toLowerCase() === tmpti) {
-                            this.id = RegExp.$1;
-                            break;
-                        }
+                tmpti = title.toLowerCase().replace(FuzzyRE, '');
+                while (SearchRE.exec(res) !== null) {
+                    debug_html && fb.trace('id: ' + RegExp.$1 + ' pageTitle: ' + RegExp.$2);
+                    id = RegExp.$1;
+                    pageTitle = RegExp.$2.decodeHTMLEntities().toLowerCase().replace(FuzzyRE, '');
+
+                    if (pageTitle === tmpti) {
+                        this.id = id;
+                        break;
                     }
+                }
             }
         }
 

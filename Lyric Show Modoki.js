@@ -1,9 +1,9 @@
-﻿//## code for foo_uie_wsh_mod v1.5.6 or higher  ####//
+﻿//## Code for foo_uie_wsh_mod v1.5.6 or higher, and up to foo_jscript_panel v1.3.0 ##//
 //## Please check off "Grab Focus" and "Delay Load" ##//
 
 // ==PREPROCESSOR==
 // @name "Lyric Show Modoki"
-// @version "1.8.0"
+// @version "1.8.1"
 // @author "tomato111"
 // @import "%fb2k_profile_path%import\common\lib.js"
 // ==/PREPROCESSOR==
@@ -21,7 +21,7 @@ var fs = new ActiveXObject("Scripting.FileSystemObject"); // File System Object
 var ws = new ActiveXObject("WScript.Shell"); // WScript Shell Object
 var Trace = new TraceLog();
 var scriptName = "Lyric Show Modoki";
-var scriptVersion = "1.8.0";
+var scriptVersion = "1.8.1";
 var scriptdir = fb.ProfilePath + "import\\" + scriptName + "\\";
 var commondir = fb.ProfilePath + "import\\common\\";
 var align = {};
@@ -110,8 +110,7 @@ var prop = new function () {
         InfoPath: window.GetProperty("Panel.InfoPath", ""),
         GuessPlaybackTempo: window.GetProperty("Panel.GuessPlaybackTempo", false),
         FollowExternalSeek: window.GetProperty("Panel.FollowExternalSeek", true),
-        Keybind:
-        {
+        Keybind: {
             SeekToNextLine: window.GetProperty("Panel.Keybind.SeekToNextLine", 88), // Default is 'X' Key
             SeekToPreviousLine: window.GetProperty("Panel.Keybind.SeekToPreviousLine", 65), // Default is 'A' Key
             SeekToPlayingLine: window.GetProperty("Panel.Keybind.SeekToPlayingLine", 83), // Default is 'S' Key
@@ -324,8 +323,7 @@ var prop = new function () {
     this.Edit = {
         Rule: window.GetProperty("Edit.ShowRuledLine", true),
         Step: window.GetProperty("Edit.Step", 14),
-        Keybind:
-        {
+        Keybind: {
             AheadBy3Seconds: window.GetProperty("Edit.Keybind.AheadBy3Seconds", 39), // Default is 'Right' Key
             BackBy3Seconds: window.GetProperty("Edit.Keybind.BackBy3Seconds", 37) // Default is 'Left' Key
         }
@@ -1089,7 +1087,7 @@ var LyricShow = new function (Style) {
             backup = lyric.info.join(LineFeedCode) + LineFeedCode + backup;
         if (backupLyric[0] !== backup) {
             backupLyric.unshift(backup);
-            backupLyric.length = 6;
+            backupLyric.length = Math.min(16, backupLyric.length);
         }
     };
 
@@ -3202,6 +3200,13 @@ var Menu = new function () {
             Caption: function () { return ">>>>>" + (backupLyric[5] && backupLyric[5].replace(alltagsRE, "").replace(/\[\w+?:.+?\]|\s/g, " ").trim().slice(0, 18)) + "..."; },
             Func: function () {
                 setClipboard(backupLyric[5]);
+            }
+        },
+        {
+            Flag: function () { return backupLyric[6] ? MF_STRING : null; },
+            Caption: "copy more: 6-15",
+            Func: function () {
+                setClipboard(backupLyric.slice(6).join(prop.Save.LineFeedCode + "##=================" + prop.Save.LineFeedCode));
             }
         }
     ];
