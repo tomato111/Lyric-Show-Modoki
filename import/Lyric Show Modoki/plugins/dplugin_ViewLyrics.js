@@ -125,7 +125,7 @@
                 'Expect': '100-continue',
                 'content-type': 'application/x-www-form-urlencoded'
             }
-            );
+        );
 
         //------------------------------------
 
@@ -138,18 +138,24 @@
             debug_html && fb.trace(xml);
             //responseBodyToFile(res, ws.SpecialFolders.item('Desktop') + '\\bin2');
 
-            var fileinfo = parseXML(xml);
-            _this.results.push.apply(_this.results, fileinfo);
+            if (request.status === 200) {
+                var fileinfo = parseXML(xml);
+                _this.results.push.apply(_this.results, fileinfo);
+            }
+
             if (isAutoSearch) {
                 plugins['splugin_AutoSearch'].results.push({ name: label, lyric: null });
             }
             else {
-                if (fileinfo.length) {
+                if (fileinfo && fileinfo.length) {
                     _this.showResults();
                     Keybind.LyricShow_keyup[13] = _this.showResults;
                 }
                 else
-                    StatusBar.showText(prop.Panel.Lang === 'ja' ? 'ページが見つかりませんでした。' : 'Page not found.');
+                    if (request.status === 200)
+                        StatusBar.showText(prop.Panel.Lang === 'ja' ? 'ページが見つかりませんでした。' : 'Page not found.');
+                    else
+                        StatusBar.showText(request.status + ' ' + request.statusText);
             }
         }
 
@@ -201,22 +207,22 @@
                     item = nodeList[i];
 
                     result.push(
-                       {
-                           link: server_url + item.getAttribute('link'),
-                           artist: item.getAttribute('artist'),
-                           title: item.getAttribute('title'),
-                           album: item.getAttribute('album'),
-                           timelength: item.getAttribute('timelength'),
-                           rate: item.getAttribute('rate'),
-                           ratecount: item.getAttribute('ratecount'),
-                           downloads: item.getAttribute('downloads'),
-                           uploader: item.getAttribute('uploader')
-                       }
+                        {
+                            link: server_url + item.getAttribute('link'),
+                            artist: item.getAttribute('artist'),
+                            title: item.getAttribute('title'),
+                            album: item.getAttribute('album'),
+                            timelength: item.getAttribute('timelength'),
+                            rate: item.getAttribute('rate'),
+                            ratecount: item.getAttribute('ratecount'),
+                            downloads: item.getAttribute('downloads'),
+                            uploader: item.getAttribute('uploader')
+                        }
                     );
                 }
             }
             else {
-                fb.ShowPopupMessage('parseXML Error:' + dom.parseError.reason);
+                fb.ShowPopupMessage('parseXML Error:' + dom.parseError.reason, label);
             }
 
             return result || [];
