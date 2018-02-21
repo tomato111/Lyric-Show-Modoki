@@ -133,12 +133,12 @@
             StatusBar.showText((prop.Panel.Lang === 'ja' ? '検索中......' : 'Searching......') + label);
             debug_html && fb.trace('\nOpen#' + depth + ': ' + file + '\n');
 
-            var res = request.responseBody;
-            var xml = vl_dec(res);
-            debug_html && fb.trace(xml);
-            //responseBodyToFile(res, ws.SpecialFolders.item('Desktop') + '\\bin2');
-
             if (request.status === 200) {
+                var res = request.responseBody;
+                var xml = vl_dec(res);
+                debug_html && fb.trace(xml);
+                //responseBodyToFile(res, ws.SpecialFolders.item('Desktop') + '\\bin2');
+
                 var fileinfo = parseXML(xml);
                 _this.results.push.apply(_this.results, fileinfo);
             }

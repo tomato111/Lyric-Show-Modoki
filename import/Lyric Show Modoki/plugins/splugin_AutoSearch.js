@@ -5,7 +5,7 @@
     onStartUp: function () { // 最初に一度だけ呼び出される
 
         var _this = this;
-        var timeout_millisecond = 8000;
+        var timeout_millisecond = 6000;
         var ResultsListNames = [this.name];
 
         this.AvailablePluginNames = window.GetProperty('Plugin.Search.AutoSearch', 'dplugin_Miku_Hatsune_wiki, dplugin_Utamap, dplugin_Utanet, dplugin_Kashiget, dplugin_Kasitime, dplugin_AZLyrics, dplugin_Tube365, dplugin_ViewLyrics, dplugin_AniKasiPV').split(/[ 　]*,[ 　]*/);
@@ -32,10 +32,6 @@
             if (_this.results.length === _this.AvailablePluginNames.length || diff >= timeout_millisecond) {
                 StatusBar.hide();
                 _this.timer.clearInterval();
-                for (var i = 0; i < _this.results.length;) {
-                    if (_this.results[i].lyric) i++;
-                    else _this.results.splice(i, 1);
-                }
                 Keybind.LyricShow_keyup[221]();
             }
         };
@@ -43,6 +39,10 @@
         this.showResults = function () {
             var status, key_s = [];
             var results = _this.results;
+            for (var i = 0; i < results.length;) {
+                if (results[i].lyric) i++;
+                else results.splice(i, 1);
+            }
             if (!results.length) {
                 return;
             }
