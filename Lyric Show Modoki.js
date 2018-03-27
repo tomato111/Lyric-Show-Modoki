@@ -3,7 +3,7 @@
 
 // ==PREPROCESSOR==
 // @name "Lyric Show Modoki"
-// @version "1.8.3"
+// @version "1.8.4"
 // @author "tomato111"
 // @import "%fb2k_profile_path%import\common\lib.js"
 // ==/PREPROCESSOR==
@@ -21,7 +21,7 @@ var fs = new ActiveXObject("Scripting.FileSystemObject"); // File System Object
 var ws = new ActiveXObject("WScript.Shell"); // WScript Shell Object
 var Trace = new TraceLog();
 var scriptName = "Lyric Show Modoki";
-var scriptVersion = "1.8.3";
+var scriptVersion = "1.8.4";
 var scriptdir = fb.ProfilePath + "import\\" + scriptName + "\\";
 var commondir = fb.ProfilePath + "import\\common\\";
 var align = {};
@@ -571,28 +571,28 @@ function setAlign() {
 
     switch (window.GetProperty("Style.AlignNoLyric")) {
         case 0:
-            prop.Style.AlignNoLyric = prop.Style.DrawingMethod === 0 ? DT_LEFT | DT_NOPREFIX | DT_WORDBREAK : SF_ALIGN_LEFT;
+            prop.Style.AlignNoLyric = SF_ALIGN_LEFT;
             break;
         case 1:
-            prop.Style.AlignNoLyric = prop.Style.DrawingMethod === 0 ? DT_CENTER | DT_NOPREFIX | DT_WORDBREAK : SF_ALIGN_CENTER;
+            prop.Style.AlignNoLyric = SF_ALIGN_CENTER;
             break;
         case 2:
-            prop.Style.AlignNoLyric = prop.Style.DrawingMethod === 0 ? DT_RIGHT | DT_NOPREFIX | DT_WORDBREAK : SF_ALIGN_RIGHT;
+            prop.Style.AlignNoLyric = SF_ALIGN_RIGHT;
             break;
         case 3:
-            prop.Style.AlignNoLyric = prop.Style.DrawingMethod === 0 ? DT_LEFT | DT_NOPREFIX | DT_WORDBREAK : SF_ALIGN_LEFT;
+            prop.Style.AlignNoLyric = SF_ALIGN_LEFT;
             align.Left_Center_NL = true;
             break;
         case 4:
-            prop.Style.AlignNoLyric = prop.Style.DrawingMethod === 0 ? DT_LEFT | DT_NOPREFIX | DT_WORDBREAK : SF_ALIGN_LEFT;
+            prop.Style.AlignNoLyric = SF_ALIGN_LEFT;
             align.Center_Left_NL = true;
             break;
         case 5:
-            prop.Style.AlignNoLyric = prop.Style.DrawingMethod === 0 ? DT_RIGHT | DT_NOPREFIX | DT_WORDBREAK : SF_ALIGN_RIGHT;
+            prop.Style.AlignNoLyric = SF_ALIGN_RIGHT;
             align.Center_Right_NL = true;
             break;
         case 6:
-            prop.Style.AlignNoLyric = prop.Style.DrawingMethod === 0 ? DT_RIGHT | DT_NOPREFIX | DT_WORDBREAK : SF_ALIGN_RIGHT;
+            prop.Style.AlignNoLyric = SF_ALIGN_RIGHT;
             align.Right_Center_NL = true;
             break;
     }
