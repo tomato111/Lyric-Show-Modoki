@@ -506,7 +506,7 @@ function getRepeatRes(userfile, defaultfile) {
     try {
         return eval("[" + readTextFile(file, "UTF-8") + "]");
     } catch (e) {
-        console("faild to load \"repeat.txt\" or \"repeat-default.txt\" (" + scriptName + ")");
+        console2("faild to load \"repeat.txt\" or \"repeat-default.txt\" (" + scriptName + ")");
         return;
     }
 }
@@ -1013,7 +1013,7 @@ var LyricShow = new function (Style) {
 
                     for (j = 0; j < repeatRes.length; j++) {
                         if (!repeatRes[j].e.length && repeatRes[j].a.test(lyric.text[i])) { // put lyric
-                            // console("put i:" + i + ", " + lyric.text[i]);
+                            // console2("put i:" + i + ", " + lyric.text[i]);
                             for (k = i; k < lyric.text.length; k++) {
                                 if (k === i && repeatRes[j].d > 0)
                                     repeatRes[j].e.push(lyric.text[k].slice(repeatRes[j].d));
@@ -1024,7 +1024,7 @@ var LyricShow = new function (Style) {
                                     break;
                             }
 
-                            // console("fin k:" + k + ", " + lyric.text[k]);
+                            // console2("fin k:" + k + ", " + lyric.text[k]);
                             for (; ;) // trim
                                 if (repeatRes[j].e[0] === "")
                                     repeatRes[j].e.shift();
@@ -1036,13 +1036,13 @@ var LyricShow = new function (Style) {
                             break;
                         }
                         if (repeatRes[j].e.length && repeatRes[j].c.test(lyric.text[i])) { // replace lyric
-                            // console("before i:" + i + ", " + lyric.text[i]);
+                            // console2("before i:" + i + ", " + lyric.text[i]);
                             repeatRes[j].e.unshift(lyric.text.length - i);
                             repeatRes[j].e.unshift(i);
                             temp = Array.prototype.splice.apply(lyric.text, repeatRes[j].e); // splice は配列を展開しないで挿入するので、範囲を含めた配列にし(上2行)、applyで展開させて渡す
                             temp.shift();
                             lyric.text = lyric.text.concat(temp);
-                            // console("after i:" + i + ", " + lyric.text[i]);
+                            // console2("after i:" + i + ", " + lyric.text[i]);
                             repeatRes[j].e.shift();
                             repeatRes[j].e.shift();
                             i += repeatRes[j].e.length - 1;
@@ -1474,7 +1474,7 @@ var LyricShow = new function (Style) {
                     }
 
                     if (time >= p.lineList[this.i + 1]) {
-                        //console(p.DrawStyle[this.i - 1].height + " h::i " + this.i + " :: " + this.text + " ::移動量 " + lineY + " ::補正値 " + (p.DrawStyle[this.i - 1].height - lineY).toFixed(15));
+                        //console2(p.DrawStyle[this.i - 1].height + " h::i " + this.i + " :: " + this.text + " ::移動量 " + lineY + " ::補正値 " + (p.DrawStyle[this.i - 1].height - lineY).toFixed(15));
                         !ignore_remainder && this.fix_offset(p.DrawStyle[this.i - 1].height, lineY);
                         ignore_remainder = false;
                         moveY = lineY = 0;
@@ -1571,7 +1571,7 @@ var LyricShow = new function (Style) {
             DrawString.prototype.fix_offset = function (height, lineY) { // fix remainder
                 var n = Style.DrawingMethod === 2 ? 0.49 : 100;
                 var diff = height - lineY;
-                //console(diff);
+                //console2(diff);
                 if (Math.abs(diff) <= n)
                     offsetY = Math.round(offsetY - diff);
                 else if (diff > n)
@@ -3773,7 +3773,7 @@ var Menu = new function () {
         Menu.isShown = true;
         var item_list = _item_list; // メニュー表示中に_item_listの参照先が変わる可能性があるので参照を保持しておく
         var ret = _menu.TrackPopupMenu(x, y);
-        //console(ret);
+        //console2(ret);
         if (ret !== 0) {
             if (item_list[ret])
                 item_list[ret].Func();
@@ -4111,7 +4111,7 @@ function on_mouse_rbtn_up(x, y, mask) {
 }
 
 function on_key_down(vkey) {
-    //console(vkey);
+    //console2(vkey);
     var prevent_shortcuts;
     if (!Edit.isStarted) {
         Keybind.LyricShow_keydown[vkey] && Keybind.LyricShow_keydown[vkey]();

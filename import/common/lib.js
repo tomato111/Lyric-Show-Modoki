@@ -387,7 +387,7 @@ function traceInterceptor(target) {
 }
 
 //-- Print --
-function console(s) {
+function console2(s) {
     fb.trace(s);
     return s;
 }

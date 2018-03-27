@@ -27,7 +27,7 @@
         this.i = 0;
         this.results = []; // 各検索プラグインが結果をオブジェクトで格納する。{ name : plugin_name, lyric : plugin_result }  // プラグインが処理を中止した場合にも plugin_result = null で格納すべき（処理が終わったことを明示しないとtimeout_millisecondの待機時間が生じる）
         this.timer = function () { // 進捗チェック
-            //debug var a = ''; for (var i = 0; i < _this.results.length; i++) { a += _this.results[i].name + ", "; } console(a + ' (' + _this.results.length + '/' + _this.AvailablePluginNames.length + ')');
+            //debug var a = ''; for (var i = 0; i < _this.results.length; i++) { a += _this.results[i].name + ", "; } console2(a + ' (' + _this.results.length + '/' + _this.AvailablePluginNames.length + ')');
             var diff = new Date() - _this.date_start;
             if (_this.results.length === _this.AvailablePluginNames.length || diff >= timeout_millisecond) {
                 StatusBar.hide();
