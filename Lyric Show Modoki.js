@@ -2878,11 +2878,13 @@ var StatusBar = new function (Style) {
     };
 
     this.on_paint = function (gr) {
+        gr.SetTextRenderingHint(5);
         if (this.TIMER && this.Text) {
             gr.FillSolidRect(g_x, this.Y, ww, this.Height, Style.StatusBarBackground);
             gr.DrawRect(g_x - 1, this.Y - 1, ww + 2, this.Height + 2, 1, Style.StatusBarRect);
             gr.DrawString(this.Text, Style.StatusBarFont, Style.StatusBarColor, g_x + 3, this.Y + 1, ww - 3, this.Height, SF_ALIGN_LEFT | SF_TRIM_EllipsisCharacter);
         }
+        gr.SetTextRenderingHint(4);
     };
 }(prop.Style);
 
@@ -3838,7 +3840,7 @@ function main(text) {
 //== Callback function ===================
 //========================================
 function on_paint(gr) {
-    gr.SetTextRenderingHint(5);
+    gr.SetTextRenderingHint(4);
     gr.SetSmoothingMode(2);
     //gr.SetInterpolationMode(7);
 

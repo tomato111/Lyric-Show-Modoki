@@ -54,7 +54,7 @@
 	BEnable = Show background image
 	BBlur = Blur background image
 	WheelSmoothing = Mouse wheel smoothing
-	Fading = Fade at the top and bottom
+	Fading = Fade at the top / bottom (+AA)
 	FollowExternalSeek = Follow external seek
 	Contain = Contain normal lines [LRC]
 	ExpandR = Expand repetition [TXT]
