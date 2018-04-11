@@ -93,7 +93,7 @@
             bs.open();
             bs.writeFromString_UTF8(data);
             bs.position = 0;
-            arr = bs.readToIntArray();
+            arr = bs.readAsIntArray();
 
             for (var i = 0; i < arr.length; i++) {
                 sum += arr[i];
@@ -109,7 +109,7 @@
             bs.writeFromHexString(md5_hex);
             bs.writeFromIntArray(arr);
             bs.position = 0;
-            result = bs.readToBinary();
+            result = bs.readAsBinary();
             //bs.saveToFile(ws.SpecialFolders.item('Desktop') + '\\bin');
             bs.close();
 
@@ -166,7 +166,7 @@
             bs.open();
             bs.writeFromBinary(data);
             bs.position = 0;
-            arr = bs.readToIntArray();
+            arr = bs.readAsIntArray();
 
             magickey = arr[1];
             arr = arr.slice(22);
@@ -177,7 +177,7 @@
             bs.clear();
             bs.writeFromIntArray(arr);
             bs.position = 0;
-            result = bs.readToString_UTF8();
+            result = bs.readAsString_UTF8();
             //bs.saveToFile(ws.SpecialFolders.item('Desktop') + '\\searchV1.xml');
             bs.close();
 

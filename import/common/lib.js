@@ -187,7 +187,7 @@ function BinaryStream() {
         stm.Type = 1; //adTypeBinary //バイナリモードにしないとCharsetによってはBOMが付加される
         stm.SaveToFile(filename, option || 2); //2:adSaveCreateOverWrite // stm.Position -> 0 // 利便性を考えて this.position は変化させない
     };
-    this.readToBinary = function (size) {
+    this.readAsBinary = function (size) {
         stm.Position = 0;
         stm.Type = 1; //adTypeBinary
         stm.Position = this.position;
@@ -195,18 +195,18 @@ function BinaryStream() {
         this.position = stm.Position;
         return bin;
     };
-    this.readToHexString = function (size) {
+    this.readAsHexString = function (size) {
         // iso-8859-1の読み取りでは 80-9f のバイト値が正しく取得できないのでMsxml2.DOMDocumentを用いる
-        var bin = this.readToBinary(size);
+        var bin = this.readAsBinary(size);
         var element = doc.createElement("temp");
         element.dataType = "bin.hex";
         element.nodeTypedValue = bin;
         return element.text;
     };
-    this.readToIntArray = function (size, option, isLittleEndian) {
+    this.readAsIntArray = function (size, option, isLittleEndian) {
         var arr = [];
         option = option || [];
-        var s = this.readToHexString(size);
+        var s = this.readAsHexString(size);
         for (var i = 0; i < s.length;) {
             var sz = (option.length > 0) ? option.shift() * 2 : 2;
             var st = s.substr(i, sz).match(/(\w{2})/g);
@@ -216,7 +216,7 @@ function BinaryStream() {
         }
         return arr;
     };
-    this.readToString_UTF8 = function (size) {
+    this.readAsString_UTF8 = function (size) {
         stm.Position = 0; //Positionが0の時にのみTypeとCharsetを変更可
         stm.Type = 2; //adTypeText
         stm.Charset = 'UTF-8';
@@ -277,91 +277,92 @@ function Ini() {
     this.open.apply(this, arguments);
 }
 Ini.prototype = {
-    // clearメソッド - 全削除
+    // 初期化
     clear: function () {
-        this.items = [];  // 項目
-        this.filename = null;    // ファイル名
+        this.items = [];
+        this.filename = null;
+        this.charset = null;
     },
 
-    // openメソッド - Iniファイルの読込
+    // iniファイルの読込み
     open: function (filename, charset) {
+
+        this.clear();
+        this.filename = filename;
         try {
             var stm = new ActiveXObject('ADODB.Stream');
             stm.Type = 2; //adTypeText
-            stm.Charset = charset || GetCharsetFromCodepage(utils.FileTest(file, "chardet"));
+            stm.Charset = charset || GetCharsetFromCodepage(utils.FileTest(filename, "chardet"));
             stm.Open();
             stm.LoadFromFile(filename); // stm.Position -> 0
 
-            this.clear();
-            var sectionname;
+            this.charset = stm.Charset;
+            var section;
             var p = -1;
 
             while (!stm.EOS) {
-                var line = stm.ReadText(-2);
+                var line = stm.ReadText(-2).trim();
 
-                line = line.trim();
-                if (/^(?:;|$)/.test(line))     // ;での開始や空行はスキップ
+                if (/^(?:;|$)/.test(line)) // ;での開始や空行はスキップ
                     continue;
 
                 if (/^\[(.+)\]\s*$/.test(line)) { // セクション行
-                    sectionname = RegExp.$1;
-                    this.items[sectionname] = [];  // セクション行を追加
+                    section = RegExp.$1;
+                    this.items[section] = [];
                 }
-                else if (typeof sectionname !== "undefined" && (p = line.indexOf('=')) !== -1) { // keyとvalue
-                    var keyname = line.substr(0, p).trim();
-                    var value = line.substr(p + 1, line.length - p - 1).trim();
-
-                    this.items[sectionname][keyname] = value;
+                else if (typeof section !== "undefined" && (p = line.indexOf('=')) !== -1) { // keyとvalue
+                    var key = line.substr(0, p).trim();
+                    var value = line.substr(p + 1).trim();
+                    this.items[section][key] = value;
                 }
             }
 
             return true;
-        }
-        catch (e) {
+        } catch (e) {
             return false;
-        }
-        finally {
+        } finally {
             stm.Close();
-            this.filename = filename;
         }
     },
 
-    // updateメソッド - iniファイルの更新
-    update: function (filename) {
+    // 現在の内容でiniファイルを更新、または作成
+    update: function (filename, charset) {
         if (filename) this.filename = filename;
+        if (charset) this.charset = charset;
 
         try {
-            var fso = new ActiveXObject("Scripting.FileSystemObject");  // FileSystemObjectを作成
-            var ts = fso.OpenTextFile(this.filename, 2, true);
+            var stm = new ActiveXObject('ADODB.Stream');
+            stm.Type = 2; //adTypeText
+            stm.Charset = this.charset || "UTF-8";
+            stm.Open();
 
-            for (var sectionname in this.items) {
-                ts.WriteLine('[' + sectionname + ']');
-                for (var keyname in this.items[sectionname])
-                    ts.WriteLine(keyname + '=' + this.items[sectionname][keyname]);
-                ts.WriteLine('');
+            for (var section in this.items) {
+                stm.WriteText('[' + section + ']\r\n');
+                for (var key in this.items[section])
+                    stm.WriteText(key + '=' + this.items[section][key] + '\r\n');
+                stm.WriteText('\r\n');
             }
 
-            this.open(this.filename);
+            stm.SaveToFile(this.filename, 2);
+
             return true;
-        }
-        catch (e) {
+        } catch (e) {
             return false;
-        }
-        finally {
-            ts.Close();
+        } finally {
+            stm.Close();
         }
     },
 
-    // setItemメソッド - 項目の値設定
-    setItem: function (sectionname, keyname, value, updateflag) {
-        if (typeof updateflag === "undefined") updateflag = true;
+    // 項目の値設定
+    setItem: function (section, key, value, update) {
 
-        if (!(sectionname in this.items))
-            this.items[sectionname] = [];
+        if (!(section in this.items))
+            this.items[section] = [];
 
-        this.items[sectionname][keyname] = value;
+        this.items[section][key] = value;
 
-        if (updateflag && this.filename) this.update();
+        if (update && this.filename && this.charset)
+            this.update();
     }
 };
 
@@ -528,7 +529,7 @@ function readTextFile(file, charset) {
             bs.open();
             bs.writeFromBinary(stm.Read(3));
             bs.position = 0;
-            b = bs.readToIntArray();
+            b = bs.readAsIntArray();
             bs.close();
             if (b[0] === 0xEF && b[1] === 0xBB && b[2] === 0xBF)
                 charset = "UTF-8";
