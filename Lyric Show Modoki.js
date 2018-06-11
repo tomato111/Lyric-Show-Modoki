@@ -3,7 +3,7 @@
 
 // ==PREPROCESSOR==
 // @name "Lyric Show Modoki"
-// @version "1.8.4"
+// @version "1.8.5"
 // @author "tomato111"
 // @import "%fb2k_profile_path%import\common\lib.js"
 // ==/PREPROCESSOR==
@@ -21,7 +21,7 @@ var fs = new ActiveXObject("Scripting.FileSystemObject"); // File System Object
 var ws = new ActiveXObject("WScript.Shell"); // WScript Shell Object
 var Trace = new TraceLog();
 var scriptName = "Lyric Show Modoki";
-var scriptVersion = "1.8.4";
+var scriptVersion = "1.8.5";
 var scriptdir = fb.ProfilePath + "import\\" + scriptName + "\\";
 var commondir = fb.ProfilePath + "import\\common\\";
 var align = {};
@@ -179,7 +179,7 @@ var prop = new function () {
         CenterPosition: window.GetProperty("Style.CenterPosition", 46),
         EnableStyleTextRender: window.GetProperty("Style.EnableStyleTextRender", true),
         FadeInPlayingColor: window.GetProperty("Style.FadeInPlayingColor", false),
-        Fading: window.GetProperty("Style.Fading", false),
+        Fading: window.GetProperty("Style.Fading", true),
         FadingHeight: window.GetProperty("Style.FadingHeight", "40,40").toString().split(/[ 　]*,[ 　]*/),
         DrawingMethod: 0,
         KeepPlayingColor: window.GetProperty("Style.KeepPlayingColor", false)
@@ -830,7 +830,7 @@ var LyricShow = new function (Style) {
                     case 1:
                         try {
                             // create File Collection
-                            dir = parse_path.match(directoryRE)[0];
+                            dir = file.match(directoryRE)[0];
                             if (!Files_Collection[dir] || Files_Collection[dir].DateLastModified !== String(fs.GetFolder(dir).DateLastModified)) {
                                 Files_Collection[dir] = [];
                                 Files_Collection[dir].DateLastModified = String(fs.GetFolder(dir).DateLastModified);
@@ -948,15 +948,16 @@ var LyricShow = new function (Style) {
             var m, ms;
             var tmpArray = [], timeArray = [];
             var offsetRe = /\[offset: *(-?\d+) *\]/i;
-            var isTagRe = /(\[[\d.:[\]]+\])(.*)/;
+            var isTagRe = /((?:\[[\d:.]+\])+)(.*)/;
             var keyRe = /\[[\d:.]+\]/g;
             var spaceRe = /^[ 　]*$/;
             var notNumberRe = /\D/g;
 
             for (var i = 0; i < lyric.text.length; i++) {
-                if (!tagstart)
+                if (!tagstart) {
                     if (offsetRe.test(lyric.text[i]))
                         lyric.offset = Number(RegExp.$1);
+                }
 
                 tmp = lyric.text[i].match(isTagRe);
                 if (!tmp) {
@@ -982,9 +983,8 @@ var LyricShow = new function (Style) {
                 }
             }
 
-            i = 0;
             for (key in tmpArray)
-                timeArray[i++] = key;
+                timeArray.push(key);
             timeArray.sort(function (a, b) { return a - b; });
 
             lyric.text = [];
