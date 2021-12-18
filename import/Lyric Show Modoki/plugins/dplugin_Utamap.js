@@ -37,11 +37,11 @@
 
         function createQuery(title, artist, page, id) {
             if (id)
-                return 'http://www.utamap.com/phpflash/flashfalsephp.php?unum=' + id;
+                return 'https://www.utamap.com/phpflash/flashfalsephp.php?unum=' + id;
             else if (page)
-                return 'http://www.utamap.com/searchkasi.php?searchname=title&page=' + page + '&sortname=0&pattern=1&word=' + EscapeSJIS(title).replace(/\+/g, '%2B').replace(/%20/g, '+');
+                return 'https://www.utamap.com/searchkasi.php?searchname=title&page=' + page + '&sortname=0&pattern=1&word=' + EscapeSJIS(title).replace(/\+/g, '%2B').replace(/%20/g, '+');
             else
-                return 'http://www.utamap.com/searchkasi.php?searchname=title&word='
+                return 'https://www.utamap.com/searchkasi.php?searchname=title&word='
                     + EscapeSJIS(title).replace(/\+/g, '%2B').replace(/%20/g, '+')
                     + '&act=search&search_by_keyword=%8C%9F%26%23160%3B%26%23160%3B%26%23160%3B%8D%F5&sortname=0&pattern=1';
         }

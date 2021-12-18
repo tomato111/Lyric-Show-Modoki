@@ -91,7 +91,7 @@
             var SearchRE = new RegExp('<a class="lyric-anchor" href="/lyric/(\\d+)/.+?<p class="artist"><a.+?>(.+?)</a></p>.+?' // $1:id, $2:歌手
                 + '<div class="by"><p><span>作詞：</span><em>(.+?)</em>.+?<span>作曲：</span><em>(.+?)</em></p>', 'i'); // $3:作詞, $4:作曲
 
-            var StartLyricRE = /<div id="lyric-trunk">(.+?)<\/div>/i;
+            var StartLyricRE = /<div id="lyric-trunk"><script>.+?<\/script>(.+?)<script>/i;
             var LineBreakRE = /<br ?\/?>/ig;
             var LineFeedCode = prop.Save.LineFeedCode;
 

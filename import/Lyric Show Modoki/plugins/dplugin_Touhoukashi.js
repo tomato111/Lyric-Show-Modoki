@@ -37,9 +37,9 @@
 
         function createQuery(title, artist, id) {
             if (id)
-                return 'https://www31.atwiki.jp/touhoukashi/?pageid=' + id;
+                return 'https://w.atwiki.jp/touhoukashi/?pageid=' + id;
             else
-                return 'https://www31.atwiki.jp/touhoukashi/search?andor=and&keyword='
+                return 'https://w.atwiki.jp/touhoukashi/search?andor=and&keyword='
                     + encodeURIComponent(title).replaceEach("'", '%27', '\\(', '%28', '\\)', '%29', '%20', '+', '!', '%21', 'g');
         }
 

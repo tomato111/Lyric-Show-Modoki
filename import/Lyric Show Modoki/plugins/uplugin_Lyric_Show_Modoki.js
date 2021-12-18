@@ -11,7 +11,7 @@
         var onCommand = arguments.callee;
 
         !isStartUp && StatusBar.showText(prop.Panel.Lang === 'ja' ? '更新チェック中......' : 'checking update......');
-        getHTML(null, 'GET', 'http://ashiato1.blog62.fc2.com/blog-entry-64.html', ASYNC, 0, onLoaded);
+        getHTML(null, 'GET', 'https://ashiato1.blog.fc2.com/blog-entry-64.html', ASYNC, 0, onLoaded);
 
         //------------------------------------
 
@@ -82,21 +82,11 @@
                                     });
                                 StatusBar.hide();
                                 var intButton = ws.Popup(prop.Panel.Lang === 'ja'
-                                    ? '新しいバージョンがあります。\n現在: v' + scriptVersion + '  最新: v' + latestVersion.join('.') + '\n\nダウンロードしますか？（デスクトップに保存）'
-                                    : 'There is a new version.\nCurrent: v' + scriptVersion + '  Latest: v' + latestVersion.join('.') + '\n\nDownload it? (Save to desktop)', 0, 'Lyric Show Modoki', 36);
+                                    ? '新しいバージョンがあります。\n現在: v' + scriptVersion + '  最新: v' + latestVersion.join('.') + '\n\nダウンロードしますか？（ブラウザで開く）'
+                                    : 'There is a new version.\nCurrent: v' + scriptVersion + '  Latest: v' + latestVersion.join('.') + '\n\nDownload it? (Open with browser)', 0, 'Lyric Show Modoki', 36);
                                 if (intButton === 6) {
                                     StatusBar.showText(prop.Panel.Lang === 'ja' ? 'ダウンロード中......' : 'Downloading......');
-                                    getHTML(null, 'GET', latestFilePath, ASYNC, 0,
-                                        function (request, depth, file) {
-                                            if (request.status === 200) {
-                                                var res = request.responseBody;
-                                                responseBodyToFile(res, ws.SpecialFolders.item('Desktop') + '\\' + file.match(/^.+\/(.+)$/)[1]);
-                                                StatusBar.showText(prop.Panel.Lang === 'ja' ? 'デスクトップにダウンロードしました。' : 'Downloaded to desktop.');
-                                            }
-                                            else {
-                                                fb.ShowPopupMessage('download error: ' + request.status, 'Lyric Show Modoki');
-                                            }
-                                        });
+                                    FuncCommand(latestFilePath);
                                 }
                             }
                         };

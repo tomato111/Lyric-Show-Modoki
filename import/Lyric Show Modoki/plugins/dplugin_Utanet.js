@@ -87,10 +87,10 @@
         function AnalyzePage(res, depth) {
             var tmpti, tmpar, backref;
 
-            var SearchRE = new RegExp('<tr><td class="side td1"><a href="/song/(\\d+)/">(.+?)</a>.*?</td>' // $1:id, $2:曲名
-                + '<td class="td2"><a href=".*?">(.*?)</a></td>' // $3:歌手
-                + '<td class="td3">(.*?)</td>' // $4:作詞
-                + '<td class="td4">(.*?)</td>', 'ig'); // $5:作曲
+            var SearchRE = new RegExp('<tr.*?><td.*?><a href="/song/(\\d+)/".*?>.*<span class=".*?title.*?">(.+?)</span>.*?</a>.*?</td>' // $1:id, $2:曲名
+                + '<td.*?><a href=".*?">(.*?)</a>.*?</td>' // $3:歌手
+                + '<td.*?><a href=".*?">(.*?)</a>.*?</td>' // $4:作詞
+                + '<td.*?><a href=".*?">(.*?)</a>.*?</td>', 'ig'); // $5:作曲
             var FuzzyRE = /[-.'’&＆%％@＠～・×*＊+＋/／!！?？（）(),，、 　]/g;
 
             var IgnoreRE = /^.+?font-size="\d+">|<rect.+svg>$|<text.+?>/ig;

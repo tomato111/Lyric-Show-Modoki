@@ -37,9 +37,9 @@
 
         function createQuery(title, artist, id) {
             if (id)
-                return 'https://www5.atwiki.jp/hmiku/?pageid=' + id;
+                return 'https://w.atwiki.jp/hmiku/?pageid=' + id;
             else
-                return 'https://www5.atwiki.jp/hmiku/?cmd=search&keyword='
+                return 'https://w.atwiki.jp/hmiku/?cmd=search&keyword='
                     + encodeURIComponent(title + ' ' + artist).replaceEach("'", '%27', '\\(', '%28', '\\)', '%29', '%20', '+', 'g')
                     + '&andor=and&ignore=1';
         }

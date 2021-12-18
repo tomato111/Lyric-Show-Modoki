@@ -606,6 +606,8 @@ function getHTML(data, method, file, async, depth, onLoaded, header) {
         }
     };
 
+    request.setRequestHeader("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:103.0) Gecko/20100101 Firefox/103.0");
+
     if (header) /* HINT: If the cache is in trouble, use { 'If-Modified-Since': 'Thu, 01 Jun 1970 00:00:00 GMT' } */
         for (var name in header) {
             request.setRequestHeader(name, header[name]);
