@@ -86,7 +86,8 @@ var prop = new function () {
         Editor: window.GetProperty("Panel.ExternalEditor", ""),
         NoLyric: window.GetProperty("Panel.NoLyricsFound", "Title: %title%\\nArtist: %artist%\\nAlbum: %album%\\n\\n-no lyrics-"),
         Priority: window.GetProperty("Panel.Priority", "Sync_Tag,Sync_File,Unsync_Tag,Unsync_File"),
-        Contain: window.GetProperty("Panel.LRC.ContainNormalLines", false),
+        Contain: window.GetProperty("Panel.LRC.ContainNormalLines", true),
+        ContainTop: window.GetProperty("Panel.LRC.ContainNormalLinesAtTop", true),
         ScrollType: window.GetProperty("Panel.LRC.ScrollType", 1),
         SkipEmptyLine: window.GetProperty("Panel.LRC.SkipEmptyLine", true),
         AlphaDurationTime: 30,
@@ -961,11 +962,11 @@ var LyricShow = new function (Style) {
 
                 tmp = lyric.text[i].match(isTagRe);
                 if (!tmp) {
-                    if (prop.Panel.Contain) {
-                        if (tagstart)
-                            tmpArray[tmpkey] += prop.Save.LineFeedCode + lyric.text[i];
-                        else
-                            lyric.info[i] = lyric.text[i].replace(offsetRe, "[offset:0]");
+                    if (prop.Panel.ContainTop && !tagstart) {
+                        lyric.info[i] = lyric.text[i].replace(offsetRe, "[offset:0]");
+                    }
+                    if (prop.Panel.Contain && tagstart) {
+                        tmpArray[tmpkey] += prop.Save.LineFeedCode + lyric.text[i];
                     }
                     continue;
                 }
@@ -2213,7 +2214,7 @@ var LyricShow = new function (Style) {
 
             if (filetype === "lrc") // for文の中の演算量を増やすわけにはいかないのでfor文自体を分岐させる
                 if (prop.Panel.ScrollType === 4) {
-                    for (i = lyric.i - 1, j = 0; j < 3 && i !== lyric.text.length; i++ , j++) {
+                    for (i = lyric.i - 1, j = 0; j < 3 && i !== lyric.text.length; i++, j++) {
                         y = offsetY;
                         if (DrawStyle[i].isEvenNum)
                             y += this.calcOddNumHeight(DrawStyle, i);
@@ -2223,7 +2224,7 @@ var LyricShow = new function (Style) {
                     }
                 }
                 else if (prop.Panel.ScrollType === 5) {
-                    for (i = lyric.i - 1, j = 0; j < 3 && i !== lyric.text.length; i++ , j++) {
+                    for (i = lyric.i - 1, j = 0; j < 3 && i !== lyric.text.length; i++, j++) {
                         DrawStyle[i].draw_OneLine(gr, offsetY);
                         if (j === 1 && typeof DrawStyle[i].isEvenNum !== "undefined")
                             break;
@@ -3273,6 +3274,14 @@ var Menu = new function () {
         },
         {
             Flag: MF_SEPARATOR
+        },
+        {
+            Flag: function () { return prop.Panel.ContainTop ? MF_CHECKED : MF_UNCHECKED; },
+            Caption: Label.ContainTop,
+            Func: function () {
+                window.SetProperty("Panel.LRC.ContainNormalLinesAtTop", prop.Panel.ContainTop = !prop.Panel.ContainTop);
+                main();
+            }
         },
         {
             Flag: function () { return prop.Panel.Contain ? MF_CHECKED : MF_UNCHECKED; },

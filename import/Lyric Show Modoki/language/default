@@ -57,6 +57,7 @@
 	Fading = Fade at the top / bottom (+AA)
 	FollowExternalSeek = Follow external seek
 	Contain = Contain normal lines [LRC]
+	ContainTop = Contain normal lines at top [LRC]
 	ExpandR = Expand repetition [TXT]
 	Highline = Use highline color [TXT]
 	ScrollToCenter = Scroll to center [LRC]
