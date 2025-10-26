@@ -583,7 +583,9 @@ function responseBodyToFile(bin, file) {
     return file;
 }
 
-function getHTML(data, method, file, async, depth, onLoaded, header) {
+function getHTML(data, method, file, async, depth, onComplete, header) {
+    var UAHeader = false;
+
     try {
         var request = new ActiveXObject("Msxml2.XMLHTTP.6.0");
     } catch (e) {
@@ -599,23 +601,27 @@ function getHTML(data, method, file, async, depth, onLoaded, header) {
 
     request.onreadystatechange = function () {
         if (request.readyState === 4) {
-            try { onLoaded(request, depth, file); }
+            try { onComplete(request, depth, file); }
             catch (e) {
-                fb.ShowPopupMessage('Error: onLoaded function crashed in getHTML\n\n' + file.match(/^https?:\/\/.+?\//) + '\n\n' + e.description);
+                fb.ShowPopupMessage('Error: onComplete function crashed in getHTML\n\n' + file.match(/^https?:\/\/.+?\//) + '\n\n' + e.description);
             }
         }
     };
 
-    request.setRequestHeader("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:103.0) Gecko/20100101 Firefox/103.0");
-
-    if (header) /* HINT: If the cache is in trouble, use { 'If-Modified-Since': 'Thu, 01 Jun 1970 00:00:00 GMT' } */
+    if (header) { /* HINT: If the cache is in trouble, use { 'If-Modified-Since': 'Thu, 01 Jun 1970 00:00:00 GMT' } */
         for (var name in header) {
             request.setRequestHeader(name, header[name]);
+            if (/user-agent/i.test(name))
+                UAHeader = true;
         }
+    }
     else {
         request.setRequestHeader("Cache-Control", "max-age=0");
-        request.setRequestHeader("content-type", "application/x-www-form-urlencoded");
     }
+
+    if (!UAHeader)
+        request.setRequestHeader("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:143.0) Gecko/20100101 Firefox/143.0");
+
     request.send(data);
 }
 

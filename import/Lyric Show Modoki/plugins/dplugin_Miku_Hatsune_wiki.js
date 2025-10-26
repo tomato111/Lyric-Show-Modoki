@@ -16,7 +16,7 @@
             return;
         }
 
-        var debug_html = false; // for debug
+        var debug_html = true; // for debug
         var label = this.label.replace(/^.+?: ?/, '');
 
         // title, artist for search
@@ -31,7 +31,7 @@
         }
 
         StatusBar.showText((prop.Panel.Lang === 'ja' ? '検索中......' : 'Searching......') + label);
-        getHTML(null, 'GET', createQuery(title, artist), ASYNC, 0, onLoaded);
+        getHTML(null, 'GET', createQuery(title, artist), ASYNC, 0, onComplete);
 
         //------------------------------------
 
@@ -44,7 +44,7 @@
                     + '&andor=and&ignore=1';
         }
 
-        function onLoaded(request, depth, file) {
+        function onComplete(request, depth, file) {
             StatusBar.showText((prop.Panel.Lang === 'ja' ? '検索中......' : 'Searching......') + label);
             debug_html && fb.trace('\nOpen#' + depth + ': ' + file + '\n');
 
@@ -54,12 +54,12 @@
             var Page = new AnalyzePage(res, depth);
 
             if (Page.id)
-                getHTML(null, 'GET', createQuery(null, null, Page.id), ASYNC, true, onLoaded);
+                getHTML(null, 'GET', createQuery(null, null, Page.id), ASYNC, 'found', onComplete);
             else if (depth === 0) {
-                getHTML(null, 'GET', createQuery(title, ''), ASYNC, ++depth, onLoaded);
+                getHTML(null, 'GET', createQuery(title, ''), ASYNC, ++depth, onComplete);
             }
             else if (Page.lyrics) {
-                var text = onLoaded.info + Page.lyrics;
+                var text = Page.info + Page.lyrics;
 
                 debug_html && fb.trace('\n' + text + '\n===End debug=============');
                 if (isAutoSearch) {
@@ -88,7 +88,7 @@
         function AnalyzePage(res, depth) {
             var tmpti, tmpar, backref, id, aimai;
 
-            var SearchRE = /<a href=".+?&amp;pageid=(.+?)" title="(.+?)" style=".+?">/ig; // $1:id, $2:pageTitle
+            var SearchRE = /<a.+?pageid=(\d+).+?title="(.+?)".*?>/ig; // $1:id, $2:pageTitle
             var FuzzyRE = /[-.'’&＆%％@＠～・×*＊+＋／!！?？（）(),，、 　]/g; // スラッシュはこのサイトでは区切りの目安として使うので含めない
 
             var InfoRE = /(?:<div>|<br ?\/?>)(作詞：.+?)<\/div>/i; // $1:info
@@ -97,12 +97,12 @@
             var LineBreakRE = /<br ?\/?>|<\/div>/ig;
             var LineFeedCode = prop.Save.LineFeedCode;
 
-            if (depth === true) { // lyric
+            if (depth === 'found') { // lyric
                 res = res.replace(/[\t ]*(?:\r\n|\r|\n)[\t ]*/g, '');
-                onLoaded.info = title + LineFeedCode + LineFeedCode;
+                this.info = title + LineFeedCode + LineFeedCode;
 
                 if (InfoRE.test(res)) {
-                    onLoaded.info += (RegExp.$1 + LineFeedCode + LineFeedCode)
+                    this.info += (RegExp.$1 + LineFeedCode + LineFeedCode)
                         .replace(LineBreakRE, LineFeedCode)
                         .replace(IgnoreRE, '')
                         .replace(/^(.+?)：/mg, '$1  ')

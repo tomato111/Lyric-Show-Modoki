@@ -31,7 +31,7 @@
         }
 
         StatusBar.showText((prop.Panel.Lang === 'ja' ? '検索中......' : 'Searching......') + label);
-        getHTML(null, 'GET', createQuery(title, ''), ASYNC, 0, onLoaded);
+        getHTML(null, 'GET', createQuery(title, ''), ASYNC, 0, onComplete);
 
         //------------------------------------
 
@@ -41,10 +41,10 @@
             else
                 return 'https://www.uta-net.com/search/?Aselect=2&Keyword='
                     + encodeURIComponent(title).replaceEach("'", '%27', '\\(', '%28', '\\)', '%29', '!', '%21', '%20', '+', 'g')
-                    + '&Bselect=1&x=' + Math.floor((Math.random() * 45 + 1)) + '&y=' + Math.floor((Math.random() * 23 + 1));
+                    + '&Bselect=1&sort=4';
         }
 
-        function onLoaded(request, depth, file) {
+        function onComplete(request, depth, file) {
             StatusBar.showText((prop.Panel.Lang === 'ja' ? '検索中......' : 'Searching......') + label);
             debug_html && fb.trace('\nOpen#' + depth + ': ' + file + '\n');
 
@@ -55,10 +55,10 @@
             var Page = new AnalyzePage(res, depth);
 
             if (Page.id) {
-                getHTML(null, 'GET', createQuery(null, null, Page.id), ASYNC, ++depth, onLoaded);
+                getHTML(null, 'GET', createQuery(null, null, Page.id), ASYNC, ++depth, onComplete);
             }
             else if (Page.lyrics) {
-                var text = onLoaded.info + Page.lyrics;
+                var text = onComplete.info + Page.lyrics;
 
                 debug_html && fb.trace('\n' + text + '\n===End debug=============');
                 if (isAutoSearch) {
@@ -117,7 +117,7 @@
                     if (backref[2].toLowerCase().replace(FuzzyRE, '') === tmpti && backref[3].toLowerCase().replace(FuzzyRE, '').indexOf(tmpar) !== -1) {
                         this.id = backref[1];
 
-                        onLoaded.info = title + LineFeedCode + LineFeedCode
+                        onComplete.info = title + LineFeedCode + LineFeedCode
                             + '作詞  ' + backref[4] + LineFeedCode
                             + '作曲  ' + backref[5] + LineFeedCode
                             + '唄  ' + backref[3] + LineFeedCode + LineFeedCode;

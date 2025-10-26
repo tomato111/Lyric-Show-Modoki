@@ -3,7 +3,7 @@
 
 // ==PREPROCESSOR==
 // @name "Lyric Show Modoki"
-// @version "1.8.6"
+// @version "1.8.7"
 // @author "tomato111"
 // @import "%fb2k_profile_path%import\common\lib.js"
 // ==/PREPROCESSOR==
@@ -21,7 +21,7 @@ var fs = new ActiveXObject("Scripting.FileSystemObject"); // File System Object
 var ws = new ActiveXObject("WScript.Shell"); // WScript Shell Object
 var Trace = new TraceLog();
 var scriptName = "Lyric Show Modoki";
-var scriptVersion = "1.8.6";
+var scriptVersion = "1.8.7";
 var scriptdir = fb.ProfilePath + "import\\" + scriptName + "\\";
 var commondir = fb.ProfilePath + "import\\common\\";
 var align = {};
@@ -71,6 +71,7 @@ var prop = new function () {
     window.SetProperty("Panel.Background.ImageOption", null);
     window.SetProperty("Style.User.Edit.ArrowImage", null);
     window.SetProperty("Style.User.Edit.ArrowOpacity", null);
+    window.SetProperty("Panel.LRC.ContainNormalLines", null);
     // ----
 
 
@@ -86,8 +87,8 @@ var prop = new function () {
         Editor: window.GetProperty("Panel.ExternalEditor", ""),
         NoLyric: window.GetProperty("Panel.NoLyricsFound", "Title: %title%\\nArtist: %artist%\\nAlbum: %album%\\n\\n-no lyrics-"),
         Priority: window.GetProperty("Panel.Priority", "Sync_Tag,Sync_File,Unsync_Tag,Unsync_File"),
-        Contain: window.GetProperty("Panel.LRC.ContainNormalLines", true),
-        ContainTop: window.GetProperty("Panel.LRC.ContainNormalLinesAtTop", true),
+        IncludeNormalLines: window.GetProperty("Panel.LRC.IncludeNormalLines", true),
+        IncludeHeaderLines: window.GetProperty("Panel.LRC.IncludeHeaderLines", true),
         ScrollType: window.GetProperty("Panel.LRC.ScrollType", 1),
         SkipEmptyLine: window.GetProperty("Panel.LRC.SkipEmptyLine", true),
         AlphaDurationTime: 30,
@@ -962,10 +963,10 @@ var LyricShow = new function (Style) {
 
                 tmp = lyric.text[i].match(isTagRe);
                 if (!tmp) {
-                    if (prop.Panel.ContainTop && !tagstart) {
+                    if (prop.Panel.IncludeHeaderLines && !tagstart) {
                         lyric.info[i] = lyric.text[i].replace(offsetRe, "[offset:0]");
                     }
-                    if (prop.Panel.Contain && tagstart) {
+                    if (prop.Panel.IncludeNormalLines && tagstart) {
                         tmpArray[tmpkey] += prop.Save.LineFeedCode + lyric.text[i];
                     }
                     continue;
@@ -3276,18 +3277,18 @@ var Menu = new function () {
             Flag: MF_SEPARATOR
         },
         {
-            Flag: function () { return prop.Panel.ContainTop ? MF_CHECKED : MF_UNCHECKED; },
-            Caption: Label.ContainTop,
+            Flag: function () { return prop.Panel.IncludeHeaderLines ? MF_CHECKED : MF_UNCHECKED; },
+            Caption: Label.IncludeHeaderLines,
             Func: function () {
-                window.SetProperty("Panel.LRC.ContainNormalLinesAtTop", prop.Panel.ContainTop = !prop.Panel.ContainTop);
+                window.SetProperty("Panel.LRC.IncludeHeaderLines", prop.Panel.IncludeHeaderLines = !prop.Panel.IncludeHeaderLines);
                 main();
             }
         },
         {
-            Flag: function () { return prop.Panel.Contain ? MF_CHECKED : MF_UNCHECKED; },
-            Caption: Label.Contain,
+            Flag: function () { return prop.Panel.IncludeNormalLines ? MF_CHECKED : MF_UNCHECKED; },
+            Caption: Label.IncludeNormalLines,
             Func: function () {
-                window.SetProperty("Panel.LRC.ContainNormalLines", prop.Panel.Contain = !prop.Panel.Contain);
+                window.SetProperty("Panel.LRC.IncludeNormalLines", prop.Panel.IncludeNormalLines = !prop.Panel.IncludeNormalLines);
                 main();
             }
         },

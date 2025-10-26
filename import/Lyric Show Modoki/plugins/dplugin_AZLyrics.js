@@ -31,7 +31,11 @@
         }
 
         StatusBar.showText((prop.Panel.Lang === 'ja' ? '検索中......' : 'Searching......') + label);
-        getHTML(null, 'GET', createQuery(title, artist), ASYNC, 0, onLoaded);
+        getHTML(null, 'GET', createQuery(title, artist), ASYNC, 0, onComplete,
+            { // header
+                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:143.0) Gecko/20100101 Firefox/143.0'
+            }
+        );
 
         //------------------------------------
 
@@ -42,9 +46,12 @@
             return 'https://www.azlyrics.com/lyrics/' + artist + '/' + title + '.html';
         }
 
-        function onLoaded(request, depth, file) {
+        function onComplete(request, depth, file) {
             StatusBar.showText((prop.Panel.Lang === 'ja' ? '検索中......' : 'Searching......') + label);
             debug_html && fb.trace('\nOpen#' + depth + ': ' + file + '\n');
+            if (request.status === 0) {
+                fb.ShowPopupMessage('Request status is 0. UA update may be required.', label);
+            }
 
             var res = request.responseText;
 
@@ -52,7 +59,7 @@
             var Page = new AnalyzePage(res);
 
             if (Page.lyrics) {
-                var text = onLoaded.info + Page.lyrics;
+                var text = Page.info + Page.lyrics;
 
                 debug_html && fb.trace('\n' + text + '\n===End debug=============');
                 if (isAutoSearch) {
@@ -85,7 +92,7 @@
             var LineBreakRE = /<br>/ig;
             var LineFeedCode = prop.Save.LineFeedCode;
 
-            onLoaded.info = title + LineFeedCode + LineFeedCode;
+            this.info = title + LineFeedCode + LineFeedCode;
 
             res = res.replace(/[\t ]*(?:\r\n|\r|\n)[\t ]*/g, ''); // ちなみにこのサイトは改行コードが混在しているので注意
             if (StartLyricRE.test(res)) {
